@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Easy Setup Guide | Music Streaming App</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --card: #1b1f2a;
+      --card-soft: #232838;
+      --text: #f4f6ff;
+      --muted: #b9bfd4;
+      --accent: #7f8cff;
+      --accent-2: #63d0ff;
+      --ok: #6bd38a;
+      --border: #39405a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at top, #1d2233 0%, var(--bg) 50%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container {
+      width: min(950px, calc(100% - 2rem));
+      margin: 2rem auto 4rem;
+    }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); margin-bottom: .5rem; }
+    h2 { margin-top: 0; }
+    p { color: var(--muted); }
+    .intro {
+      background: linear-gradient(130deg, #1f2640 0%, #1a2032 55%, #151a29 100%);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .steps { display: grid; gap: 1rem; }
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+    }
+    .step-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .tag {
+      padding: .25rem .55rem;
+      border-radius: 999px;
+      background: #2c3350;
+      color: #ced5ff;
+      font-size: .82rem;
+    }
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      margin-top: .5rem;
+      user-select: none;
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;
+      font-size: .92rem;
+    }
+    .command {
+      background: #101525;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .7rem;
+      display: grid;
+      gap: .6rem;
+      margin-top: .6rem;
+    }
+    .row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+    button {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: .55rem .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: #0d1020;
+    }
+    button.secondary {
+      background: var(--card-soft);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .small { font-size: .88rem; color: var(--muted); }
+    .env-builder {
+      background: #101525;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: .85rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: .65rem;
+    }
+    input {
+      width: 100%;
+      background: #191f31;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: .55rem .65rem;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #0a0d16;
+      border: 1px solid #2a3048;
+      border-radius: 10px;
+      padding: .75rem;
+      margin-top: .7rem;
+      color: #dce2ff;
+    }
+    .done { color: var(--ok); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="intro">
+      <h1>Set up your music site with zero guesswork</h1>
+      <p>
+        This page walks you through every setup step in plain language.
+        No technical background needed: just follow each card from top to bottom.
+      </p>
+      <p class="small">
+        Tip: keep this page open while you work through the steps.
+      </p>
+    </section>
+
+    <section class="steps" id="steps">
+      <article class="step">
+        <div class="step-head">
+          <h2>1) Install two free tools first</h2>
+          <span class="tag">About 10 minutes</span>
+        </div>
+        <p><strong>Tool A: Node.js</strong> — this runs the app on your computer. Install the “LTS” version from nodejs.org.</p>
+        <p><strong>Tool B: MongoDB database</strong> — this stores your songs and album info. If you don't have one yet, create a free MongoDB Atlas account and copy your connection string.</p>
+        <div class="command">
+          <code>node -v</code>
+          <div class="row">
+            <button data-copy="node -v">Copy command</button>
+            <span class="small">Run this after install. You should see a version number.</span>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="1"/> I installed Node.js and I have a MongoDB connection string</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>2) Download this project + install it</h2>
+          <span class="tag">About 2 minutes</span>
+        </div>
+        <p>Open Terminal (Mac/Linux) or PowerShell (Windows), then run:</p>
+        <div class="command">
+          <code>git clone &lt;your-repo-url&gt;<br/>cd Full-generic-music-streaming-app<br/>npm install</code>
+          <div class="row">
+            <button data-copy="git clone <your-repo-url>\ncd Full-generic-music-streaming-app\nnpm install">Copy all 3 commands</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="2"/> Done this step</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>3) Run the guided installer</h2>
+          <span class="tag">Main setup</span>
+        </div>
+        <p>This command checks your setup, creates missing files, and tells you exactly what to fix if anything is missing.</p>
+        <div class="command">
+          <code>npm run fresh-install</code>
+          <div class="row">
+            <button data-copy="npm run fresh-install">Copy command</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="3"/> Done this step</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>4) Fill in your settings file (.env)</h2>
+          <span class="tag">Required</span>
+        </div>
+        <p>Paste your values below and this page builds the exact text you need for your <code>.env</code> file.</p>
+        <div class="env-builder">
+          <div class="grid">
+            <label>MongoDB connection string<input id="mongoUri" placeholder="mongodb+srv://..."/></label>
+            <label>Database name<input id="dbName" placeholder="music"/></label>
+            <label>Your local app URL<input id="appBaseUrl" value="http://localhost:8888"/></label>
+          </div>
+          <pre id="envOutput">MONGODB_URI=
+MONGODB_DB_NAME=
+APP_BASE_URL=http://localhost:8888</pre>
+          <div class="row">
+            <button data-copy-target="envOutput">Copy .env text</button>
+            <span class="small">Then paste this into your project's <code>.env</code> file and save.</span>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="4"/> I saved my .env file</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>5) Start the app</h2>
+          <span class="tag">Launch</span>
+        </div>
+        <div class="command">
+          <code>npx netlify dev</code>
+          <div class="row">
+            <button data-copy="npx netlify dev">Copy command</button>
+            <span class="small">Then open <code>http://localhost:8888/player.html</code>.</span>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="5"/> The app opened in my browser</label>
+      </article>
+    </section>
+
+    <p id="progress" class="small">Progress: 0/5 complete</p>
+    <p id="status" class="done" aria-live="polite"></p>
+  </main>
+
+  <script>
+    const checks = [...document.querySelectorAll('input[type="checkbox"][data-step]')];
+    const status = document.getElementById('status');
+    const progress = document.getElementById('progress');
+
+    function saveProgress() {
+      const done = checks.filter(c => c.checked).length;
+      progress.textContent = `Progress: ${done}/${checks.length} complete`;
+      localStorage.setItem('install-guide-progress', JSON.stringify(checks.map(c => c.checked)));
+      if (done === checks.length) {
+        status.textContent = 'Nice work — setup complete. Your streaming site is ready to use.';
+      } else {
+        status.textContent = '';
+      }
+    }
+
+    const stored = JSON.parse(localStorage.getItem('install-guide-progress') || '[]');
+    checks.forEach((check, index) => {
+      check.checked = Boolean(stored[index]);
+      check.addEventListener('change', saveProgress);
+    });
+    saveProgress();
+
+    document.querySelectorAll('button[data-copy]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(button.dataset.copy);
+        const original = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(() => button.textContent = original, 1200);
+      });
+    });
+
+    document.querySelectorAll('button[data-copy-target]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const target = document.getElementById(button.dataset.copyTarget);
+        await navigator.clipboard.writeText(target.textContent);
+        const original = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(() => button.textContent = original, 1200);
+      });
+    });
+
+    const mongoUri = document.getElementById('mongoUri');
+    const dbName = document.getElementById('dbName');
+    const appBaseUrl = document.getElementById('appBaseUrl');
+    const envOutput = document.getElementById('envOutput');
+
+    function updateEnvPreview() {
+      envOutput.textContent = [
+        `MONGODB_URI=${mongoUri.value.trim()}`,
+        `MONGODB_DB_NAME=${dbName.value.trim()}`,
+        `APP_BASE_URL=${appBaseUrl.value.trim() || 'http://localhost:8888'}`
+      ].join('\n');
+    }
+
+    [mongoUri, dbName, appBaseUrl].forEach(input => input.addEventListener('input', updateEnvPreview));
+    updateEnvPreview();
+  </script>
+</body>
+</html>

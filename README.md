@@ -9,51 +9,24 @@ A music streaming website to stream tracks from albums contained in a MongoDb Da
 - [Contributing](#contributing)   
 - [License](#license)
 
-## Install (fresh install, simplest path)
+## Install (friendly guided flow)
 
-This project now includes a guided bootstrap command designed for non-technical users. It creates missing config files, validates your MongoDB connection, creates indexes, and runs migration steps with very explicit terminal output.
+Start with the visual guide at `public/install.html`. It explains every step in plain language, includes copy buttons for all commands, and helps you build your `.env` file without guesswork.
 
-### 1) Prerequisites
-- Node.js 18+
-- A MongoDB database connection string
+### 1) Open the setup guide
+- If this repo is running locally, open: `http://localhost:8888/install.html`
+- Or open the file directly from this repo: `public/install.html`
 
-### 2) Download + install dependencies
-```bash
-git clone <your-fork-or-this-repo-url>
-cd Full-generic-music-streaming-app
-npm install
-```
+### 2) Follow each card from top to bottom
+The guide walks you through:
+- Installing the two tools the app needs (Node.js + MongoDB)
+- Cloning the repo and running `npm install`
+- Running `npm run fresh-install`
+- Filling `.env` with required values
+- Starting the app with `npx netlify dev`
 
-### 3) Run the guided bootstrap
-```bash
-npm run fresh-install
-```
-
-What this command does:
-1. Creates `.env` from `.env.example` if it does not exist.
-2. Stops and tells you exactly which values to fill in if required values are missing.
-3. Verifies MongoDB connectivity (`ping`).
-4. Runs `npm run setup` to create indexes.
-5. Runs `npm run migrate` to backfill normalized collections from legacy track documents.
-6. Prints clear pass/fail logs for every stage.
-
-### 4) Fill in `.env` when prompted
-At minimum, set:
-- `MONGODB_URI`
-- `MONGODB_DB_NAME`
-- `APP_BASE_URL`
-
-Optional (for payments/webhooks):
-- `PAYPAL_CLIENT_ID`
-- `PAYPAL_CLIENT_SECRET`
-- `PAYPAL_WEBHOOK_ID`
-- `PAYPAL_API_BASE`
-
-### 5) Start the app locally
-```bash
-npx netlify dev
-```
-Then open: `http://localhost:8888/player.html`
+### 3) Start listening
+When setup is complete, open: `http://localhost:8888/player.html`
 
 ### Troubleshooting (copy/paste checks)
 ```bash
