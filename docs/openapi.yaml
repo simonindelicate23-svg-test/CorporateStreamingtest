@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: Self-host Music API
+  version: 1.0.0
+paths:
+  /api/v1/instance:
+    get:
+      summary: Instance discovery metadata
+      responses:
+        '200':
+          description: OK
+  /api/v1/artists:
+    get:
+      summary: List artists
+      responses:
+        '200':
+          description: OK
+  /api/v1/releases:
+    get:
+      summary: List releases or fetch one release via releaseId query
+      parameters:
+        - in: query
+          name: releaseId
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /api/v1/tracks:
+    get:
+      summary: List tracks, or fetch by trackId
+      parameters:
+        - in: query
+          name: releaseId
+          schema: { type: string }
+        - in: query
+          name: trackId
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /api/v1/stream:
+    get:
+      summary: Stream audio for a track with range support
+      parameters:
+        - in: query
+          name: trackId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Full stream
+        '206':
+          description: Partial stream
+  /api/paypalWebhook:
+    post:
+      summary: Verify PayPal webhook and grant entitlements on capture completion
+      responses:
+        '200':
+          description: Processed

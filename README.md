@@ -9,19 +9,61 @@ A music streaming website to stream tracks from albums contained in a MongoDb Da
 - [Contributing](#contributing)   
 - [License](#license)
 
-## Install
+## Install (fresh install, simplest path)
 
-Clone the repository.
+This project now includes a guided bootstrap command designed for non-technical users. It creates missing config files, validates your MongoDB connection, creates indexes, and runs migration steps with very explicit terminal output.
 
-Make sure you have Node.js installed
+### 1) Prerequisites
+- Node.js 18+
+- A MongoDB database connection string
 
-Open a command window in your local directory and install the dependecies:
+### 2) Download + install dependencies
+```bash
+git clone <your-fork-or-this-repo-url>
+cd Full-generic-music-streaming-app
+npm install
+```
 
-- npm install body-parser 
-- npm install colorthief
-- npm install mongodb
+### 3) Run the guided bootstrap
+```bash
+npm run fresh-install
+```
 
-You should now be able to preview your site locally by typing 'netlify dev'.
+What this command does:
+1. Creates `.env` from `.env.example` if it does not exist.
+2. Stops and tells you exactly which values to fill in if required values are missing.
+3. Verifies MongoDB connectivity (`ping`).
+4. Runs `npm run setup` to create indexes.
+5. Runs `npm run migrate` to backfill normalized collections from legacy track documents.
+6. Prints clear pass/fail logs for every stage.
+
+### 4) Fill in `.env` when prompted
+At minimum, set:
+- `MONGODB_URI`
+- `MONGODB_DB_NAME`
+- `APP_BASE_URL`
+
+Optional (for payments/webhooks):
+- `PAYPAL_CLIENT_ID`
+- `PAYPAL_CLIENT_SECRET`
+- `PAYPAL_WEBHOOK_ID`
+- `PAYPAL_API_BASE`
+
+### 5) Start the app locally
+```bash
+npx netlify dev
+```
+Then open: `http://localhost:8888/player.html`
+
+### Troubleshooting (copy/paste checks)
+```bash
+node -v
+npm -v
+cat .env
+npm run setup
+npm run migrate
+```
+If any command fails, the output now includes a specific stage marker (for example: `Checking MongoDB connection`, `Running setup`, `Running migration`) so the failing step is obvious.
 
 ## Usage
 
@@ -42,7 +84,7 @@ In order for there to be content in your streaming site, you need a mongo databa
 } 
 ```
 
-Edit the connection string, db name and collection name in all the files stored in 'api/' (eg. api/tracks.js) to match the db you've set up.
+Set MongoDB details in `.env` (`MONGODB_URI`, `MONGODB_DB_NAME`, and optionally `MONGODB_TRACKS_COLLECTION`).
 
 The site should now work locally.
 
@@ -54,11 +96,11 @@ You can add tracks to your database however you like. This repo includes a few t
 - edit.html will show you a list of all tracks in your db. click on any track to see the data associated with it.
 - from an indicidual track view page reached in this way, click edit to alter details from your browser.
 
-for these to work you will need to esnure that your db connection is set up correctly in all the relevant js scripts in /api/
+for these to work you will need to ensure your `.env` MongoDB settings are correct.
 
 **IMPORTANT**
 
-This repo contains no functionality for uploading files. You will need to host your mp3s and artwork somewhere and specify the correct urls for each track and image in your database.
+Legacy pages in this repo still support URL-based tracks, but the newer backend now includes an upload endpoint (`/.netlify/functions/upload`) that stores audio in local `storage/` and prefills metadata from tags. If you stay on the legacy pages, external hosting URLs are still supported.
 
 ### Quick way to backfill missing track durations
 
@@ -66,7 +108,7 @@ This repo contains no functionality for uploading files. You will need to host y
 2. Start the local functions so the endpoint is available: `npx netlify dev`
 3. In another terminal, run: `curl -X POST http://localhost:8888/.netlify/functions/fillTrackDurations`
 
-That POST will find any tracks without a `durationSeconds` value, calculate it from each track’s `mp3Url`, and save the results back to your MongoDB using the connection details in `api/dbConfig.js`.
+That POST will find any tracks without a `durationSeconds` value, calculate it from each track’s `mp3Url`, and save the results back to your MongoDB using the connection details in `.env`.
 
 
 ### Consolidate and optimise album artwork
@@ -97,7 +139,7 @@ The script de-duplicates artwork by hashing the original URLs, resizes to a sens
 If you want lightweight MP4s that combine each track's artwork with its MP3 (useful for uploads to video-first platforms), you can generate them locally without reprocessing entries that already have videos.
 
 1. Install ffmpeg locally so the CLI is on your `PATH`.
-2. Run the generator (it reads from the same MongoDB details in `api/dbConfig.js`):
+2. Run the generator (it reads from the same MongoDB details in `.env`):
 
    ```bash
    node tools/generateMp4s.js
