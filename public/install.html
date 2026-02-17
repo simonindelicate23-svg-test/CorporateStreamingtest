@@ -130,10 +130,10 @@
 <body>
   <main class="container">
     <section class="intro">
-      <h1>Set up your music site with zero guesswork</h1>
+      <h1>Launch your music site on Netlify with zero guesswork</h1>
       <p>
-        This page walks you through every setup step in plain language.
-        No technical background needed: just follow each card from top to bottom.
+        This page focuses on a production-safe hosted flow: Netlify for the app,
+        MongoDB for data, and external paid hosting for music/artwork files.
       </p>
       <p class="small">
         Tip: keep this page open while you work through the steps.
@@ -143,91 +143,113 @@
     <section class="steps" id="steps">
       <article class="step">
         <div class="step-head">
-          <h2>1) Install two free tools first</h2>
-          <span class="tag">About 10 minutes</span>
+          <h2>1) Deploy this repository to Netlify</h2>
+          <span class="tag">Start here</span>
         </div>
-        <p><strong>Tool A: Node.js</strong> — this runs the app on your computer. Install the “LTS” version from nodejs.org.</p>
-        <p><strong>Tool B: MongoDB database</strong> — this stores your songs and album info. If you don't have one yet, create a free MongoDB Atlas account and copy your connection string.</p>
+        <p>In Netlify, click <strong>Add new site → Import an existing project</strong>, select this repo, and deploy.</p>
+        <p>Use the default build settings from the repository unless you've already customized them.</p>
         <div class="command">
-          <code>node -v</code>
+          <code>Netlify dashboard → Add new site → Import an existing project → Deploy site</code>
           <div class="row">
-            <button data-copy="node -v">Copy command</button>
-            <span class="small">Run this after install. You should see a version number.</span>
+            <button data-copy="Netlify dashboard → Add new site → Import an existing project → Deploy site">Copy path</button>
+            <span class="small">After deploy, open your Netlify site URL.</span>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="1"/> I installed Node.js and I have a MongoDB connection string</label>
+        <label class="check"><input type="checkbox" data-step="1"/> My repo is deployed on Netlify</label>
       </article>
 
       <article class="step">
         <div class="step-head">
-          <h2>2) Download this project + install it</h2>
-          <span class="tag">About 2 minutes</span>
-        </div>
-        <p>Open Terminal (Mac/Linux) or PowerShell (Windows), then run:</p>
-        <div class="command">
-          <code>git clone &lt;your-repo-url&gt;<br/>cd Full-generic-music-streaming-app<br/>npm install</code>
-          <div class="row">
-            <button data-copy="git clone <your-repo-url>\ncd Full-generic-music-streaming-app\nnpm install">Copy all 3 commands</button>
-          </div>
-        </div>
-        <label class="check"><input type="checkbox" data-step="2"/> Done this step</label>
-      </article>
-
-      <article class="step">
-        <div class="step-head">
-          <h2>3) Run the guided installer</h2>
-          <span class="tag">Main setup</span>
-        </div>
-        <p>This command checks your setup, creates missing files, and tells you exactly what to fix if anything is missing.</p>
-        <div class="command">
-          <code>npm run fresh-install</code>
-          <div class="row">
-            <button data-copy="npm run fresh-install">Copy command</button>
-          </div>
-        </div>
-        <label class="check"><input type="checkbox" data-step="3"/> Done this step</label>
-      </article>
-
-      <article class="step">
-        <div class="step-head">
-          <h2>4) Fill in your settings file (.env)</h2>
+          <h2>2) Open the hosted install page</h2>
           <span class="tag">Required</span>
         </div>
-        <p>Paste your values below and this page builds the exact text you need for your <code>.env</code> file.</p>
+        <p>Go to your deployed site and open <code>/install.html</code> in the browser.</p>
+        <div class="command">
+          <code>https://your-netlify-site.netlify.app/install.html</code>
+          <div class="row">
+            <button data-copy="https://your-netlify-site.netlify.app/install.html">Copy URL template</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="2"/> I am on the hosted install page</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>3) Node runtime is already handled</h2>
+          <span class="tag">No local install</span>
+        </div>
+        <p>Yes — Node is already running in Netlify Functions for your deployed site. You do <strong>not</strong> need to install Node.js locally for this flow.</p>
+        <p>Just continue with cloud configuration below.</p>
+        <div class="command">
+          <code>No local terminal commands needed for deployment setup.</code>
+          <div class="row">
+            <button data-copy="No local terminal commands needed for deployment setup.">Copy note</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="3"/> Understood: no local Node install is required</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>4) Set up MongoDB (Atlas recommended)</h2>
+          <span class="tag">Required</span>
+        </div>
+        <p>Create a MongoDB Atlas cluster (or use an existing one), then create a database user and allow Netlify access in Network Access.</p>
+        <p>Copy your connection string and database name, then paste values below to generate environment variables for Netlify.</p>
         <div class="env-builder">
           <div class="grid">
             <label>MongoDB connection string<input id="mongoUri" placeholder="mongodb+srv://..."/></label>
             <label>Database name<input id="dbName" placeholder="music"/></label>
-            <label>Your local app URL<input id="appBaseUrl" value="http://localhost:8888"/></label>
+            <label>Your Netlify app URL<input id="appBaseUrl" placeholder="https://your-site.netlify.app"/></label>
+            <label>Paid file-hosting public base URL<input id="mediaBaseUrl" placeholder="https://media.yourdomain.com/music"/></label>
           </div>
           <pre id="envOutput">MONGODB_URI=
 MONGODB_DB_NAME=
-APP_BASE_URL=http://localhost:8888</pre>
+APP_BASE_URL=https://your-site.netlify.app
+MEDIA_BASE_URL=https://media.yourdomain.com/music</pre>
           <div class="row">
-            <button data-copy-target="envOutput">Copy .env text</button>
-            <span class="small">Then paste this into your project's <code>.env</code> file and save.</span>
+            <button data-copy-target="envOutput">Copy environment variables</button>
+            <span class="small">Paste these into <strong>Netlify → Site configuration → Environment variables</strong>.</span>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="4"/> I saved my .env file</label>
+        <label class="check"><input type="checkbox" data-step="4"/> MongoDB is configured and variables are saved in Netlify</label>
       </article>
 
       <article class="step">
         <div class="step-head">
-          <h2>5) Start the app</h2>
-          <span class="tag">Launch</span>
+          <h2>5) Configure external file hosting for uploads</h2>
+          <span class="tag">Important</span>
         </div>
+        <p>Netlify is great for frontend + functions, but it is <strong>not</strong> where your long-term music/art files should live.</p>
+        <p>Use paid hosting/object storage for audio + artwork (for example: S3-compatible storage like Cloudflare R2/Bunny, or your own server via SFTP). Then store public file URLs in MongoDB.</p>
         <div class="command">
-          <code>npx netlify dev</code>
+          <code>Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.</code>
           <div class="row">
-            <button data-copy="npx netlify dev">Copy command</button>
-            <span class="small">Then open <code>http://localhost:8888/player.html</code>.</span>
+            <button data-copy="Recommended now: upload files to your paid host, then add resulting URLs in the app's insert/edit flows.">Copy note</button>
+            <span class="small">This keeps the UX mostly click-based while avoiding Netlify storage limits.</span>
           </div>
         </div>
-        <label class="check"><input type="checkbox" data-step="5"/> The app opened in my browser</label>
+        <p class="small"><strong>Upload UX plan:</strong> keep the in-app upload button, but route uploads from Netlify Function to your paid host (FTP/SFTP or S3-compatible API), then save returned URL to MongoDB.</p>
+        <label class="check"><input type="checkbox" data-step="5"/> External media hosting is configured and tested</label>
+      </article>
+
+      <article class="step">
+        <div class="step-head">
+          <h2>6) Redeploy and verify</h2>
+          <span class="tag">Go live</span>
+        </div>
+        <div class="command">
+          <code>Netlify dashboard → Trigger deploy → Deploy site<br/>Then open /player.html on your live URL</code>
+          <div class="row">
+            <button data-copy="Netlify dashboard → Trigger deploy → Deploy site">Copy path</button>
+            <span class="small">Example: <code>https://your-site.netlify.app/player.html</code>.</span>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" data-step="6"/> The live app opened successfully</label>
       </article>
     </section>
 
-    <p id="progress" class="small">Progress: 0/5 complete</p>
+    <p id="progress" class="small">Progress: 0/6 complete</p>
     <p id="status" class="done" aria-live="polite"></p>
   </main>
 
@@ -276,17 +298,19 @@ APP_BASE_URL=http://localhost:8888</pre>
     const mongoUri = document.getElementById('mongoUri');
     const dbName = document.getElementById('dbName');
     const appBaseUrl = document.getElementById('appBaseUrl');
+    const mediaBaseUrl = document.getElementById('mediaBaseUrl');
     const envOutput = document.getElementById('envOutput');
 
     function updateEnvPreview() {
       envOutput.textContent = [
         `MONGODB_URI=${mongoUri.value.trim()}`,
         `MONGODB_DB_NAME=${dbName.value.trim()}`,
-        `APP_BASE_URL=${appBaseUrl.value.trim() || 'http://localhost:8888'}`
+        `APP_BASE_URL=${appBaseUrl.value.trim() || 'https://your-site.netlify.app'}`,
+        `MEDIA_BASE_URL=${mediaBaseUrl.value.trim() || 'https://media.yourdomain.com/music'}`
       ].join('\n');
     }
 
-    [mongoUri, dbName, appBaseUrl].forEach(input => input.addEventListener('input', updateEnvPreview));
+    [mongoUri, dbName, appBaseUrl, mediaBaseUrl].forEach(input => input.addEventListener('input', updateEnvPreview));
     updateEnvPreview();
   </script>
 </body>
