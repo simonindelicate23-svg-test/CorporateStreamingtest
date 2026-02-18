@@ -9,27 +9,22 @@ A music streaming website to stream tracks from albums contained in a MongoDb Da
 - [Contributing](#contributing)   
 - [License](#license)
 
-## Install (friendly guided flow)
+## Install (novice-friendly, 4 steps)
 
-If you hate setup docs, use this order:
+1. Open your already-deployed site at `https://your-site.netlify.app/install.html`.
+2. Enter your FTP/media hosting details in the form.
+3. Copy the generated setup values into **Netlify → Site configuration → Environment variables** (one-time step).
+4. Open `/insert.html` and upload a test file.
 
-1. Deploy the repo to Netlify.
-2. Open `https://your-site.netlify.app/install.html`.
-3. Pick one mode:
-   - **Simple mode (easiest):** keep track data in a JSON file (`public/albumfooter.json`) on Netlify.
-   - **Full mode:** use MongoDB for dynamic editing and API-driven updates.
-4. Configure uploads so users click one button in-app and files are stored on your media host automatically.
-
-The install page is written for non-technical users and keeps jargon to a minimum. It now includes fields that gather FTP credentials and outputs ready-to-paste Netlify environment variables.
+That is the whole flow: upload media from your Netlify app via FTP and write canonical JSON to track releases.
 
 ## Usage
 
-### First decision: do you actually need MongoDB?
+### Default data source
 
-**No, not always.**
+The default source of truth is `public/albumfooter.json` (canonical JSON).
 
-- If you want the easiest install, store your track list in `public/albumfooter.json` and deploy on Netlify.
-- If you want dynamic editing, server-side writes, and easier scaling, use MongoDB and set `MONGODB_URI` + `MONGODB_DB_NAME` in Netlify environment variables.
+MongoDB support still exists for advanced/custom setups, but it is not required for standard onboarding.
 
 ### Data shape example
 
