@@ -23,7 +23,15 @@
             <div><label for="albumName">Release title</label><input type="text" id="albumName" name="albumName" required /></div>
             <div><label for="albumId">Release ID</label><input type="text" id="albumId" name="albumId" placeholder="slug" /></div>
             <div><label for="artistName">Artist name</label><input type="text" id="artistName" name="artistName" value="Simon Indelicate" required /></div>
-            <div><label for="artworkUrl">Artwork URL</label><input type="url" id="artworkUrl" name="artworkUrl" /></div>
+            <div>
+              <label for="artworkUrl">Artwork URL</label>
+              <input type="url" id="artworkUrl" name="artworkUrl" />
+              <div class="inline-actions" style="margin-top:8px;">
+                <input type="file" id="artworkFile" accept="image/*" />
+                <button type="button" id="uploadArtworkButton" class="button-link button-secondary">Upload artwork</button>
+              </div>
+              <small id="artworkUploadStatus" class="meta"></small>
+            </div>
             <div><label for="albumArtworkUrl">Player artwork URL</label><input type="url" id="albumArtworkUrl" name="albumArtworkUrl" /></div>
             <div><label for="pinCode">PIN Code</label><input type="password" id="pinCode" name="pinCode" required /></div>
           </div>
@@ -44,6 +52,65 @@
       const formStatus = document.getElementById('formStatus');
       const submitButton = document.getElementById('submitButton');
       let nextTrackNumber = 1;
+
+      const artworkFileInput = document.getElementById('artworkFile');
+      const uploadArtworkButton = document.getElementById('uploadArtworkButton');
+      const artworkUploadStatus = document.getElementById('artworkUploadStatus');
+
+      const readAsBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      function buildUploadErrorMessage(result, fallback = 'Upload failed') {
+        const parts = [result?.message || fallback];
+        if (result?.detail) parts.push(`detail: ${result.detail}`);
+        if (result?.requestId) parts.push(`requestId: ${result.requestId}`);
+        return parts.join(' | ');
+      }
+
+      async function uploadFileToMediaHost(file, folder, pinCode) {
+        const contentBase64 = await readAsBase64(file);
+        const response = await fetch('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder })
+        });
+
+        let result = null;
+        try { result = await response.json(); } catch (_error) { throw new Error('Upload endpoint returned non-JSON response.'); }
+        if (!response.ok) throw new Error(buildUploadErrorMessage(result));
+        if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
+        return result.url;
+      }
+
+      async function uploadAlbumArtwork() {
+        const file = artworkFileInput.files[0];
+        const pinCode = document.getElementById('pinCode').value.trim();
+        if (!pinCode) { artworkUploadStatus.textContent = 'Enter PIN before uploading files.'; return; }
+        if (!file) { artworkUploadStatus.textContent = 'Choose an image file first.'; return; }
+
+        uploadArtworkButton.disabled = true;
+        const originalLabel = uploadArtworkButton.textContent;
+        uploadArtworkButton.textContent = 'Uploading…';
+        artworkUploadStatus.textContent = 'Uploading to media host…';
+
+        try {
+          const uploadedUrl = await uploadFileToMediaHost(file, 'artwork', pinCode);
+          document.getElementById('artworkUrl').value = uploadedUrl;
+          if (!document.getElementById('albumArtworkUrl').value.trim()) {
+            document.getElementById('albumArtworkUrl').value = uploadedUrl;
+          }
+          artworkUploadStatus.textContent = `Artwork uploaded: ${uploadedUrl}`;
+        } catch (error) {
+          artworkUploadStatus.textContent = error.message;
+        } finally {
+          uploadArtworkButton.disabled = false;
+          uploadArtworkButton.textContent = originalLabel;
+        }
+      }
 
       function showStatus(message, isError) {
         formStatus.textContent = message;
@@ -92,6 +159,7 @@
 
       function addTrackRow() { tracksContainer.appendChild(createTrackRow()); }
       addTrackButton.addEventListener('click', addTrackRow);
+      uploadArtworkButton.addEventListener('click', uploadAlbumArtwork);
       addTrackRow();
 
       addTrackForm.addEventListener('submit', async (event) => {
@@ -128,6 +196,7 @@
           AdminDataStore.invalidateCache(['tracks', 'albums']);
           showStatus('Release and tracks saved.', false);
           addTrackForm.reset();
+          artworkUploadStatus.textContent = '';
           tracksContainer.innerHTML = '';
           nextTrackNumber = 1;
           addTrackRow();
