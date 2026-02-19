@@ -1,28 +1,19 @@
-const { MongoClient } = require('mongodb');
-const config = require('./dbConfig');
+const { loadTracks } = require('./lib/legacyTracksStore');
 
-exports.handler = async (event, context) => {
-  const client = new MongoClient(config.mongodbUri, { useNewUrlParser: true, useUnifiedTopology: true });
-
+exports.handler = async () => {
   try {
-    await client.connect();
-    const db = client.db(config.databaseName);
-    const tracksCollection = db.collection(config.collectionName);
-
-    const tracks = await tracksCollection.find().toArray();
-
-    // Close the database connection
-    await client.close();
-
+    const { tracks } = await loadTracks();
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tracks),
     };
   } catch (err) {
     console.error(err);
     return {
       statusCode: 500,
-      body: err.message,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Failed to load tracks', detail: err.message }),
     };
   }
 };
