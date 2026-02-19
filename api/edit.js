@@ -1,128 +1,114 @@
-const { MongoClient } = require('mongodb');
-const config = require('./dbConfig');
-const ObjectId = require('mongodb').ObjectId;
 const fs = require('fs');
 const path = require('path');
+const { loadTracks, saveTracks, withTrackIds } = require('./lib/legacyTracksStore');
 
-const client = new MongoClient(config.mongodbUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+const jsonResponse = (statusCode, payload) => ({
+  statusCode,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload),
 });
 
+const numericFields = new Set(['trackNumber', 'playCount', 'durationSeconds', 'duration', 'year']);
+
+function normalizeTrackId(track = {}) {
+  return String(track._id || track.id || '').trim();
+}
+
+function applyTrackUpdates(track = {}, updates = {}) {
+  const updated = { ...track };
+
+  Object.entries(updates).forEach(([key, value]) => {
+    if (key === '_id' || key === 'id' || value === undefined) return;
+
+    if (numericFields.has(key) && value !== '') {
+      const numericValue = Number(value);
+      updated[key] = Number.isNaN(numericValue) ? value : numericValue;
+      return;
+    }
+
+    if (key === 'published') {
+      updated.published = value === false || value === 'false' ? false : Boolean(value);
+      return;
+    }
+
+    if (key === 'fav') {
+      updated.fav = value === true || value === 'true';
+      return;
+    }
+
+    updated[key] = value;
+  });
+
+  return updated;
+}
+
+async function removeLocalTrackFile(track = {}) {
+  const mp3Url = track.mp3Url;
+  const isLocalFile = mp3Url && !/^https?:\/\//i.test(mp3Url);
+  if (!isLocalFile) return;
+
+  const targetPath = path.resolve(__dirname, '..', mp3Url.replace(/^\//, ''));
+  try {
+    const stats = await fs.promises.stat(targetPath);
+    if (stats.isFile()) await fs.promises.unlink(targetPath);
+  } catch (error) {
+    console.warn(`Could not remove local file ${targetPath}:`, error.message);
+  }
+}
+
 exports.handler = async (event) => {
-  // Connect to database
-  const database = (await client.connect()).db(config.databaseName);
+  try {
+    const loaded = await loadTracks();
+    const { tracks: tracksWithIds, changed } = withTrackIds(loaded.tracks || []);
 
-  // Get collection
-  const collection = database.collection(config.collectionName);
-
-  // GET handler
-  if (event.httpMethod === 'GET') {
-    // Get id from query params
-    const { id } = event.queryStringParameters || {};
-
-    if (id) {
-      // Convert to ObjectId
-      const trackId = new ObjectId(id);
-
-      // Find track
-      const track = await collection.findOne({
-        _id: trackId,
-      });
-
-      // Return track
-      return {
-        statusCode: 200,
-        body: JSON.stringify(track),
-      };
-    } else {
-      // View all tracks
-      const tracks = await collection
-        .find({}, { projection: { _id: 1, trackName: 1, albumName: 1, trackNumber: 1, published: 1, artistName: 1 } })
-        .toArray();
-      return {
-        statusCode: 200,
-        body: JSON.stringify(tracks),
-      };
+    if (changed) {
+      await saveTracks(tracksWithIds);
     }
-  }
 
-  // POST handler
-  else if (event.httpMethod === 'POST') {
-    // Parse request body
-    const requestBody = JSON.parse(event.body);
+    if (event.httpMethod === 'GET') {
+      const { id } = event.queryStringParameters || {};
 
-    // Get ID and data
-    const { _id, ...data } = requestBody;
-
-    // Convert ID
-    const trackId = new ObjectId(_id);
-
-    // Create update document
-    const updateDocument = {};
-    const numericFields = new Set(['trackNumber', 'playCount', 'durationSeconds', 'duration', 'year']);
-
-    // Loop through data keys
-    for (let key in data) {
-      if (data[key] === undefined) continue;
-      if (numericFields.has(key) && data[key] !== '') {
-        const numericValue = Number(data[key]);
-        updateDocument[key] = Number.isNaN(numericValue) ? data[key] : numericValue;
-      } else if (key === 'published') {
-        updateDocument[key] = data[key] === false || data[key] === 'false' ? false : Boolean(data[key]);
-      } else if (key === 'fav') {
-        updateDocument[key] = data[key] === true || data[key] === 'true';
-      } else {
-        updateDocument[key] = data[key];
+      if (id) {
+        const track = tracksWithIds.find((entry) => normalizeTrackId(entry) === String(id));
+        if (!track) return jsonResponse(404, { message: 'Track not found' });
+        return jsonResponse(200, track);
       }
+
+      return jsonResponse(200, tracksWithIds);
     }
 
-    // Update track
-    await collection.updateOne({ _id: trackId }, { $set: updateDocument });
+    if (event.httpMethod === 'POST') {
+      const requestBody = JSON.parse(event.body || '{}');
+      const requestedId = String(requestBody._id || requestBody.id || '').trim();
+      if (!requestedId) return jsonResponse(400, { message: 'Missing track id' });
 
-    // Return response
-    return {
-      statusCode: 200,
-      body: 'Track updated!',
-    };
+      const trackIndex = tracksWithIds.findIndex((track) => normalizeTrackId(track) === requestedId);
+      if (trackIndex < 0) return jsonResponse(404, { message: 'Track not found' });
+
+      tracksWithIds[trackIndex] = applyTrackUpdates(tracksWithIds[trackIndex], requestBody);
+      const result = await saveTracks(tracksWithIds);
+
+      return jsonResponse(200, { message: 'Track updated!', store: result.store, path: result.path });
+    }
+
+    if (event.httpMethod === 'DELETE') {
+      const requestBody = JSON.parse(event.body || '{}');
+      const requestedId = String(requestBody.id || requestBody._id || '').trim();
+      if (!requestedId) return jsonResponse(400, { message: 'Missing track id' });
+
+      const trackIndex = tracksWithIds.findIndex((track) => normalizeTrackId(track) === requestedId);
+      if (trackIndex < 0) return jsonResponse(404, { message: 'Track not found' });
+
+      const [removedTrack] = tracksWithIds.splice(trackIndex, 1);
+      await removeLocalTrackFile(removedTrack);
+      const result = await saveTracks(tracksWithIds);
+
+      return jsonResponse(200, { message: 'Track deleted', store: result.store, path: result.path });
+    }
+
+    return jsonResponse(405, { message: 'Method not allowed' });
+  } catch (error) {
+    console.error(error);
+    return jsonResponse(500, { message: 'Failed to process request', detail: error.message });
   }
-
-  // DELETE handler
-  else if (event.httpMethod === 'DELETE') {
-    const requestBody = JSON.parse(event.body || '{}');
-    const { id } = requestBody;
-
-    if (!id) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: 'Missing track id' }),
-      };
-    }
-
-    const trackId = new ObjectId(id);
-    const track = await collection.findOne({ _id: trackId });
-    await collection.deleteOne({ _id: trackId });
-
-    const mp3Url = track?.mp3Url;
-    const isLocalFile = mp3Url && !/^https?:\/\//i.test(mp3Url);
-    if (isLocalFile) {
-      const targetPath = path.resolve(__dirname, '..', mp3Url.replace(/^\//, ''));
-      try {
-        const stats = await fs.promises.stat(targetPath);
-        if (stats.isFile()) {
-          await fs.promises.unlink(targetPath);
-        }
-      } catch (error) {
-        console.warn(`Could not remove local file ${targetPath}:`, error.message);
-      }
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Track deleted' }),
-    };
-  }
-
-  // Close connection
-  await client.close();
 };

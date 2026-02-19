@@ -164,7 +164,46 @@ const appendTracks = async (newTracks) => {
   throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}`);
 };
 
+const saveTracks = async (tracks) => {
+  const store = preferredStore();
+
+  if (store === 'mongodb') {
+    const { client, collection } = await getMongoCollection();
+    try {
+      await collection.deleteMany({});
+      if (tracks.length) await collection.insertMany(tracks);
+      return { store: 'mongodb', path: config.collectionName };
+    } finally {
+      await client.close();
+    }
+  }
+
+  if (store === 'ftp-json' || (store === 'auto' && hasFtpConfig())) {
+    return writeToFtp(tracks);
+  }
+
+  if (store === 'file-json' || store === 'auto') {
+    return writeToFile(tracks);
+  }
+
+  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}`);
+};
+
+const generateTrackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+const withTrackIds = (tracks = []) => {
+  let changed = false;
+  const normalized = tracks.map((track) => {
+    if (track?._id) return track;
+    changed = true;
+    return { ...track, _id: generateTrackId() };
+  });
+  return { tracks: normalized, changed };
+};
+
 module.exports = {
   loadTracks,
   appendTracks,
+  saveTracks,
+  withTrackIds,
 };

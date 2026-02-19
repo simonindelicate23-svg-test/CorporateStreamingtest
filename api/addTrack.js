@@ -7,6 +7,8 @@ const jsonResponse = (statusCode, payload) => ({
   body: JSON.stringify(payload),
 });
 
+const generateTrackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
 const toTrackDocument = async (album, track, defaultPublished) => {
   let durationSeconds = 0;
   const providedDuration = track.durationSeconds || track.duration;
@@ -25,6 +27,7 @@ const toTrackDocument = async (album, track, defaultPublished) => {
   }
 
   const document = {
+    _id: track._id || generateTrackId(),
     albumName: album.albumName,
     albumId: album.albumId,
     albumArtworkUrl: album.albumArtworkUrl || album.artworkUrl,
