@@ -1,61 +1,45 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Add Album & Tracks</title>
+    <title>Add Tracks</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
   </head>
   <body>
     <div class="admin-shell">
+      <div data-admin-tabs></div>
       <div class="card">
-        <h1>Upload a new album</h1>
-        <p class="meta">Add an album once, then drop in each track below. All fields can be edited later.</p>
+        <div class="panel-title">
+          <div>
+            <h1>Add tracks</h1>
+            <p class="meta">Create a release and add tracks in one flow. Metadata (duration + title hints) is inferred automatically when an MP3 URL is set.</p>
+          </div>
+          <a class="button-link button-secondary" href="edit.html">Open directory</a>
+        </div>
 
         <form id="addTrackForm">
           <div class="form-grid">
-            <div>
-              <label for="albumName">Album Name</label>
-              <input type="text" id="albumName" name="albumName" placeholder="Album title" required />
-            </div>
-            <div>
-              <label for="albumId">Album ID (optional)</label>
-              <input type="text" id="albumId" name="albumId" placeholder="slug-used-in-player" />
-            </div>
-            <div>
-              <label for="artistName">Artist Name</label>
-              <input type="text" id="artistName" name="artistName" value="Simon Indelicate" required />
-            </div>
+            <div><label for="albumName">Release title</label><input type="text" id="albumName" name="albumName" required /></div>
+            <div><label for="albumId">Release ID</label><input type="text" id="albumId" name="albumId" placeholder="slug" /></div>
+            <div><label for="artistName">Artist name</label><input type="text" id="artistName" name="artistName" value="Simon Indelicate" required /></div>
             <div>
               <label for="artworkUrl">Artwork URL</label>
-              <input type="url" id="artworkUrl" name="artworkUrl" placeholder="https://.../cover.jpg" />
+              <input type="url" id="artworkUrl" name="artworkUrl" />
               <div class="inline-actions" style="margin-top:8px;">
                 <input type="file" id="artworkFile" accept="image/*" />
                 <button type="button" id="uploadArtworkButton" class="button-link button-secondary">Upload artwork</button>
               </div>
               <small id="artworkUploadStatus" class="meta"></small>
             </div>
-            <div>
-              <label for="albumArtworkUrl">Album Artwork URL (optional)</label>
-              <input type="url" id="albumArtworkUrl" name="albumArtworkUrl" placeholder="Overrides cover art for player" />
-            </div>
-            <div>
-              <label for="pinCode">PIN Code</label>
-              <input type="password" id="pinCode" name="pinCode" required />
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <input type="checkbox" id="albumPublished" name="albumPublished" checked />
-              <label for="albumPublished" style="margin:0;">Album published?</label>
-            </div>
+            <div><label for="albumArtworkUrl">Player artwork URL</label><input type="url" id="albumArtworkUrl" name="albumArtworkUrl" /></div>
+            <div><label for="pinCode">PIN Code</label><input type="password" id="pinCode" name="pinCode" required /></div>
           </div>
 
           <h3>Tracks</h3>
           <div id="tracksContainer" class="tracks-preview"></div>
-          <button type="button" id="addTrackButton">+ Add another track</button>
-
-          <div class="actions" style="margin-top:16px;">
-            <button type="submit" id="submitButton">Add Tracks</button>
-            <a class="button-link button-secondary" href="edit.html">Jump to edit list</a>
-          </div>
+          <button type="button" id="addTrackButton">+ Add track</button>
+          <div class="actions" style="margin-top:16px;"><button type="submit" id="submitButton">Save release</button></div>
           <div id="formStatus" class="status" style="display:none;"></div>
         </form>
       </div>
@@ -67,11 +51,11 @@
       const addTrackButton = document.getElementById('addTrackButton');
       const formStatus = document.getElementById('formStatus');
       const submitButton = document.getElementById('submitButton');
+      let nextTrackNumber = 1;
+
       const artworkFileInput = document.getElementById('artworkFile');
       const uploadArtworkButton = document.getElementById('uploadArtworkButton');
       const artworkUploadStatus = document.getElementById('artworkUploadStatus');
-
-      let nextTrackNumber = 1;
 
       const readAsBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -92,72 +76,90 @@
         const response = await fetch('/.netlify/functions/uploadMedia', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pinCode,
-            fileName: file.name,
-            contentBase64,
-            folder
-          })
+          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder })
         });
 
         let result = null;
-        try {
-          result = await response.json();
-        } catch (error) {
-          throw new Error('Upload endpoint returned non-JSON response.');
-        }
-
-        if (!response.ok) {
-          console.error('Media upload error response', result);
-          throw new Error(buildUploadErrorMessage(result));
-        }
-
-        if (!result?.url) {
-          throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
-        }
-
-        console.info('Media upload succeeded', {
-          requestId: result.requestId,
-          bytes: result.bytes,
-          path: result.path,
-          diagnostics: result.diagnostics,
-        });
-
+        try { result = await response.json(); } catch (_error) { throw new Error('Upload endpoint returned non-JSON response.'); }
+        if (!response.ok) throw new Error(buildUploadErrorMessage(result));
+        if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
         return result.url;
+      }
+
+      async function uploadAlbumArtwork() {
+        const file = artworkFileInput.files[0];
+        const pinCode = document.getElementById('pinCode').value.trim();
+        if (!pinCode) { artworkUploadStatus.textContent = 'Enter PIN before uploading files.'; return; }
+        if (!file) { artworkUploadStatus.textContent = 'Choose an image file first.'; return; }
+
+        uploadArtworkButton.disabled = true;
+        const originalLabel = uploadArtworkButton.textContent;
+        uploadArtworkButton.textContent = 'Uploading…';
+        artworkUploadStatus.textContent = 'Uploading to media host…';
+
+        try {
+          const uploadedUrl = await uploadFileToMediaHost(file, 'artwork', pinCode);
+          document.getElementById('artworkUrl').value = uploadedUrl;
+          if (!document.getElementById('albumArtworkUrl').value.trim()) {
+            document.getElementById('albumArtworkUrl').value = uploadedUrl;
+          }
+          artworkUploadStatus.textContent = `Artwork uploaded: ${uploadedUrl}`;
+        } catch (error) {
+          artworkUploadStatus.textContent = error.message;
+        } finally {
+          uploadArtworkButton.disabled = false;
+          uploadArtworkButton.textContent = originalLabel;
+        }
+      }
+
+      function showStatus(message, isError) {
+        formStatus.textContent = message;
+        formStatus.style.display = 'block';
+        formStatus.style.background = isError ? '#fff3f3' : '#f1f7ff';
+        formStatus.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
+        formStatus.style.color = isError ? '#8c1d2e' : '#1f4b99';
+      }
+
+      async function autoFillTrackMetadata(row) {
+        const urlInput = row.querySelector('.mp3Url');
+        const nameInput = row.querySelector('.trackName');
+        const durationInput = row.querySelector('.durationSeconds');
+        const hint = row.querySelector('.metadataHint');
+        const url = urlInput.value.trim();
+        if (!url) return;
+
+        if (!nameInput.value.trim()) {
+          nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
+        }
+
+        hint.textContent = 'Reading metadata…';
+        const seconds = await AdminDataStore.deriveDurationFromUrl(url);
+        if (seconds && !durationInput.value) durationInput.value = seconds;
+        hint.textContent = seconds ? `Metadata ready (${seconds}s)` : 'Metadata lookup skipped (source blocked or missing headers).';
       }
 
       function createTrackRow() {
         const wrapper = document.createElement('div');
         wrapper.className = 'track-row card';
+        wrapper.innerHTML = `
+          <label>Track name<input type="text" class="trackName" required /></label>
+          <label>MP3 URL<input type="url" class="mp3Url" required /></label>
+          <label>Upload MP3<input type="file" class="trackFile" accept="audio/*" /></label>
+          <div class="inline-actions"><button type="button" class="button-link button-secondary uploadTrackButton">Upload audio</button></div>
+          <small class="meta trackUploadStatus"></small>
+          <label>Order<input type="number" class="trackNumber" min="1" value="${nextTrackNumber}" required /></label>
+          <label>Duration (s)<input type="number" class="durationSeconds" /></label>
+          <label>Year<input type="number" class="trackYear" /></label>
+          <label>Genre<input type="text" class="trackGenre" /></label>
+          <label>Track medium<input type="text" class="trackMedium" /></label>
+          <label>Track notes<textarea class="trackText"></textarea></label>
+          <small class="meta metadataHint">Metadata will auto-load from MP3 URL.</small>`;
 
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'trackName';
-        nameInput.name = 'trackName';
-        nameInput.placeholder = 'Track title';
-        nameInput.required = true;
-
-        const urlInput = document.createElement('input');
-        urlInput.type = 'url';
-        urlInput.className = 'mp3Url';
-        urlInput.name = 'mp3Url';
-        urlInput.placeholder = 'https://.../audio.mp3';
-        urlInput.required = true;
-
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.className = 'trackFile';
-        fileInput.accept = 'audio/*';
-
-        const uploadButton = document.createElement('button');
-        uploadButton.type = 'button';
-        uploadButton.className = 'button-link button-secondary';
-        uploadButton.textContent = 'Upload audio';
-
-        const uploadState = document.createElement('small');
-        uploadState.className = 'meta';
-
-        uploadButton.addEventListener('click', async () => {
+        wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
+        wrapper.querySelector('.uploadTrackButton').addEventListener('click', async () => {
+          const fileInput = wrapper.querySelector('.trackFile');
+          const urlInput = wrapper.querySelector('.mp3Url');
+          const uploadState = wrapper.querySelector('.trackUploadStatus');
           const file = fileInput.files[0];
           const pinCode = document.getElementById('pinCode').value.trim();
 
@@ -171,238 +173,82 @@
             return;
           }
 
+          const uploadButton = wrapper.querySelector('.uploadTrackButton');
           uploadButton.disabled = true;
-          const original = uploadButton.textContent;
+          const originalLabel = uploadButton.textContent;
           uploadButton.textContent = 'Uploading…';
           uploadState.textContent = 'Uploading to media host…';
 
           try {
             const uploadedUrl = await uploadFileToMediaHost(file, 'audio', pinCode);
             urlInput.value = uploadedUrl;
-            uploadState.textContent = `Uploaded and URL filled in automatically: ${uploadedUrl}`;
+            uploadState.textContent = `Audio uploaded: ${uploadedUrl}`;
+            autoFillTrackMetadata(wrapper);
           } catch (error) {
             uploadState.textContent = error.message;
           } finally {
             uploadButton.disabled = false;
-            uploadButton.textContent = original;
+            uploadButton.textContent = originalLabel;
           }
         });
-
-        const durationInput = document.createElement('input');
-        durationInput.type = 'number';
-        durationInput.className = 'durationSeconds';
-        durationInput.name = 'durationSeconds';
-        durationInput.placeholder = 'Duration (seconds)';
-
-        const yearInput = document.createElement('input');
-        yearInput.type = 'number';
-        yearInput.className = 'trackYear';
-        yearInput.name = 'year';
-        yearInput.placeholder = 'Year';
-
-        const genreInput = document.createElement('input');
-        genreInput.type = 'text';
-        genreInput.className = 'trackGenre';
-        genreInput.name = 'genre';
-        genreInput.placeholder = 'Genre';
-
-        const mediumInput = document.createElement('input');
-        mediumInput.type = 'text';
-        mediumInput.className = 'trackMedium';
-        mediumInput.name = 'trackMedium';
-        mediumInput.placeholder = 'Track medium / version';
-
-        const textInput = document.createElement('textarea');
-        textInput.className = 'trackText';
-        textInput.name = 'trackText';
-        textInput.placeholder = 'Notes / lyrics / description';
-
-        const numberInput = document.createElement('input');
-        numberInput.type = 'number';
-        numberInput.className = 'trackNumber';
-        numberInput.name = 'trackNumber';
-        numberInput.value = nextTrackNumber;
-        numberInput.min = 1;
-        numberInput.required = true;
-
-        const nameLabel = document.createElement('label');
-        nameLabel.textContent = 'Track Name';
-        nameLabel.appendChild(nameInput);
-
-        const urlLabel = document.createElement('label');
-        urlLabel.textContent = 'MP3 URL';
-        urlLabel.appendChild(urlInput);
-
-        const uploadLabel = document.createElement('label');
-        uploadLabel.textContent = 'Or upload MP3 now';
-        const uploadRow = document.createElement('div');
-        uploadRow.className = 'inline-actions';
-        uploadRow.appendChild(fileInput);
-        uploadRow.appendChild(uploadButton);
-        uploadLabel.appendChild(uploadRow);
-        uploadLabel.appendChild(uploadState);
-
-        const numberLabel = document.createElement('label');
-        numberLabel.textContent = 'Order';
-        numberLabel.appendChild(numberInput);
-
-        const durationLabel = document.createElement('label');
-        durationLabel.textContent = 'Duration (seconds)';
-        durationLabel.appendChild(durationInput);
-
-        const yearLabel = document.createElement('label');
-        yearLabel.textContent = 'Year';
-        yearLabel.appendChild(yearInput);
-
-        const genreLabel = document.createElement('label');
-        genreLabel.textContent = 'Genre';
-        genreLabel.appendChild(genreInput);
-
-        const mediumLabel = document.createElement('label');
-        mediumLabel.textContent = 'Track Medium';
-        mediumLabel.appendChild(mediumInput);
-
-        const textLabel = document.createElement('label');
-        textLabel.textContent = 'Track Text';
-        textLabel.appendChild(textInput);
-
-        wrapper.appendChild(nameLabel);
-        wrapper.appendChild(urlLabel);
-        wrapper.appendChild(uploadLabel);
-        wrapper.appendChild(numberLabel);
-        wrapper.appendChild(durationLabel);
-        wrapper.appendChild(yearLabel);
-        wrapper.appendChild(genreLabel);
-        wrapper.appendChild(mediumLabel);
-        wrapper.appendChild(textLabel);
 
         nextTrackNumber++;
         return wrapper;
       }
 
-      async function uploadAlbumArtwork() {
-        const file = artworkFileInput.files[0];
-        const pinCode = document.getElementById('pinCode').value.trim();
-
-        if (!pinCode) {
-          artworkUploadStatus.textContent = 'Enter PIN before uploading files.';
-          return;
-        }
-
-        if (!file) {
-          artworkUploadStatus.textContent = 'Choose an image file first.';
-          return;
-        }
-
-        uploadArtworkButton.disabled = true;
-        const original = uploadArtworkButton.textContent;
-        uploadArtworkButton.textContent = 'Uploading…';
-        artworkUploadStatus.textContent = 'Uploading to media host…';
-
-        try {
-          const uploadedUrl = await uploadFileToMediaHost(file, 'artwork', pinCode);
-          document.getElementById('artworkUrl').value = uploadedUrl;
-          if (!document.getElementById('albumArtworkUrl').value.trim()) {
-            document.getElementById('albumArtworkUrl').value = uploadedUrl;
-          }
-          artworkUploadStatus.textContent = `Artwork uploaded and URLs updated: ${uploadedUrl}`;
-        } catch (error) {
-          artworkUploadStatus.textContent = error.message;
-        } finally {
-          uploadArtworkButton.disabled = false;
-          uploadArtworkButton.textContent = original;
-        }
-      }
-
-      function addTrackRow() {
-        const row = createTrackRow();
-        tracksContainer.appendChild(row);
-      }
-
-      uploadArtworkButton.addEventListener('click', uploadAlbumArtwork);
+      function addTrackRow() { tracksContainer.appendChild(createTrackRow()); }
       addTrackButton.addEventListener('click', addTrackRow);
-
+      uploadArtworkButton.addEventListener('click', uploadAlbumArtwork);
       addTrackRow();
 
-      addTrackForm.addEventListener('submit', event => {
+      addTrackForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        formStatus.style.display = 'none';
         submitButton.disabled = true;
         submitButton.textContent = 'Saving…';
 
         const formData = new FormData(addTrackForm);
-        const album = {
-          albumName: formData.get('albumName'),
-          artistName: formData.get('artistName'),
-          artworkUrl: formData.get('artworkUrl'),
-          albumId: formData.get('albumId'),
-          albumArtworkUrl: formData.get('albumArtworkUrl'),
-          published: document.getElementById('albumPublished').checked
-        };
-
-        const pinCode = formData.get('pinCode');
-        if (pinCode !== '1310') {
+        if (formData.get('pinCode') !== '1310') {
           showStatus('Incorrect PIN code', true);
           submitButton.disabled = false;
-          submitButton.textContent = 'Add Tracks';
+          submitButton.textContent = 'Save release';
           return;
         }
 
-        const trackNameInputs = addTrackForm.querySelectorAll('.trackName');
-        const mp3UrlInputs = addTrackForm.querySelectorAll('.mp3Url');
-        const trackNumberInputs = addTrackForm.querySelectorAll('.trackNumber');
-        const durationInputs = addTrackForm.querySelectorAll('.durationSeconds');
-        const yearInputs = addTrackForm.querySelectorAll('.trackYear');
-        const genreInputs = addTrackForm.querySelectorAll('.trackGenre');
-        const mediumInputs = addTrackForm.querySelectorAll('.trackMedium');
-        const textInputs = addTrackForm.querySelectorAll('.trackText');
+        const album = {
+          albumName: formData.get('albumName'), artistName: formData.get('artistName'), artworkUrl: formData.get('artworkUrl'),
+          albumId: formData.get('albumId'), albumArtworkUrl: formData.get('albumArtworkUrl')
+        };
 
-        const tracks = [];
-        for (let i = 0; i < trackNameInputs.length; i++) {
-          const trackName = trackNameInputs[i].value;
-          const mp3Url = mp3UrlInputs[i].value;
-          const trackNumber = trackNumberInputs[i].value;
-          const durationSeconds = durationInputs[i].value;
-          const year = yearInputs[i].value;
-          const genre = genreInputs[i].value;
-          const trackMedium = mediumInputs[i].value;
-          const trackText = textInputs[i].value;
-          tracks.push({ trackName, mp3Url, trackNumber, durationSeconds, year, genre, trackMedium, trackText });
+        const tracks = [...tracksContainer.querySelectorAll('.track-row')].map((row) => ({
+          trackName: row.querySelector('.trackName').value,
+          mp3Url: row.querySelector('.mp3Url').value,
+          trackNumber: row.querySelector('.trackNumber').value,
+          durationSeconds: row.querySelector('.durationSeconds').value,
+          year: row.querySelector('.trackYear').value,
+          genre: row.querySelector('.trackGenre').value,
+          trackMedium: row.querySelector('.trackMedium').value,
+          trackText: row.querySelector('.trackText').value
+        }));
+
+        try {
+          await fetch('/.netlify/functions/addTrack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ album, tracks }) });
+          AdminDataStore.invalidateCache(['tracks', 'albums']);
+          showStatus('Release and tracks saved.', false);
+          addTrackForm.reset();
+          artworkUploadStatus.textContent = '';
+          tracksContainer.innerHTML = '';
+          nextTrackNumber = 1;
+          addTrackRow();
+        } catch (error) {
+          console.error(error);
+          showStatus('Save failed.', true);
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Save release';
         }
-
-        fetch('/.netlify/functions/addTrack', {
-          method: 'POST',
-          body: JSON.stringify({ album, tracks }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-          .then(response => response.json())
-          .then(() => {
-            showStatus('Album and tracks saved. You can add more or jump to editing.', false);
-            addTrackForm.reset();
-            artworkUploadStatus.textContent = '';
-            tracksContainer.innerHTML = '';
-            nextTrackNumber = 1;
-            addTrackRow();
-          })
-          .catch(error => {
-            console.error(error);
-            showStatus('Something went wrong saving to the database.', true);
-          })
-          .finally(() => {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Add Tracks';
-          });
       });
 
-      function showStatus(message, isError) {
-        formStatus.textContent = message;
-        formStatus.style.display = 'block';
-        formStatus.style.background = isError ? '#fff3f3' : '#f1f7ff';
-        formStatus.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
-        formStatus.style.color = isError ? '#8c1d2e' : '#1f4b99';
-      }
+      window.addEventListener('DOMContentLoaded', () => AdminDataStore.mountTabs());
     </script>
   </body>
 </html>

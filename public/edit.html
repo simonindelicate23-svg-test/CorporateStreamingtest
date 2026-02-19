@@ -4,39 +4,19 @@
     <title>Track Directory</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
   </head>
   <body>
     <div class="admin-shell">
+      <div data-admin-tabs></div>
       <div class="card">
         <h1>Track directory</h1>
-        <p class="meta">Browse everything in the database, jump to an individual record, or head back to the player.</p>
-        <div class="actions" style="margin-bottom:10px;">
-          <a class="button-link" href="insert.html">Add new album</a>
-          <a class="button-link" href="edit-albums.html">Edit albums</a>
-          <a class="button-link button-secondary" href="player.html" target="_blank">Open player</a>
-        </div>
-        <div class="form-grid">
-          <div>
-            <label for="search">Filter by name</label>
-            <input id="search" type="text" placeholder="Start typing a track or album" />
-          </div>
-        </div>
+        <p class="meta">Fast filter + cached data fetches to keep tab switches snappy.</p>
+        <div class="form-grid"><div><label for="search">Filter</label><input id="search" type="text" placeholder="Track / album / artist" /></div></div>
         <div id="status" class="status" style="display:none;"></div>
       </div>
-
       <div class="card">
-        <table class="table" id="tracksTable">
-          <thead>
-            <tr>
-              <th>Track</th>
-              <th>Album</th>
-              <th>Order</th>
-              <th>Published</th>
-              <th style="width:170px;">Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <table class="table" id="tracksTable"><thead><tr><th>Track</th><th>Album</th><th>Order</th><th>Published</th><th>Actions</th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
@@ -46,56 +26,42 @@
       const status = document.getElementById('status');
       let tracks = [];
 
-      fetch('/.netlify/functions/edit')
-        .then(res => res.json())
-        .then(data => {
-          tracks = data;
-          renderRows();
-        });
-
       function showStatus(message, isError = false) {
         status.textContent = message;
         status.style.display = 'block';
         status.style.background = isError ? '#fff3f3' : '#f1f7ff';
-        status.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
-        status.style.color = isError ? '#8c1d2e' : '#1f4b99';
+      }
+
+      async function loadTracks() {
+        tracks = await AdminDataStore.fetchJsonCached('/.netlify/functions/edit', 'tracks');
+        renderRows();
       }
 
       async function updateTrack(id, payload) {
-        await fetch('/.netlify/functions/edit', {
-          method: 'POST',
-          body: JSON.stringify({ _id: id, ...payload })
-        });
+        await fetch('/.netlify/functions/edit', { method: 'POST', body: JSON.stringify({ _id: id, ...payload }) });
+        AdminDataStore.invalidateCache(['tracks']);
       }
 
       async function removeTrack(track) {
-        const confirmed = window.confirm(`Delete ${track.trackName}? This cannot be undone.`);
-        if (!confirmed) return;
-
+        if (!window.confirm(`Delete ${track.trackName}?`)) return;
         try {
-          await fetch('/.netlify/functions/edit', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: track._id })
-          });
-          tracks = tracks.filter(t => t._id !== track._id);
+          await fetch('/.netlify/functions/edit', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: track._id }) });
+          tracks = tracks.filter((t) => t._id !== track._id);
+          AdminDataStore.invalidateCache(['tracks', 'albums']);
           renderRows();
-          showStatus('Track deleted', false);
+          showStatus('Track deleted');
         } catch (error) {
-          console.error(error);
           showStatus('Could not delete track', true);
         }
       }
 
       async function togglePublish(track) {
-        const newStatus = track.published === false;
         try {
-          await updateTrack(track._id, { published: newStatus });
-          track.published = newStatus;
+          await updateTrack(track._id, { published: track.published === false });
+          track.published = track.published === false;
           renderRows();
-          showStatus(`Track ${newStatus ? 'published' : 'unpublished'}.`, false);
-        } catch (error) {
-          console.error(error);
+          showStatus('Publish state updated.');
+        } catch (_error) {
           showStatus('Unable to update publish status', true);
         }
       }
@@ -103,68 +69,41 @@
       function renderRows() {
         const filter = searchInput.value.toLowerCase();
         tableBody.innerHTML = '';
-        const filtered = tracks.filter(track =>
-          (track.trackName?.toLowerCase().includes(filter) || track.albumName?.toLowerCase().includes(filter))
-        );
-
-        filtered.forEach(track => {
+        tracks.filter((t) => `${t.trackName} ${t.albumName} ${t.artistName}`.toLowerCase().includes(filter)).forEach((track) => {
           const tr = document.createElement('tr');
-          const title = document.createElement('td');
-          title.innerHTML = `<strong>${track.trackName}</strong><br /><span class=\"meta\">${track.artistName || ''}</span>`;
-
-          const album = document.createElement('td');
-          album.textContent = track.albumName || '';
-
-          const order = document.createElement('td');
-          order.textContent = track.trackNumber || '';
+          tr.innerHTML = `<td><strong>${track.trackName || ''}</strong><br><span class="meta">${track.artistName || ''}</span></td><td>${track.albumName || ''}</td><td>${track.trackNumber || ''}</td>`;
 
           const publish = document.createElement('td');
           const badge = document.createElement('span');
-          const isPublished = track.published !== false;
-          badge.className = `badge ${isPublished ? 'success' : 'warning'}`;
-          badge.textContent = isPublished ? 'Published' : 'Unpublished';
+          badge.className = `badge ${track.published === false ? 'warning' : 'success'}`;
+          badge.textContent = track.published === false ? 'Unpublished' : 'Published';
           publish.appendChild(badge);
 
           const actions = document.createElement('td');
           actions.className = 'inline-actions';
-          const viewLink = document.createElement('a');
-          viewLink.className = 'button-link';
-          viewLink.href = `view.html?id=${track._id}`;
-          viewLink.textContent = 'View';
+          actions.innerHTML = `<a class="button-link" href="view.html?id=${track._id}">View</a><a class="button-link button-secondary" href="fiddle.html?id=${track._id}">Edit</a>`;
+          const publishBtn = document.createElement('button');
+          publishBtn.className = 'button-link button-secondary';
+          publishBtn.textContent = track.published === false ? 'Publish' : 'Unpublish';
+          publishBtn.onclick = () => togglePublish(track);
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'button-link button-danger';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.onclick = () => removeTrack(track);
+          actions.appendChild(publishBtn);
+          actions.appendChild(deleteBtn);
 
-          const editLink = document.createElement('a');
-          editLink.className = 'button-link button-secondary';
-          editLink.href = `fiddle.html?id=${track._id}`;
-          editLink.textContent = 'Edit';
-
-          const publishButton = document.createElement('button');
-          publishButton.className = 'button-link button-secondary';
-          publishButton.type = 'button';
-          publishButton.textContent = track.published === false ? 'Publish' : 'Unpublish';
-          publishButton.addEventListener('click', () => togglePublish(track));
-
-          const deleteButton = document.createElement('button');
-          deleteButton.className = 'button-link button-danger';
-          deleteButton.type = 'button';
-          deleteButton.textContent = 'Delete';
-          deleteButton.addEventListener('click', () => removeTrack(track));
-
-          actions.appendChild(viewLink);
-          actions.appendChild(editLink);
-          actions.appendChild(publishButton);
-          actions.appendChild(deleteButton);
-
-          tr.appendChild(title);
-          tr.appendChild(album);
-          tr.appendChild(order);
           tr.appendChild(publish);
           tr.appendChild(actions);
-
           tableBody.appendChild(tr);
         });
       }
 
       searchInput.addEventListener('input', renderRows);
+      window.addEventListener('DOMContentLoaded', async () => {
+        AdminDataStore.mountTabs();
+        try { await loadTracks(); } catch (error) { showStatus('Unable to load tracks.', true); }
+      });
     </script>
   </body>
 </html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Site Settings</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
+  </head>
+  <body>
+    <div class="admin-shell">
+      <div data-admin-tabs></div>
+      <div class="card">
+        <h1>Site settings</h1>
+        <p class="meta">Placeholder settings editor. Values are stored in JSON (FTP/file) so templates can be rendered dynamically rather than hardcoded in Netlify HTML.</p>
+        <form id="settingsForm">
+          <div class="form-grid">
+            <div><label for="siteTitle">Site title</label><input type="text" id="siteTitle" /></div>
+            <div><label for="palette">Palette</label><input type="text" id="palette" placeholder="default | dark | warm" /></div>
+            <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
+            <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
+            <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
+          </div>
+          <div class="actions" style="margin-top:16px;"><button type="submit">Save settings</button></div>
+        </form>
+        <div id="status" class="status" style="display:none;"></div>
+      </div>
+    </div>
+
+    <script>
+      const status = document.getElementById('status');
+      const fields = ['siteTitle', 'palette', 'fontFamily', 'headingFont', 'welcomeMessage'];
+
+      function showStatus(message, isError = false) {
+        status.textContent = message;
+        status.style.display = 'block';
+        status.style.background = isError ? '#fff3f3' : '#f1f7ff';
+      }
+
+      async function loadSettings() {
+        const settings = await AdminDataStore.fetchJsonCached('/.netlify/functions/siteSettings', 'site-settings');
+        fields.forEach((key) => {
+          document.getElementById(key).value = settings[key] || '';
+        });
+      }
+
+      document.getElementById('settingsForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = fields.reduce((acc, key) => ({ ...acc, [key]: document.getElementById(key).value.trim() }), {});
+        try {
+          await fetch('/.netlify/functions/siteSettings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          AdminDataStore.invalidateCache(['site-settings']);
+          showStatus('Settings saved. Pages can now consume this JSON dynamically.');
+        } catch (error) {
+          showStatus('Could not save settings.', true);
+        }
+      });
+
+      window.addEventListener('DOMContentLoaded', async () => {
+        AdminDataStore.mountTabs();
+        try { await loadSettings(); } catch (error) { showStatus('Could not load settings.', true); }
+      });
+    </script>
+  </body>
+</html>
