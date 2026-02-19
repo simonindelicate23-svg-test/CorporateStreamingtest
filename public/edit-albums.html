@@ -1,28 +1,20 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Edit Albums</title>
+    <title>Edit Releases</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
   </head>
   <body>
     <div class="admin-shell">
+      <div data-admin-tabs></div>
       <div class="card">
-        <h1>Edit albums</h1>
-        <p class="meta">Update album-level fields once and apply them to every track on the album.</p>
-        <div class="actions" style="margin-bottom:10px;">
-          <a class="button-link" href="edit.html">Back to track list</a>
-          <a class="button-link button-secondary" href="insert.html">Add new album</a>
-        </div>
+        <h1>Edit releases</h1>
+        <p class="meta">Album-level edits propagate to every track. Track metadata is inferred automatically from MP3 URLs when adding new tracks.</p>
         <div class="form-grid">
-          <div>
-            <label for="albumSelect">Choose an album</label>
-            <select id="albumSelect"></select>
-          </div>
-          <div>
-            <label>Track count</label>
-            <div id="trackCount" class="meta">—</div>
-          </div>
+          <div><label for="albumSelect">Choose release</label><select id="albumSelect"></select></div>
+          <div><label>Track count</label><div id="trackCount" class="meta">—</div></div>
         </div>
         <div id="status" class="status" style="display:none;"></div>
       </div>
@@ -30,63 +22,27 @@
       <div class="card" id="formCard" style="display:none;">
         <form id="albumForm">
           <div class="form-grid">
-            <div>
-              <label for="albumName">Album Name</label>
-              <input type="text" id="albumName" required />
-            </div>
-            <div>
-              <label for="albumId">Album ID</label>
-              <input type="text" id="albumId" />
-            </div>
-            <div>
-              <label for="artistName">Artist Name</label>
-              <input type="text" id="artistName" />
-            </div>
-            <div>
-              <label for="artworkUrl">Artwork URL</label>
-              <input type="url" id="artworkUrl" />
-            </div>
-            <div>
-              <label for="albumArtworkUrl">Album Artwork URL</label>
-              <input type="url" id="albumArtworkUrl" />
-            </div>
-            <div>
-              <label for="bgcolor">Background Colour</label>
-              <input type="text" id="bgcolor" placeholder="#ffffff" />
-            </div>
-            <div>
-              <label for="genre">Genre</label>
-              <input type="text" id="genre" />
-            </div>
-            <div>
-              <label for="year">Year</label>
-              <input type="number" id="year" />
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <input type="checkbox" id="published" />
-              <label for="published" style="margin:0;">Published?</label>
-            </div>
+            <div><label for="albumName">Album name</label><input type="text" id="albumName" required /></div>
+            <div><label for="albumId">Album ID</label><input type="text" id="albumId" /></div>
+            <div><label for="artistName">Artist name</label><input type="text" id="artistName" /></div>
+            <div><label for="artworkUrl">Artwork URL</label><input type="url" id="artworkUrl" /></div>
+            <div><label for="albumArtworkUrl">Album artwork URL</label><input type="url" id="albumArtworkUrl" /></div>
+            <div><label for="bgcolor">Background colour</label><input type="text" id="bgcolor" /></div>
+            <div><label for="genre">Genre</label><input type="text" id="genre" /></div>
+            <div><label for="year">Year</label><input type="number" id="year" /></div>
+            <div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="published" /><label for="published" style="margin:0;">Published?</label></div>
           </div>
-          <div class="actions" style="margin-top:16px;">
-            <button type="submit">Apply to all tracks</button>
-            <button type="button" id="populateDurations" class="button-secondary">Populate durations</button>
-          </div>
+          <div class="actions" style="margin-top:16px;"><button type="submit">Apply album updates</button></div>
         </form>
       </div>
 
       <div class="card" id="addTracksCard" style="display:none;">
-        <h2>Add tracks to this album</h2>
-        <p class="meta">Append new tracks using the album details above. Edit the album first if you need to change shared fields.</p>
-
+        <h2>Add tracks to release</h2>
         <form id="addTracksForm">
           <div id="tracksContainer" class="tracks-preview"></div>
-          <button type="button" id="addTrackButton">+ Add another track</button>
-
-          <div class="actions" style="margin-top:16px;">
-            <button type="submit">Save tracks</button>
-          </div>
+          <button type="button" id="addTrackButton">+ Add track</button>
+          <div class="actions" style="margin-top:16px;"><button type="submit">Save tracks</button></div>
         </form>
-
         <div id="trackStatus" class="status" style="display:none;"></div>
       </div>
     </div>
@@ -96,332 +52,116 @@
       const status = document.getElementById('status');
       const formCard = document.getElementById('formCard');
       const trackCount = document.getElementById('trackCount');
-      const populateDurationsButton = document.getElementById('populateDurations');
       const addTracksCard = document.getElementById('addTracksCard');
       const tracksContainer = document.getElementById('tracksContainer');
       const addTrackButton = document.getElementById('addTrackButton');
       const addTracksForm = document.getElementById('addTracksForm');
       const trackStatus = document.getElementById('trackStatus');
 
-      const fields = {
-        albumName: document.getElementById('albumName'),
-        albumId: document.getElementById('albumId'),
-        artistName: document.getElementById('artistName'),
-        artworkUrl: document.getElementById('artworkUrl'),
-        albumArtworkUrl: document.getElementById('albumArtworkUrl'),
-        bgcolor: document.getElementById('bgcolor'),
-        genre: document.getElementById('genre'),
-        year: document.getElementById('year'),
-        published: document.getElementById('published')
-      };
-
+      const fields = ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','bgcolor','genre','year','published'].reduce((acc, id) => ({ ...acc, [id]: document.getElementById(id) }), {});
       let albums = [];
       let activeAlbum = null;
       let nextTrackNumber = 1;
 
-      function showStatus(message, isError = false) {
-        status.textContent = message;
-        status.style.display = 'block';
-        status.style.background = isError ? '#fff3f3' : '#f1f7ff';
-        status.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
-        status.style.color = isError ? '#8c1d2e' : '#1f4b99';
-      }
-
-      function clearStatus() {
-        status.style.display = 'none';
-      }
+      function showStatus(message, isError = false) { status.textContent = message; status.style.display = 'block'; status.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
+      function showTrackStatus(message, isError = false) { trackStatus.textContent = message; trackStatus.style.display = 'block'; trackStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
 
       function renderAlbumOptions() {
-        albumSelect.innerHTML = '';
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Select an album';
-        albumSelect.appendChild(defaultOption);
-
-        albums.forEach(album => {
+        albumSelect.innerHTML = '<option value="">Select release</option>';
+        albums.forEach((album) => {
           const option = document.createElement('option');
           option.value = album.albumName || '';
-          option.textContent = album.albumName || 'Untitled album';
+          option.textContent = album.albumName || 'Untitled release';
           albumSelect.appendChild(option);
         });
       }
 
       function populateForm(album) {
         activeAlbum = album;
-        if (!album) {
-          formCard.style.display = 'none';
-          addTracksCard.style.display = 'none';
-          return;
-        }
-
-        formCard.style.display = 'block';
-        addTracksCard.style.display = 'block';
-        fields.albumName.value = album.albumName || '';
-        fields.albumId.value = album.albumId || '';
-        fields.artistName.value = album.artistName || '';
-        fields.artworkUrl.value = album.artworkUrl || '';
-        fields.albumArtworkUrl.value = album.albumArtworkUrl || '';
-        fields.bgcolor.value = album.bgcolor || '';
-        fields.genre.value = album.genre || '';
-        fields.year.value = album.year || '';
-        fields.published.checked = album.published !== false;
+        if (!album) { formCard.style.display = 'none'; addTracksCard.style.display = 'none'; trackCount.textContent = '—'; return; }
+        formCard.style.display = 'block'; addTracksCard.style.display = 'block';
+        fields.albumName.value = album.albumName || ''; fields.albumId.value = album.albumId || ''; fields.artistName.value = album.artistName || '';
+        fields.artworkUrl.value = album.artworkUrl || ''; fields.albumArtworkUrl.value = album.albumArtworkUrl || ''; fields.bgcolor.value = album.bgcolor || '';
+        fields.genre.value = album.genre || ''; fields.year.value = album.year || ''; fields.published.checked = album.published !== false;
         trackCount.textContent = album.trackCount || 0;
-
         resetTrackForm();
       }
 
       async function loadAlbums(selectedName) {
-        clearStatus();
-        status.style.display = 'block';
-        status.textContent = 'Loading albums…';
-
-        const response = await fetch('/.netlify/functions/editAlbum');
-        albums = await response.json();
+        albums = await AdminDataStore.fetchJsonCached('/.netlify/functions/editAlbum', 'albums');
         renderAlbumOptions();
-
-        if (selectedName) {
-          albumSelect.value = selectedName;
-        }
-
-        const selected = albums.find(a => a.albumName === albumSelect.value);
-        populateForm(selected);
-        if (!selected) {
-          formCard.style.display = 'none';
-          trackCount.textContent = '—';
-        }
-
-        status.style.display = 'none';
-      }
-
-      albumSelect.addEventListener('change', () => {
-        const selected = albums.find(album => album.albumName === albumSelect.value);
-        populateForm(selected);
-      });
-
-      document.getElementById('albumForm').addEventListener('submit', async event => {
-        event.preventDefault();
-        if (!activeAlbum) return;
-
-        const updates = {};
-        if (activeAlbum.albumName !== fields.albumName.value) updates.albumName = fields.albumName.value;
-        if (activeAlbum.albumId !== fields.albumId.value) updates.albumId = fields.albumId.value;
-        if (activeAlbum.artistName !== fields.artistName.value) updates.artistName = fields.artistName.value;
-        if (activeAlbum.artworkUrl !== fields.artworkUrl.value) updates.artworkUrl = fields.artworkUrl.value;
-        if (activeAlbum.albumArtworkUrl !== fields.albumArtworkUrl.value) updates.albumArtworkUrl = fields.albumArtworkUrl.value;
-        if (activeAlbum.bgcolor !== fields.bgcolor.value) updates.bgcolor = fields.bgcolor.value;
-        if (activeAlbum.genre !== fields.genre.value) updates.genre = fields.genre.value;
-        if (String(activeAlbum.year || '') !== fields.year.value) updates.year = fields.year.value;
-
-        const isPublished = fields.published.checked;
-        const currentlyPublished = activeAlbum.published !== false;
-        if (isPublished !== currentlyPublished) updates.published = isPublished;
-
-        if (!Object.keys(updates).length) {
-          showStatus('No changes to save.');
-          return;
-        }
-
-        showStatus('Saving changes…');
-        try {
-          await fetch('/.netlify/functions/editAlbum', {
-            method: 'POST',
-            body: JSON.stringify({ albumName: activeAlbum.albumName, updates })
-          });
-          showStatus('Album updated across all tracks.');
-          await loadAlbums(fields.albumName.value);
-        } catch (error) {
-          console.error(error);
-          showStatus('Could not update album.', true);
-        }
-      });
-
-      populateDurationsButton.addEventListener('click', async () => {
-        if (!activeAlbum) return;
-        showStatus('Populating durations across album…');
-        try {
-          const response = await fetch('/.netlify/functions/editAlbum', {
-            method: 'POST',
-            body: JSON.stringify({ albumName: activeAlbum.albumName, populateDurations: true })
-          });
-          const result = await response.json();
-          const { processed = 0, updated = 0 } = result.durationUpdate || {};
-          showStatus(`Duration refresh complete. Processed ${processed} tracks, updated ${updated}.`);
-        } catch (error) {
-          console.error(error);
-          showStatus('Could not populate durations.', true);
-        }
-      });
-
-      function showTrackStatus(message, isError = false) {
-        trackStatus.textContent = message;
-        trackStatus.style.display = 'block';
-        trackStatus.style.background = isError ? '#fff3f3' : '#f1f7ff';
-        trackStatus.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
-        trackStatus.style.color = isError ? '#8c1d2e' : '#1f4b99';
-      }
-
-      function clearTrackStatus() {
-        trackStatus.style.display = 'none';
+        if (selectedName) albumSelect.value = selectedName;
+        populateForm(albums.find((a) => a.albumName === albumSelect.value));
       }
 
       function createTrackRow() {
         const wrapper = document.createElement('div');
         wrapper.className = 'track-row card';
-
-        const nameLabel = document.createElement('label');
-        nameLabel.textContent = 'Track Name';
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'trackName';
-        nameInput.placeholder = 'Track title';
-        nameInput.required = true;
-        nameLabel.appendChild(nameInput);
-
-        const urlLabel = document.createElement('label');
-        urlLabel.textContent = 'MP3 URL';
-        const urlInput = document.createElement('input');
-        urlInput.type = 'url';
-        urlInput.className = 'mp3Url';
-        urlInput.placeholder = 'https://.../audio.mp3';
-        urlInput.required = true;
-        urlLabel.appendChild(urlInput);
-
-        const orderLabel = document.createElement('label');
-        orderLabel.textContent = 'Order';
-        const orderInput = document.createElement('input');
-        orderInput.type = 'number';
-        orderInput.className = 'trackNumber';
-        orderInput.min = 1;
-        orderInput.value = nextTrackNumber;
-        orderInput.required = true;
-        orderLabel.appendChild(orderInput);
-
-        const durationLabel = document.createElement('label');
-        durationLabel.textContent = 'Duration (seconds)';
-        const durationInput = document.createElement('input');
-        durationInput.type = 'number';
-        durationInput.className = 'durationSeconds';
-        durationInput.placeholder = 'Optional';
-        durationLabel.appendChild(durationInput);
-
-        const yearLabel = document.createElement('label');
-        yearLabel.textContent = 'Year';
-        const yearInput = document.createElement('input');
-        yearInput.type = 'number';
-        yearInput.className = 'trackYear';
-        yearLabel.appendChild(yearInput);
-
-        const genreLabel = document.createElement('label');
-        genreLabel.textContent = 'Genre';
-        const genreInput = document.createElement('input');
-        genreInput.type = 'text';
-        genreInput.className = 'trackGenre';
-        genreLabel.appendChild(genreInput);
-
-        const mediumLabel = document.createElement('label');
-        mediumLabel.textContent = 'Track Medium';
-        const mediumInput = document.createElement('input');
-        mediumInput.type = 'text';
-        mediumInput.className = 'trackMedium';
-        mediumLabel.appendChild(mediumInput);
-
-        const textLabel = document.createElement('label');
-        textLabel.textContent = 'Track Text';
-        const textInput = document.createElement('textarea');
-        textInput.className = 'trackText';
-        textLabel.appendChild(textInput);
-
-        wrapper.appendChild(nameLabel);
-        wrapper.appendChild(urlLabel);
-        wrapper.appendChild(orderLabel);
-        wrapper.appendChild(durationLabel);
-        wrapper.appendChild(yearLabel);
-        wrapper.appendChild(genreLabel);
-        wrapper.appendChild(mediumLabel);
-        wrapper.appendChild(textLabel);
-
+        wrapper.innerHTML = `<label>Track name<input type="text" class="trackName" required /></label><label>MP3 URL<input type="url" class="mp3Url" required /></label><label>Order<input type="number" class="trackNumber" value="${nextTrackNumber}" min="1" required /></label><label>Duration (s)<input type="number" class="durationSeconds" /></label><label>Year<input type="number" class="trackYear" /></label><label>Genre<input type="text" class="trackGenre" /></label><label>Track medium<input type="text" class="trackMedium" /></label><label>Track notes<textarea class="trackText"></textarea></label><small class="meta metadataHint">Metadata will auto-load from MP3 URL.</small>`;
+        wrapper.querySelector('.mp3Url').addEventListener('change', async () => {
+          const urlInput = wrapper.querySelector('.mp3Url');
+          const hint = wrapper.querySelector('.metadataHint');
+          const nameInput = wrapper.querySelector('.trackName');
+          const durationInput = wrapper.querySelector('.durationSeconds');
+          if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(urlInput.value);
+          hint.textContent = 'Reading metadata…';
+          const seconds = await AdminDataStore.deriveDurationFromUrl(urlInput.value);
+          if (seconds && !durationInput.value) durationInput.value = seconds;
+          hint.textContent = seconds ? `Metadata ready (${seconds}s)` : 'Metadata lookup skipped.';
+        });
         nextTrackNumber += 1;
         return wrapper;
       }
 
-      function addTrackRow() {
-        const row = createTrackRow();
-        tracksContainer.appendChild(row);
-      }
+      function resetTrackForm() { tracksContainer.innerHTML = ''; nextTrackNumber = Number(activeAlbum?.trackCount || 0) + 1; tracksContainer.appendChild(createTrackRow()); trackStatus.style.display = 'none'; }
 
-      function resetTrackForm() {
-        tracksContainer.innerHTML = '';
-        const baseTrackNumber = Number(activeAlbum?.trackCount || 0) + 1;
-        nextTrackNumber = Number.isNaN(baseTrackNumber) ? 1 : baseTrackNumber;
-        addTrackRow();
-        clearTrackStatus();
-      }
+      albumSelect.addEventListener('change', () => populateForm(albums.find((album) => album.albumName === albumSelect.value)));
+      addTrackButton.addEventListener('click', () => tracksContainer.appendChild(createTrackRow()));
 
-      addTrackButton.addEventListener('click', addTrackRow);
-
-      addTracksForm.addEventListener('submit', async event => {
+      document.getElementById('albumForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        clearTrackStatus();
-
-        if (!activeAlbum) {
-          showTrackStatus('Select an album before adding tracks.', true);
-          return;
-        }
-
-        const rows = tracksContainer.querySelectorAll('.track-row');
-        const tracks = [];
-
-        rows.forEach(row => {
-          const trackName = row.querySelector('.trackName').value.trim();
-          const mp3Url = row.querySelector('.mp3Url').value.trim();
-          const trackNumber = row.querySelector('.trackNumber').value;
-          const durationSeconds = row.querySelector('.durationSeconds').value;
-          const year = row.querySelector('.trackYear').value;
-          const genre = row.querySelector('.trackGenre').value;
-          const trackMedium = row.querySelector('.trackMedium').value;
-          const trackText = row.querySelector('.trackText').value;
-
-          if (trackName && mp3Url) {
-            tracks.push({ trackName, mp3Url, trackNumber, durationSeconds, year, genre, trackMedium, trackText });
-          }
+        if (!activeAlbum) return;
+        const updates = {};
+        ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','bgcolor','genre','year'].forEach((key) => {
+          if (String(activeAlbum[key] || '') !== String(fields[key].value || '')) updates[key] = fields[key].value;
         });
-
-        if (!tracks.length) {
-          showTrackStatus('Add a track name and MP3 URL to save.', true);
-          return;
-        }
-
-        const albumPayload = {
-          albumName: fields.albumName.value || activeAlbum.albumName,
-          albumId: fields.albumId.value,
-          artistName: fields.artistName.value,
-          artworkUrl: fields.artworkUrl.value,
-          albumArtworkUrl: fields.albumArtworkUrl.value,
-          bgcolor: fields.bgcolor.value,
-          genre: fields.genre.value,
-          year: fields.year.value,
-          published: fields.published.checked
-        };
-
-        showTrackStatus('Saving tracks…');
+        if ((activeAlbum.published !== false) !== fields.published.checked) updates.published = fields.published.checked;
+        if (!Object.keys(updates).length) return showStatus('No changes to save.');
 
         try {
-          await fetch('/.netlify/functions/addTrack', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ album: albumPayload, tracks })
-          });
-
-          showTrackStatus('Tracks added to album.');
-          resetTrackForm();
-          await loadAlbums(albumPayload.albumName);
-        } catch (error) {
-          console.error(error);
-          showTrackStatus('Could not save tracks.', true);
-        }
+          await fetch('/.netlify/functions/editAlbum', { method: 'POST', body: JSON.stringify({ albumName: activeAlbum.albumName, updates }) });
+          AdminDataStore.invalidateCache(['albums', 'tracks']);
+          showStatus('Album updated.');
+          await loadAlbums(fields.albumName.value);
+        } catch (_error) { showStatus('Could not update album.', true); }
       });
 
-      loadAlbums();
+      addTracksForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!activeAlbum) return showTrackStatus('Select an album first.', true);
+
+        const tracks = [...tracksContainer.querySelectorAll('.track-row')].map((row) => ({
+          trackName: row.querySelector('.trackName').value.trim(), mp3Url: row.querySelector('.mp3Url').value.trim(),
+          trackNumber: row.querySelector('.trackNumber').value, durationSeconds: row.querySelector('.durationSeconds').value,
+          year: row.querySelector('.trackYear').value, genre: row.querySelector('.trackGenre').value,
+          trackMedium: row.querySelector('.trackMedium').value, trackText: row.querySelector('.trackText').value
+        })).filter((track) => track.trackName && track.mp3Url);
+
+        if (!tracks.length) return showTrackStatus('Add at least one track.', true);
+
+        const albumPayload = { albumName: fields.albumName.value || activeAlbum.albumName, albumId: fields.albumId.value, artistName: fields.artistName.value, artworkUrl: fields.artworkUrl.value, albumArtworkUrl: fields.albumArtworkUrl.value, bgcolor: fields.bgcolor.value, genre: fields.genre.value, year: fields.year.value, published: fields.published.checked };
+        try {
+          await fetch('/.netlify/functions/addTrack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ album: albumPayload, tracks }) });
+          AdminDataStore.invalidateCache(['albums', 'tracks']);
+          showTrackStatus('Tracks added.');
+          await loadAlbums(albumPayload.albumName);
+        } catch (_error) { showTrackStatus('Could not save tracks.', true); }
+      });
+
+      window.addEventListener('DOMContentLoaded', async () => {
+        AdminDataStore.mountTabs();
+        try { await loadAlbums(); } catch (_error) { showStatus('Could not load releases.', true); }
+      });
     </script>
   </body>
 </html>
