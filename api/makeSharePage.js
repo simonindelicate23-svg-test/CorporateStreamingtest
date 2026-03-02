@@ -1,5 +1,5 @@
-const { MongoClient, ObjectId } = require('mongodb');
-const config = require('./dbConfig');
+const { ObjectId } = require('mongodb');
+const { loadTracks } = require('./lib/legacyTracksStore');
 
 const DEFAULT_DESCRIPTION = 'Listen to Simon Indelicate online.';
 const DEFAULT_IMAGE = '/img/icons8-music-album-64.png';
@@ -33,27 +33,22 @@ function extractRequestParams(event) {
   const segments = normalizePathSegments(event.path || '');
 
   const albumIndex = segments.indexOf('album');
-  if (albumIndex >= 0 && segments[albumIndex + 1]) {
-    albumParam = segments[albumIndex + 1];
-  }
+  if (albumIndex >= 0 && segments[albumIndex + 1]) albumParam = segments[albumIndex + 1];
 
   const trackIndex = segments.indexOf('track');
-  if (trackIndex >= 0 && segments[trackIndex + 1]) {
-    trackParam = segments[trackIndex + 1];
-  }
+  if (trackIndex >= 0 && segments[trackIndex + 1]) trackParam = segments[trackIndex + 1];
 
   return { trackParam, albumParam };
 }
 
 function extractTrackId(trackParam) {
   if (!trackParam) return null;
-  const [idCandidate] = trackParam.split('-');
-  return idCandidate;
+  return String(trackParam).split('-')[0];
 }
 
 function buildOrigin(event) {
-  const protocol = event.headers['x-forwarded-proto'] || 'https';
-  const host = event.headers.host || event.headers['x-forwarded-host'];
+  const protocol = event.headers?.['x-forwarded-proto'] || 'https';
+  const host = event.headers?.host || event.headers?.['x-forwarded-host'] || 'localhost';
   return `${protocol}://${host}`;
 }
 
@@ -107,7 +102,7 @@ function buildRedirect(origin, params = {}) {
 }
 
 function buildSlugPath(origin, track, albumParam) {
-  const albumSegment = albumParam || slugify(track?.albumName);
+  const albumSegment = albumParam || slugify(track?.albumName || '');
 
   if (track?.trackName) {
     const trackSlug = slugify(track.trackName);
@@ -122,81 +117,84 @@ function buildSlugPath(origin, track, albumParam) {
 
 function buildAlbumMeta(track = {}, origin, albumParam) {
   if (!track.albumName) return null;
-  const redirectUrl = buildRedirect(origin, { album: albumParam || track.albumId || slugify(track.albumName) });
+  const canonicalAlbumSlug = slugify(track.albumName);
+  const redirectUrl = buildRedirect(origin, { album: canonicalAlbumSlug });
 
   return {
     title: track.albumName,
-    description: track.artistName
-      ? `${track.albumName} by ${track.artistName}.`
-      : `${track.albumName}.`,
+    description: track.artistName ? `${track.albumName} by ${track.artistName}.` : `${track.albumName}.`,
     image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
     type: 'music.album',
-    url: buildSlugPath(origin, null, albumParam || track.albumId || slugify(track.albumName)),
-    redirectUrl
+    url: buildSlugPath(origin, null, albumParam || canonicalAlbumSlug),
+    redirectUrl,
   };
 }
 
 function buildTrackMeta(track = {}, origin, albumParam) {
   if (!track.trackName) return null;
+  const canonicalAlbumSlug = slugify(track.albumName || albumParam || '');
   const redirectUrl = buildRedirect(origin, {
     track: track._id,
-    album: albumParam || track.albumId || slugify(track.albumName)
+    album: canonicalAlbumSlug,
   });
 
   return {
     title: `${track.trackName}${track.artistName ? ` — ${track.artistName}` : ''}`,
-    description: track.albumName
-      ? `${track.trackName} from ${track.albumName}.`
-      : track.trackName,
+    description: track.albumName ? `${track.trackName} from ${track.albumName}.` : track.trackName,
     image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
     type: 'music.song',
-    url: buildSlugPath(origin, track, albumParam || track.albumId || slugify(track.albumName)),
-    redirectUrl
+    url: buildSlugPath(origin, track, albumParam || canonicalAlbumSlug),
+    redirectUrl,
   };
 }
 
-async function fetchTrack(tracksCollection, trackParam) {
-  if (!trackParam) return null;
-  const trackId = extractTrackId(trackParam);
-  const query = [{ _id: trackId }];
-
-  if (ObjectId.isValid(trackId)) {
-    query.push({ _id: new ObjectId(trackId) });
-  }
-
-  const track = await tracksCollection.findOne({ $or: query });
-  if (track) return track;
-
-  const slug = slugify(trackParam);
-  if (!slug) return null;
-
-  const slugRegex = new RegExp(`^${slug.replace(/-/g, '[-\\s]+')}$`, 'i');
-
-  return tracksCollection.findOne({
-    $or: [
-      { trackSlug: slug },
-      { trackName: slugRegex }
-    ],
-    published: { $ne: false }
-  });
+function isPublishedTrack(track) {
+  return track?.published !== false;
 }
 
-async function fetchAlbumLeadTrack(tracksCollection, albumParam) {
-  if (!albumParam) return null;
+function matchesTrackId(track, trackParam) {
+  const rawId = extractTrackId(trackParam);
+  if (!rawId) return false;
+  const id = String(track?._id || '');
+  if (id === rawId) return true;
+  if (ObjectId.isValid(rawId) && ObjectId.isValid(id)) return String(new ObjectId(id)) === String(new ObjectId(rawId));
+  return false;
+}
+
+function matchesTrackSlug(track, trackParam) {
+  const slug = slugify(trackParam);
+  if (!slug) return false;
+  const trackSlug = slugify(track?.trackName || track?.trackSlug || '');
+  return trackSlug === slug;
+}
+
+function fetchTrack(tracks, trackParam) {
+  if (!trackParam) return null;
+  return tracks.find(track => isPublishedTrack(track) && (matchesTrackId(track, trackParam) || matchesTrackSlug(track, trackParam))) || null;
+}
+
+function matchesAlbum(track, albumParam) {
   const albumSlug = slugify(albumParam);
-  const queries = [
-    { albumId: albumParam },
-    { albumName: albumParam }
-  ];
+  const albumName = String(track?.albumName || '');
+  const albumId = String(track?.albumId || '');
+  const nameSlug = slugify(albumName);
+  const idSlug = slugify(albumId);
+  const exactAlbumParam = String(albumParam || '').toLowerCase();
 
-  if (albumSlug) {
-    queries.push({ albumId: albumSlug }, { albumName: new RegExp(`^${escapeRegExp(albumParam)}$`, 'i') });
-  }
-
-  return tracksCollection.findOne(
-    { $or: queries, published: { $ne: false } },
-    { sort: { trackNumber: 1 } }
+  return (
+    idSlug === albumSlug ||
+    nameSlug === albumSlug ||
+    albumId.toLowerCase() === exactAlbumParam ||
+    albumName.toLowerCase() === exactAlbumParam ||
+    new RegExp(`^${escapeRegExp(String(albumParam || ''))}$`, 'i').test(albumName)
   );
+}
+
+function fetchAlbumLeadTrack(tracks, albumParam) {
+  if (!albumParam) return null;
+  return tracks
+    .filter(track => isPublishedTrack(track) && matchesAlbum(track, albumParam))
+    .sort((a, b) => (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0))[0] || null;
 }
 
 exports.handler = async event => {
@@ -204,17 +202,11 @@ exports.handler = async event => {
   const requestUrl = event.rawUrl || buildRedirect(origin);
   const { trackParam, albumParam } = extractRequestParams(event);
 
-  const client = new MongoClient(config.mongodbUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
-
   try {
-    await client.connect();
-    const tracksCollection = client.db(config.databaseName).collection(config.collectionName);
+    const { tracks } = await loadTracks();
 
-    const track = await fetchTrack(tracksCollection, trackParam);
-    const albumTrack = track ? null : await fetchAlbumLeadTrack(tracksCollection, albumParam);
+    const track = fetchTrack(tracks, trackParam);
+    const albumTrack = track ? null : fetchAlbumLeadTrack(tracks, albumParam);
 
     const meta =
       buildTrackMeta(track, origin, albumParam) ||
@@ -223,17 +215,15 @@ exports.handler = async event => {
         description: DEFAULT_DESCRIPTION,
         image: absoluteUrl(origin, DEFAULT_IMAGE),
         url: buildSlugPath(origin, track || albumTrack, albumParam),
-        redirectUrl: buildRedirect(origin, { track: trackParam, album: albumParam })
+        redirectUrl: buildRedirect(origin, { track: trackParam, album: albumParam }),
       };
 
     const html = buildShareHtml(meta, meta.redirectUrl || meta.url);
 
     return {
       statusCode: track || albumTrack ? 200 : 404,
-      headers: {
-        'Content-Type': 'text/html; charset=UTF-8'
-      },
-      body: html
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+      body: html,
     };
   } catch (error) {
     console.error('Unable to generate share page', error);
@@ -241,12 +231,8 @@ exports.handler = async event => {
     const html = buildShareHtml({ title: 'Simon Indelicate', description: DEFAULT_DESCRIPTION }, fallbackUrl, requestUrl);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'text/html; charset=UTF-8'
-      },
-      body: html
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+      body: html,
     };
-  } finally {
-    await client.close();
   }
 };

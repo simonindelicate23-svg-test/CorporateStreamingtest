@@ -1,102 +1,177 @@
-# MechCh-Streaming-Site---Copy
+# Full Generic Music Streaming App
 
-A music streaming website to stream tracks from albums contained in a MongoDb Database for deployment on Netlify using serverless functions.
+A Netlify-first music streaming app with a static front-end (`public/`) and Node serverless functions (`api/`).
 
-## Table of Contents
+This README is updated to reflect the **current state of the repo**: it now contains both a legacy track pipeline and a newer normalized API/paywall foundation.
 
-- [Install](#install)
-- [Usage](#usage)
-- [Contributing](#contributing)   
-- [License](#license)
+## Current project status ("the sitch")
 
-## Install (novice-friendly, 4 steps)
+- **Primary runtime:** Netlify static hosting + Netlify Functions (`netlify.toml` publishes `public/` and runs functions from `api/`).
+- **Frontend:** modern player UI in `public/player.html` with modular scripts in `public/player/`.
+- **Legacy content flow (actively used by player):**
+  - Player loads from `/.netlify/functions/tracks` and `/.netlify/functions/albums`.
+  - These functions read from `api/lib/legacyTracksStore.js`, which can use:
+    - FTP JSON (`uploads/metadata/tracks.json` style path),
+    - local JSON file (`storage/metadata/tracks.json`), or
+    - Mongo legacy collection (`tracks_legacy` by default).
+- **New normalized backend (partially integrated):**
+  - `api/v1-*` endpoints for instance/releases/tracks/stream.
+  - Mongo collections for `artists`, `releases`, `tracks`, `assets`, `products`, `entitlements`.
+  - Upload + entitlement plumbing exists (`api/upload.js`, `api/stream.js`, PayPal webhook code), but the public player still uses legacy endpoints today.
 
-1. Open your already-deployed site at `https://your-site.netlify.app/install.html`.
-2. Enter your FTP/media hosting details in the form.
-3. Copy the generated setup values into **Netlify → Site configuration → Environment variables** (one-time step).
-4. Open `/insert.html` and upload a test file.
+## Repository survey
 
-That is the whole flow: upload media from your Netlify app via FTP and write canonical JSON to track releases.
+### Top-level layout
 
-## Usage
+- `public/` – static app pages, player UI, admin pages, styles, and media assets.
+- `api/` – serverless functions for tracks/albums CRUD, uploads, streaming, settings, share pages, v1 APIs, and PayPal hooks.
+- `api/lib/` – shared helpers (DB connection, auth, IDs, entitlements, HTTP helpers, legacy and site settings stores).
+- `scripts/` – setup/migration/bootstrap scripts for Mongo indexes and legacy->normalized migration.
+- `docs/` – architecture notes and OpenAPI draft.
+- `tools/` – one-off media/artwork helper scripts.
+- `uploads/` – existing uploaded/static sample media assets in repo.
 
-### Default data source
+### Frontend pages of note
 
-The default source of truth is `public/albumfooter.json` (canonical JSON).
+- `public/player.html` – main listening experience.
+- `public/insert.html` – upload/track entry tooling.
+- `public/edit.html`, `public/edit-albums.html`, `public/admin-settings.html` – admin interfaces.
+- `public/install.html` – guided install page for env configuration copy/paste.
+- `public/support.html` – support/paypal-oriented page.
 
-MongoDB support still exists for advanced/custom setups, but it is not required for standard onboarding.
+### Serverless/API surface (high-level)
 
-### Data shape example
+### Legacy + current player endpoints
 
-Whether the data comes from JSON or MongoDB, each track entry should look like this:
+- `api/tracks.js` – returns full legacy track list.
+- `api/albums.js` – derived album list from published legacy tracks.
+- `api/addTrack.js`, `api/edit.js`, `api/editAlbum.js` – legacy CRUD and metadata updates.
+- `api/siteSettings.js` – read/write site settings via FTP JSON or local JSON.
+- `api/uploadMedia.js` – FTP media uploader used by front-end upload flow.
+
+### Normalized / v1 / paywall groundwork
+
+- `api/v1-instance.js` – instance metadata and discovery flag.
+- `api/v1-releases.js`, `api/v1-tracks.js` – normalized release/track reads.
+- `api/v1-stream.js` -> `api/stream.js` – gated audio stream with Range support.
+- `api/upload.js` – admin upload endpoint writing assets to `STORAGE_ROOT` and track+asset docs to Mongo.
+- `api/paypalWebhook.js` + `api/lib/paypal.js` – webhook verification and entitlement grant path.
+
+### Data/storage model in practice
+
+### Legacy mode (currently used by main player)
+
+Track docs look like:
 
 ```json
 {
-  "albumName": "Arcadia Park",
-  "artistName": "Simon Indelicate",
-  "artworkUrl": "https://example.com/artwork.png",
-  "mp3Url": "https://example.com/audio.mp3",
-  "trackName": "Entrance Plaza",
-  "trackNumber": "1",
-  "albumArtworkUrl": "https://example.com/album-art.png",
-  "trackDuration": "3:32"
+  "_id": "...",
+  "albumName": "Album",
+  "artistName": "Artist",
+  "trackName": "Track",
+  "trackNumber": 1,
+  "mp3Url": "https://...",
+  "artworkUrl": "https://...",
+  "albumArtworkUrl": "https://...",
+  "published": true
 }
 ```
 
-### Uploads for non-technical users (one-click flow)
+Storage backend selection for legacy tracks is controlled by `LEGACY_TRACK_STORE`:
 
-The desired UX is:
+- `auto` (default): prefers FTP if configured; otherwise file JSON; fallback behavior includes Mongo in some paths.
+- `ftp-json`
+- `file-json`
+- `mongodb`
 
-1. User clicks upload in this app.
-2. Netlify Function uploads the file to your storage provider (S3-compatible or SFTP host).
-3. Function writes the returned public URL into your track data automatically.
+### Normalized mode (in-progress foundation)
 
-That avoids the broken workflow of "go to another website, upload, then come back and paste URLs."
+Collections intended/used:
 
-This repository now includes `/.netlify/functions/uploadMedia`, used by `public/insert.html` upload buttons for artwork and track audio.
+- `artists`
+- `releases`
+- `tracks`
+- `assets`
+- `products`
+- `entitlements`
 
-Set these environment variables in Netlify for one-click uploads:
+Setup and migration scripts:
+
+- `npm run setup` – creates indexes.
+- `npm run migrate` – migrates legacy tracks to normalized collections.
+- `npm run fresh-install` – bootstrap helper that checks env, DB, setup, then migration.
+
+## Environment variables
+
+Core:
+
+- `MONGODB_URI`
+- `MONGODB_DB_NAME`
+- `MONGODB_TRACKS_COLLECTION` (legacy collection, default `tracks_legacy`)
+- `STORAGE_ROOT`
+- `APP_BASE_URL`
+- `DISCOVERY_OPT_IN`
+
+FTP/media flow:
 
 - `FTP_HOST`
 - `FTP_USER`
 - `FTP_PASSWORD`
-- `FTP_PUBLIC_BASE_URL` (for example `https://media.yourdomain.com`)
-- Optional: `FTP_BASE_PATH` (defaults to `uploads`)
-- Optional: `FTP_SECURE=true`
+- `FTP_PUBLIC_BASE_URL`
+- `FTP_BASE_PATH` (optional, default `uploads`)
+- `FTP_SECURE` (`true`/`false`)
+- `TRACKS_JSON_REMOTE_PATH` (optional)
+- `TRACKS_JSON_PATH` (optional local override)
+- `SITE_SETTINGS_REMOTE_PATH` / `SITE_SETTINGS_PATH` (optional)
+- `LEGACY_TRACK_STORE` (`auto|ftp-json|file-json|mongodb`)
 
-### Quick checks
+Auth/payment:
 
-```bash
-node -v
-npm -v
-```
+- `ADMIN_PIN` (for admin-protected routes)
+- `PAYPAL_CLIENT_ID`
+- `PAYPAL_CLIENT_SECRET`
+- `PAYPAL_WEBHOOK_ID`
+- `PAYPAL_API_BASE`
 
-For local development:
+Use `.env.example` as the baseline template.
+
+## Local development
 
 ```bash
 npm install
 npx netlify dev
 ```
 
-Then open `http://localhost:8888/player.html`.
+Then open:
 
-## Contributing
+- Player: `http://localhost:8888/player.html`
+- Installer: `http://localhost:8888/install.html`
 
-Look, I have no idea what I am doing. I cobbled this thing together with no real understanding and the professional standards of a pig in shoes. It's all hacks and bolt=ons and every bit of it could be improved.
+Optional data/index preparation (requires running MongoDB + env configured):
 
-I think the way it gets data in one big dump is probably the worst way to do things - someone should come up with a better way that can scale to a larger db more efficiently.
+```bash
+npm run setup
+npm run migrate
+```
 
-This is just one example though, anyone with any skills would be able to improve every line, I expect. It could also do with being formatted prettily and commented better throughout. At the bare minimum someone should move the css into its pwn file - I mean how lazy am I, jfc.
+## Deployment
 
-I have my version of the site in a private repo so please do anything you want with this.
+- Designed for Netlify deployment today (`netlify.toml`).
+- Redirects include:
+  - `/` -> `/player.html`
+  - share links (`/album/:albumId`, `/track/:trackId`, etc.) -> `/.netlify/functions/makeSharePage`.
 
-I'd love it if actual coders took this, genericised and optimised it and made it into something that musicians with no skillz could take and use easily.
+## Known gaps / technical debt
+
+- Main player still relies on legacy endpoints rather than normalized `v1` APIs.
+- Legacy and normalized data models coexist, increasing maintenance complexity.
+- `server.js` exists as an Express-era local server artifact and is not the active Netlify runtime path.
+- Repository includes many large static assets and historical uploads that are not part of app logic.
 
 ## License
-*MIT*
 
-## Author  
-**Simon Indelicate**
+MIT
 
-## Contact
-[simon@indelicates.com](mailto:simon@indelicates.com)
+## Author
+
+Simon Indelicate
