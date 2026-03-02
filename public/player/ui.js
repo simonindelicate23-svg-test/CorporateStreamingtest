@@ -393,13 +393,45 @@ function hydrateWelcomeHero(heroConfig) {
   }
 }
 
+function parseFeatureTimestamp(feature) {
+  if (!feature) return 0;
+  const candidate = feature.featuredAt || feature.updatedAt || feature.featuredReleaseUpdatedAt || feature.timestamp;
+  const parsed = candidate ? Date.parse(candidate) : NaN;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function chooseCanonicalFeaturedRelease(...candidates) {
+  const valid = candidates.filter((entry) => entry?.title && entry?.coverImageUrl);
+  if (!valid.length) return null;
+  return valid.sort((a, b) => parseFeatureTimestamp(b) - parseFeatureTimestamp(a))[0];
+}
+
 async function loadWelcomeHero() {
   try {
-    const response = await fetch('/welcome-config.json');
-    if (!response.ok) return;
-    const config = await response.json();
-    const featured = config?.featuredRelease;
-    if (!featured?.title || !featured?.coverImageUrl) return;
+    const [siteSettingsResponse, welcomeResponse] = await Promise.all([
+      fetch('/.netlify/functions/siteSettings').catch(() => null),
+      fetch('/welcome-config.json').catch(() => null)
+    ]);
+
+    let settingsFeatured = null;
+    if (siteSettingsResponse?.ok) {
+      const settings = await siteSettingsResponse.json();
+      if (settings?.featuredRelease) {
+        settingsFeatured = {
+          ...settings.featuredRelease,
+          featuredAt: settings.featuredRelease?.featuredAt || settings.featuredReleaseUpdatedAt || settings.updatedAt
+        };
+      }
+    }
+
+    let fileFeatured = null;
+    if (welcomeResponse?.ok) {
+      const config = await welcomeResponse.json();
+      if (config?.featuredRelease) fileFeatured = config.featuredRelease;
+    }
+
+    const featured = chooseCanonicalFeaturedRelease(settingsFeatured, fileFeatured);
+    if (!featured) return;
     hydrateWelcomeHero(featured);
     updateWelcomeState();
   } catch (error) {

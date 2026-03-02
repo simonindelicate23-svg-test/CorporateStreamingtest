@@ -19,6 +19,14 @@
         <div id="status" class="status" style="display:none;"></div>
       </div>
 
+
+      <div class="card" id="featuredCard" style="display:none;">
+        <h2>Featured release</h2>
+        <p class="meta">Set the currently selected release as canonical featured release for the welcome hero. The latest save always wins.</p>
+        <div class="actions"><button type="button" id="setFeaturedButton">Set selected release as featured</button></div>
+        <div id="featuredStatus" class="status" style="display:none;margin-top:12px;"></div>
+      </div>
+
       <div class="card" id="formCard" style="display:none;">
         <form id="albumForm">
           <div class="form-grid">
@@ -57,6 +65,9 @@
       const addTrackButton = document.getElementById('addTrackButton');
       const addTracksForm = document.getElementById('addTracksForm');
       const trackStatus = document.getElementById('trackStatus');
+      const featuredCard = document.getElementById('featuredCard');
+      const featuredStatus = document.getElementById('featuredStatus');
+      const setFeaturedButton = document.getElementById('setFeaturedButton');
 
       const fields = ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','bgcolor','genre','year','published'].reduce((acc, id) => ({ ...acc, [id]: document.getElementById(id) }), {});
       let albums = [];
@@ -65,6 +76,7 @@
 
       function showStatus(message, isError = false) { status.textContent = message; status.style.display = 'block'; status.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
       function showTrackStatus(message, isError = false) { trackStatus.textContent = message; trackStatus.style.display = 'block'; trackStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
+      function showFeaturedStatus(message, isError = false) { featuredStatus.textContent = message; featuredStatus.style.display = 'block'; featuredStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
 
       function renderAlbumOptions() {
         albumSelect.innerHTML = '<option value="">Select release</option>';
@@ -78,8 +90,8 @@
 
       function populateForm(album) {
         activeAlbum = album;
-        if (!album) { formCard.style.display = 'none'; addTracksCard.style.display = 'none'; trackCount.textContent = '—'; return; }
-        formCard.style.display = 'block'; addTracksCard.style.display = 'block';
+        if (!album) { formCard.style.display = 'none'; addTracksCard.style.display = 'none'; featuredCard.style.display = 'none'; trackCount.textContent = '—'; return; }
+        formCard.style.display = 'block'; addTracksCard.style.display = 'block'; featuredCard.style.display = 'block';
         fields.albumName.value = album.albumName || ''; fields.albumId.value = album.albumId || ''; fields.artistName.value = album.artistName || '';
         fields.artworkUrl.value = album.artworkUrl || ''; fields.albumArtworkUrl.value = album.albumArtworkUrl || ''; fields.bgcolor.value = album.bgcolor || '';
         fields.genre.value = album.genre || ''; fields.year.value = album.year || ''; fields.published.checked = album.published !== false;
@@ -156,6 +168,43 @@
           showTrackStatus('Tracks added.');
           await loadAlbums(albumPayload.albumName);
         } catch (_error) { showTrackStatus('Could not save tracks.', true); }
+      });
+
+
+      setFeaturedButton.addEventListener('click', async () => {
+        if (!activeAlbum) return showFeaturedStatus('Select an album first.', true);
+
+        const albumId = (fields.albumId.value || activeAlbum.albumId || '').trim();
+        if (!albumId) return showFeaturedStatus('This release needs an Album ID before it can be featured.', true);
+
+        const featuredRelease = {
+          title: (fields.albumName.value || activeAlbum.albumName || '').trim(),
+          albumId,
+          coverImageUrl: (fields.albumArtworkUrl.value || fields.artworkUrl.value || activeAlbum.albumArtworkUrl || activeAlbum.artworkUrl || '').trim(),
+          tagline: `Now featuring ${((fields.albumName.value || activeAlbum.albumName || '').trim())}.`,
+          ctaText: 'Listen Now',
+          featuredAt: new Date().toISOString(),
+          source: 'edit-albums'
+        };
+
+        if (!featuredRelease.title || !featuredRelease.coverImageUrl) {
+          return showFeaturedStatus('Featured release needs both title and artwork URL.', true);
+        }
+
+        try {
+          const existing = await fetch('/.netlify/functions/siteSettings').then((response) => response.ok ? response.json() : ({}));
+          const payload = { ...existing, featuredRelease, featuredReleaseUpdatedAt: featuredRelease.featuredAt };
+          const response = await fetch('/.netlify/functions/siteSettings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) throw new Error('Could not persist featured release settings.');
+          AdminDataStore.invalidateCache(['site-settings']);
+          showFeaturedStatus('Featured release updated. This is now the canonical featured release.');
+        } catch (_error) {
+          showFeaturedStatus('Could not set featured release.', true);
+        }
       });
 
       window.addEventListener('DOMContentLoaded', async () => {
