@@ -294,6 +294,14 @@ function slugifyAlbumName(name = '') {
     .replace(/-{2,}/g, '-');
 }
 
+function canonicalAlbumSlug(albumOrIdentifier) {
+  const album = findAlbum(albumOrIdentifier);
+  if (album?.albumName) return slugifyAlbumName(album.albumName);
+  if (typeof albumOrIdentifier === 'string') return slugifyAlbumName(albumOrIdentifier);
+  if (albumOrIdentifier?.albumName) return slugifyAlbumName(albumOrIdentifier.albumName);
+  return '';
+}
+
 function isFavoriteTrack(track) {
   const value = track?.fav;
   return value === true || value === 'true' || value === 1 || value === '1';
@@ -355,10 +363,8 @@ function buildAlbumSlug(heroConfig) {
 
 function buildFeaturedAlbumLink(slug) {
   if (!slug) return '#';
-  const url = new URL(window.location.href);
-  url.searchParams.set('album', slug);
-  url.searchParams.delete('track');
-  return `${url.pathname}${url.search}`;
+  const canonicalSlug = canonicalAlbumSlug(slug) || slugifyAlbumName(slug);
+  return `/album/${canonicalSlug}`;
 }
 
 function hydrateWelcomeHero(heroConfig) {
@@ -393,13 +399,45 @@ function hydrateWelcomeHero(heroConfig) {
   }
 }
 
+function parseFeatureTimestamp(feature) {
+  if (!feature) return 0;
+  const candidate = feature.featuredAt || feature.updatedAt || feature.featuredReleaseUpdatedAt || feature.timestamp;
+  const parsed = candidate ? Date.parse(candidate) : NaN;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function chooseCanonicalFeaturedRelease(...candidates) {
+  const valid = candidates.filter((entry) => entry?.title && entry?.coverImageUrl);
+  if (!valid.length) return null;
+  return valid.sort((a, b) => parseFeatureTimestamp(b) - parseFeatureTimestamp(a))[0];
+}
+
 async function loadWelcomeHero() {
   try {
-    const response = await fetch('/welcome-config.json');
-    if (!response.ok) return;
-    const config = await response.json();
-    const featured = config?.featuredRelease;
-    if (!featured?.title || !featured?.coverImageUrl) return;
+    const [siteSettingsResponse, welcomeResponse] = await Promise.all([
+      fetch('/.netlify/functions/siteSettings').catch(() => null),
+      fetch('/welcome-config.json').catch(() => null)
+    ]);
+
+    let settingsFeatured = null;
+    if (siteSettingsResponse?.ok) {
+      const settings = await siteSettingsResponse.json();
+      if (settings?.featuredRelease) {
+        settingsFeatured = {
+          ...settings.featuredRelease,
+          featuredAt: settings.featuredRelease?.featuredAt || settings.featuredReleaseUpdatedAt || settings.updatedAt
+        };
+      }
+    }
+
+    let fileFeatured = null;
+    if (welcomeResponse?.ok) {
+      const config = await welcomeResponse.json();
+      if (config?.featuredRelease) fileFeatured = config.featuredRelease;
+    }
+
+    const featured = chooseCanonicalFeaturedRelease(settingsFeatured, fileFeatured);
+    if (!featured) return;
     hydrateWelcomeHero(featured);
     updateWelcomeState();
   } catch (error) {
@@ -875,10 +913,20 @@ function albumCoverFor(album) {
 function findAlbum(identifier) {
   if (!identifier) return null;
   if (typeof identifier === 'object' && identifier.albumName) return identifier;
-  const lookup = identifier.toString().toLowerCase();
+  const raw = identifier.toString();
+  const lookup = raw.toLowerCase();
+  const slugLookup = slugifyAlbumName(raw);
   return state.albums.find(album => {
-    const albumId = album.albumId || slugifyAlbumName(album.albumName);
-    return albumId.toLowerCase() === lookup || album.albumName?.toLowerCase() === lookup;
+    const albumId = String(album.albumId || '').toLowerCase();
+    const albumName = String(album.albumName || '').toLowerCase();
+    const albumNameSlug = slugifyAlbumName(album.albumName || '');
+    const albumIdSlug = slugifyAlbumName(album.albumId || '');
+    return (
+      albumId === lookup ||
+      albumName === lookup ||
+      albumNameSlug === slugLookup ||
+      albumIdSlug === slugLookup
+    );
   });
 }
 
@@ -1179,6 +1227,7 @@ function setAlbum(albumIdentifier) {
   if (!album) return;
   const albumName = album.albumName;
   const albumId = album.albumId || slugifyAlbumName(album.albumName);
+  const canonicalSlug = canonicalAlbumSlug(album) || slugifyAlbumName(albumName);
   state.currentAlbum = albumName;
   state.currentAlbumId = albumId;
   dom.albumHeading.textContent = albumName;
@@ -1191,7 +1240,7 @@ function setAlbum(albumIdentifier) {
     dom.albumLength.textContent = metaInfo.summary;
   }
   renderTracks(album);
-  const shareUrl = buildShareUrl(null, albumId || albumName);
+  const shareUrl = buildShareUrl(null, canonicalSlug || albumId || albumName);
   if (shareUrl?.pathname) {
     history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
   }
@@ -1312,7 +1361,7 @@ function updatePlayerMeta(track) {
 
 function buildShareUrl(track, albumParam) {
   const shareUrl = new URL(window.location.origin);
-  const resolvedAlbum = albumParam || track?.albumId || state.currentAlbumId || slugifyAlbumName(track?.albumName || state.currentAlbum);
+  const resolvedAlbum = canonicalAlbumSlug(albumParam || track?.albumName || state.currentAlbum) || slugifyAlbumName(albumParam || track?.albumName || state.currentAlbum || '');
 
   if (track) {
     const trackSlug = slugify(track.trackName);
@@ -1347,6 +1396,25 @@ async function copyShareLink() {
   } catch (err) {
     console.warn('Clipboard unavailable', err);
   }
+}
+
+
+function getPathRouteParams() {
+  const segments = window.location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  if (!segments.length) return { album: null, track: null };
+
+  const albumIndex = segments.indexOf('album');
+  const trackIndex = segments.indexOf('track');
+
+  const album = albumIndex >= 0 ? segments[albumIndex + 1] || null : null;
+  const track = trackIndex >= 0 ? segments[trackIndex + 1] || null : null;
+
+  return { album, track };
+}
+
+function extractTrackId(trackParam) {
+  if (!trackParam) return null;
+  return String(trackParam).split('-')[0] || null;
 }
 
 function resolveTrackUrl(track) {
@@ -1718,14 +1786,21 @@ export async function init() {
     syncPlayModes();
     bindEvents();
     const params = new URLSearchParams(window.location.search);
-    const sharedTrackId = params.get('track') || params.get('id');
-    const albumParam = params.get('album') || params.get('albumId');
+    const routeParams = getPathRouteParams();
+    const sharedTrackParam = params.get('track') || params.get('id') || routeParams.track;
+    const sharedTrackId = extractTrackId(sharedTrackParam);
+    const albumParam = params.get('album') || params.get('albumId') || routeParams.album;
     const albumFromParam = findAlbum(albumParam);
+
     if (sharedTrackId) {
-      const sharedTrack = state.tracks.find(track => track._id === sharedTrackId);
+      const sharedTrack = state.tracks.find(track => String(track._id) === String(sharedTrackId));
       if (sharedTrack) {
         setAlbum(albumFromParam || sharedTrack.albumId || sharedTrack.albumName);
         playTrack(sharedTrack, { autoplay: false });
+      } else if (albumFromParam) {
+        setAlbum(albumFromParam);
+      } else {
+        showAlbumGallery();
       }
     } else if (albumFromParam) {
       setAlbum(albumFromParam);
