@@ -45,12 +45,16 @@ const defaults = {
   featuredReleaseEnabled: true,
   copyrightNotice: '&copy; Independent Artist',
   themeBackground: '#0f0c14',
-  themeSurface: '#17121f',
+  themePanelSurface: '#120f19',
+  themeTopbarSurface: '#120e18',
+  themeControlSurface: '#1e1824',
+  themeCardSurface: '#17121f',
+  themeCardContrast: '#221b2a',
   themeText: '#f5f2fb',
   themeMutedText: '#bfb6d3',
   themeAccent: '#9a6bff',
   themeBorder: '#2a2235',
-  themeCardContrast: '#221b2a'
+  dynamicColorTheming: true
 };
 
 async function readFtp() {

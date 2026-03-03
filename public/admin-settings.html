@@ -36,13 +36,17 @@
             </div>
 
             <div><label for="palette">Palette</label><input type="text" id="palette" placeholder="default | dark | warm" /></div>
-            <div><label for="themeBackground">Player background</label><input type="color" id="themeBackground" /></div>
-            <div><label for="themeSurface">Card surface</label><input type="color" id="themeSurface" /></div>
+            <div><label for="themeBackground">Page background (behind panels)</label><input type="color" id="themeBackground" /></div>
+            <div><label for="themePanelSurface">Library/player panel background</label><input type="color" id="themePanelSurface" /></div>
+            <div><label for="themeTopbarSurface">Top bar background</label><input type="color" id="themeTopbarSurface" /></div>
+            <div><label for="themeControlSurface">Control button background</label><input type="color" id="themeControlSurface" /></div>
+            <div><label for="themeCardSurface">Card base color</label><input type="color" id="themeCardSurface" /></div>
+            <div><label for="themeCardContrast">Card gradient second tone</label><input type="color" id="themeCardContrast" /></div>
             <div><label for="themeText">Main text</label><input type="color" id="themeText" /></div>
             <div><label for="themeMutedText">Secondary text</label><input type="color" id="themeMutedText" /></div>
             <div><label for="themeAccent">Accent buttons/highlights</label><input type="color" id="themeAccent" /></div>
-            <div><label for="themeCardContrast">Card gradient second tone</label><input type="color" id="themeCardContrast" /></div>
             <div><label for="themeBorder">Card borders/dividers</label><input type="color" id="themeBorder" /></div>
+            <div><label for="dynamicColorTheming">Dynamic artwork color theming (ColorThief)</label><select id="dynamicColorTheming"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
 
             <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
             <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
@@ -78,7 +82,7 @@
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themeSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','dynamicColorTheming',
         'fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
@@ -115,7 +119,7 @@
         fields.forEach((key) => {
           const input = document.getElementById(key);
           if (!input) return;
-          input.value = settings[key] ?? (key === 'featuredReleaseEnabled' ? 'true' : '');
+          input.value = settings[key] ?? ((key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') ? 'true' : '');
         });
       }
 
@@ -124,14 +128,16 @@
 
       document.getElementById('settingsForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const payload = fields.reduce((acc, key) => {
+        const patch = fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
-          if (key === 'featuredReleaseEnabled') acc[key] = raw !== 'false';
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') acc[key] = raw !== 'false';
           else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
           return acc;
         }, {});
 
         try {
+          const existing = await AdminDataStore.requestJson('/.netlify/functions/siteSettings');
+          const payload = { ...existing, ...patch };
           await AdminDataStore.requestJson('/.netlify/functions/siteSettings', { method: 'POST', body: JSON.stringify(payload) });
           AdminDataStore.invalidateCache(['site-settings']);
           showStatus('Settings saved.');
