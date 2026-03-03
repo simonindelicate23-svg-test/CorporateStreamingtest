@@ -234,6 +234,8 @@ async function applySiteSettings() {
     const faviconHref = settings.faviconUrl || '/favicon.ico';
     const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
     faviconEl.href = faviconHref;
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
+    themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
     const rootStyle = document.documentElement.style;
     if (settings.themeBackground) rootStyle.setProperty('--paper', settings.themeBackground);
     if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
