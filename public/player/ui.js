@@ -231,6 +231,17 @@ async function applySiteSettings() {
     BRAND_NAME = settings.brandName || BRAND_NAME;
     DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
     BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
+    const faviconHref = settings.faviconUrl || '/favicon.ico';
+    const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
+    faviconEl.href = faviconHref;
+    const rootStyle = document.documentElement.style;
+    if (settings.themeBackground) rootStyle.setProperty('--paper', settings.themeBackground);
+    if (settings.themeSurface) rootStyle.setProperty('--card', settings.themeSurface);
+    if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
+    if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
+    if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
+    if (settings.themeAccentContrast) rootStyle.setProperty('--accent-contrast', settings.themeAccentContrast);
+    if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
     ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
@@ -444,7 +455,7 @@ async function loadWelcomeHero() {
     let settingsFeatured = null;
     if (siteSettingsResponse?.ok) {
       const settings = await siteSettingsResponse.json();
-      if (settings?.featuredRelease) {
+      if (settings?.featuredReleaseEnabled !== false && settings?.featuredRelease) {
         settingsFeatured = {
           ...settings.featuredRelease,
           featuredAt: settings.featuredRelease?.featuredAt || settings.featuredReleaseUpdatedAt || settings.updatedAt

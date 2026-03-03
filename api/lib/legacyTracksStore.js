@@ -97,37 +97,6 @@ const writeToFile = async (tracks) => {
   return { store: 'file-json', path: filePath };
 };
 
-const getMongoCollection = async () => {
-  const { MongoClient } = require('mongodb');
-  const client = new MongoClient(config.mongodbUri, { useNewUrlParser: true, useUnifiedTopology: true });
-  await client.connect();
-  return {
-    client,
-    collection: client.db(config.databaseName).collection(config.collectionName),
-  };
-};
-
-const readFromMongo = async () => {
-  const { client, collection } = await getMongoCollection();
-  try {
-    return await collection.find().toArray();
-  } finally {
-    await client.close();
-  }
-};
-
-const writeToMongo = async (tracks) => {
-  const { client, collection } = await getMongoCollection();
-  try {
-    if (tracks.length) {
-      await collection.insertMany(tracks);
-    }
-    return { store: 'mongodb', path: config.collectionName };
-  } finally {
-    await client.close();
-  }
-};
-
 const preferredStore = () => String(process.env.LEGACY_TRACK_STORE || 'auto').toLowerCase();
 
 const cacheTtlMs = Number(process.env.LEGACY_TRACK_CACHE_TTL_MS || 120000);
@@ -158,16 +127,15 @@ const loadTracks = async () => {
   const store = preferredStore();
   let result;
 
-  if (store === 'mongodb') result = { tracks: await readFromMongo(), store: 'mongodb' };
-  else if (store === 'file-json') result = { tracks: await readFromFile(), store: 'file-json' };
+  if (store === 'file-json') result = { tracks: await readFromFile(), store: 'file-json' };
   else if (store === 'ftp-json') result = { tracks: await readFromFtp(), store: 'ftp-json' };
   else if (hasFtpConfig()) result = { tracks: await readFromFtp(), store: 'ftp-json' };
   else {
     try {
       result = { tracks: await readFromFile(), store: 'file-json' };
     } catch (error) {
-      console.warn('File JSON store read failed, falling back to MongoDB:', error.message);
-      result = { tracks: await readFromMongo(), store: 'mongodb' };
+      console.warn('File JSON store read failed:', error.message);
+      throw error;
     }
   }
 
@@ -178,11 +146,6 @@ const loadTracks = async () => {
 const appendTracks = async (newTracks) => {
   const store = preferredStore();
   clearCachedTracks();
-
-  if (store === 'mongodb') {
-    const result = await writeToMongo(newTracks);
-    return result;
-  }
 
   if (store === 'ftp-json' || (store === 'auto' && hasFtpConfig())) {
     const existing = await readFromFtp();
@@ -200,24 +163,12 @@ const appendTracks = async (newTracks) => {
     return result;
   }
 
-  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}`);
+  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use ftp-json, file-json, or auto.`);
 };
 
 const saveTracks = async (tracks) => {
   const store = preferredStore();
   clearCachedTracks();
-
-  if (store === 'mongodb') {
-    const { client, collection } = await getMongoCollection();
-    try {
-      await collection.deleteMany({});
-      if (tracks.length) await collection.insertMany(tracks);
-      setCachedTracks(tracks, 'mongodb');
-      return { store: 'mongodb', path: config.collectionName };
-    } finally {
-      await client.close();
-    }
-  }
 
   if (store === 'ftp-json' || (store === 'auto' && hasFtpConfig())) {
     const result = await writeToFtp(tracks);
@@ -231,7 +182,7 @@ const saveTracks = async (tracks) => {
     return result;
   }
 
-  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}`);
+  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use ftp-json, file-json, or auto.`);
 };
 
 const generateTrackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;

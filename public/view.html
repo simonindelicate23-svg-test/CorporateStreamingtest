@@ -73,9 +73,9 @@
       async function togglePublish() {
         if (!currentTrack) return;
         const newStatus = currentTrack.published === false;
-        await fetch('/.netlify/functions/edit', {
+        await fetch('/.netlify/functions/catalog', {
           method: 'POST',
-          body: JSON.stringify({ _id: currentTrack._id, published: newStatus })
+          body: JSON.stringify({ action: 'updateTrack', id: currentTrack._id, updates: { published: newStatus } })
         });
         currentTrack.published = newStatus;
         renderTrack(currentTrack);
@@ -86,17 +86,17 @@
         if (!currentTrack) return;
         const confirmed = window.confirm(`Delete ${currentTrack.trackName}? This cannot be undone.`);
         if (!confirmed) return;
-        await fetch('/.netlify/functions/edit', {
-          method: 'DELETE',
+        await fetch('/.netlify/functions/catalog', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: currentTrack._id })
+          body: JSON.stringify({ action: 'deleteTrack', id: currentTrack._id })
         });
         showStatus('Track deleted. Use the back button to return to the list.', false);
         publishToggle.disabled = true;
         deleteButton.disabled = true;
       }
 
-      fetch('/.netlify/functions/edit?id=' + id)
+      fetch('/.netlify/functions/catalog?resource=track&id=' + id)
         .then(res => res.json())
         .then(track => {
           currentTrack = track;

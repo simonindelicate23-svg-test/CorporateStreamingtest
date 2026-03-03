@@ -32,8 +32,8 @@ function buildAlbums(tracks) {
 
 export async function loadLibrary() {
   const [tracksRes, albumsRes] = await Promise.all([
-    fetch('/.netlify/functions/tracks'),
-    fetch('/.netlify/functions/albums').catch(() => null)
+    fetch('/.netlify/functions/catalog?resource=tracks'),
+    fetch('/.netlify/functions/catalog?resource=albums').catch(() => null)
   ]);
 
   const fetchedTracks = await tracksRes.json();

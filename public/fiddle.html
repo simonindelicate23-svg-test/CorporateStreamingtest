@@ -197,7 +197,7 @@
         }
       }
 
-      fetch('/.netlify/functions/edit?id=' + id)
+      fetch('/.netlify/functions/catalog?resource=track&id=' + id)
         .then(response => response.json())
         .then(track => {
           document.getElementById('_id').value = track._id;
@@ -278,9 +278,10 @@
             }
             updatedTrack.fav = document.getElementById('fav').checked;
 
-            fetch('/.netlify/functions/edit', {
+            fetch('/.netlify/functions/catalog', {
               method: 'POST',
-              body: JSON.stringify(updatedTrack)
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'updateTrack', id: updatedTrack._id, updates: updatedTrack })
             })
               .then(() => {
                 status.textContent = 'Track updated!';
