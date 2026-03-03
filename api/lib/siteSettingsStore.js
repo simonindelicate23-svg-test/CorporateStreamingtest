@@ -49,8 +49,8 @@ const defaults = {
   themeText: '#f5f2fb',
   themeMutedText: '#bfb6d3',
   themeAccent: '#9a6bff',
-  themeAccentContrast: '#ffffff',
-  themeBorder: '#2a2235'
+  themeBorder: '#2a2235',
+  themeCardContrast: '#221b2a'
 };
 
 async function readFtp() {

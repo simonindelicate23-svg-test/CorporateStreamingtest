@@ -36,20 +36,20 @@
             </div>
 
             <div><label for="palette">Palette</label><input type="text" id="palette" placeholder="default | dark | warm" /></div>
-            <div><label for="themeBackground">Theme background</label><input type="color" id="themeBackground" /></div>
-            <div><label for="themeSurface">Theme surface</label><input type="color" id="themeSurface" /></div>
-            <div><label for="themeText">Theme text</label><input type="color" id="themeText" /></div>
-            <div><label for="themeMutedText">Theme muted text</label><input type="color" id="themeMutedText" /></div>
-            <div><label for="themeAccent">Theme accent</label><input type="color" id="themeAccent" /></div>
-            <div><label for="themeAccentContrast">Theme accent contrast</label><input type="color" id="themeAccentContrast" /></div>
-            <div><label for="themeBorder">Theme border</label><input type="color" id="themeBorder" /></div>
+            <div><label for="themeBackground">Player background</label><input type="color" id="themeBackground" /></div>
+            <div><label for="themeSurface">Card surface</label><input type="color" id="themeSurface" /></div>
+            <div><label for="themeText">Main text</label><input type="color" id="themeText" /></div>
+            <div><label for="themeMutedText">Secondary text</label><input type="color" id="themeMutedText" /></div>
+            <div><label for="themeAccent">Accent buttons/highlights</label><input type="color" id="themeAccent" /></div>
+            <div><label for="themeCardContrast">Card gradient second tone</label><input type="color" id="themeCardContrast" /></div>
+            <div><label for="themeBorder">Card borders/dividers</label><input type="color" id="themeBorder" /></div>
 
             <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
             <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
             <div><label for="welcomeTitle">Library heading</label><input type="text" id="welcomeTitle" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeSubtitle">Library subtitle (HTML allowed)</label><textarea id="welcomeSubtitle"></textarea></div>
-            <div><label for="featuredReleaseEnabled">Featured release enabled</label><select id="featuredReleaseEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
+            <div><label for="featuredReleaseEnabled">Show featured release block</label><select id="featuredReleaseEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
 
             <div><label for="aboutPageTitle">About page title</label><input type="text" id="aboutPageTitle" /></div>
             <div><label for="aboutPageEyebrow">About page eyebrow</label><input type="text" id="aboutPageEyebrow" /></div>
@@ -78,7 +78,7 @@
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themeSurface','themeText','themeMutedText','themeAccent','themeAccentContrast','themeBorder',
+        'palette','themeBackground','themeSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder',
         'fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'

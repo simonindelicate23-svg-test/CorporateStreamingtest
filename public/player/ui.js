@@ -240,8 +240,8 @@ async function applySiteSettings() {
     if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
     if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
     if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
-    if (settings.themeAccentContrast) rootStyle.setProperty('--accent-contrast', settings.themeAccentContrast);
     if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
+    if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
     ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
@@ -453,9 +453,16 @@ async function loadWelcomeHero() {
     ]);
 
     let settingsFeatured = null;
+    let allowWelcomeConfigFallback = false;
     if (siteSettingsResponse?.ok) {
       const settings = await siteSettingsResponse.json();
-      if (settings?.featuredReleaseEnabled !== false && settings?.featuredRelease) {
+      if (settings?.featuredReleaseEnabled === false) {
+        welcomeHeroContent = null;
+        updateWelcomeState();
+        return;
+      }
+      allowWelcomeConfigFallback = settings?.useWelcomeConfigFallback === true;
+      if (settings?.featuredRelease) {
         settingsFeatured = {
           ...settings.featuredRelease,
           featuredAt: settings.featuredRelease?.featuredAt || settings.featuredReleaseUpdatedAt || settings.updatedAt
@@ -464,7 +471,7 @@ async function loadWelcomeHero() {
     }
 
     let fileFeatured = null;
-    if (welcomeResponse?.ok) {
+    if (!settingsFeatured && allowWelcomeConfigFallback && welcomeResponse?.ok) {
       const config = await welcomeResponse.json();
       if (config?.featuredRelease) fileFeatured = config.featuredRelease;
     }
