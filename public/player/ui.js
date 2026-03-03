@@ -140,7 +140,8 @@ const isDarkMode = () => document.body.classList.contains('dark-mode');
 
 function setBaseBackgroundColor(fallback) {
   const baseColor = isDarkMode() ? DARK_BACKGROUND : fallback || INITIAL_BACKGROUND;
-  document.body.style.backgroundColor = baseColor;
+  document.body.style.removeProperty('background-color');
+  document.documentElement.style.setProperty('--paper', baseColor);
 }
 
 function getBackgroundOpacity(hasBackground) {
