@@ -39,7 +39,22 @@ const defaults = {
   aboutPageEyebrow: 'Independent music player',
   aboutPageContent: '<section><h2>What is this website?</h2><p>This player is designed for direct publishing, direct listening, and easy self-hosting.</p></section>',
   footerSummary: '&copy; Independent Artist',
-  footerContent: '<p>Customize this footer in Site Settings.</p>'
+  footerContent: '<p>Customize this footer in Site Settings.</p>',
+  logoUrl: '',
+  faviconUrl: '/favicon.ico',
+  featuredReleaseEnabled: true,
+  copyrightNotice: '&copy; Independent Artist',
+  themeBackground: '#0f0c14',
+  themePanelSurface: '#120f19',
+  themeTopbarSurface: '#120e18',
+  themeControlSurface: '#1e1824',
+  themeCardSurface: '#17121f',
+  themeCardContrast: '#221b2a',
+  themeText: '#f5f2fb',
+  themeMutedText: '#bfb6d3',
+  themeAccent: '#9a6bff',
+  themeBorder: '#2a2235',
+  dynamicColorTheming: true
 };
 
 async function readFtp() {

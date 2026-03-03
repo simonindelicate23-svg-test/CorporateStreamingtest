@@ -110,7 +110,7 @@
       }
 
       async function loadAlbums(selectedName) {
-        albums = await AdminDataStore.fetchJsonCached('/.netlify/functions/editAlbum', 'albums');
+        albums = await AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=albums', 'albums');
         renderAlbumOptions();
         if (selectedName) albumSelect.value = selectedName;
         populateForm(albums.find((a) => a.albumName === albumSelect.value));
@@ -151,7 +151,7 @@
         if (!Object.keys(updates).length) return showStatus('No changes to save.');
 
         try {
-          await fetch('/.netlify/functions/editAlbum', { method: 'POST', body: JSON.stringify({ albumName: activeAlbum.albumName, updates }) });
+          await AdminDataStore.requestJson('/.netlify/functions/catalog', { method: 'POST', body: JSON.stringify({ action: 'updateAlbum', albumName: activeAlbum.albumName, updates }) });
           AdminDataStore.invalidateCache(['albums', 'tracks']);
           showStatus('Album updated.');
           await loadAlbums(fields.albumName.value);
@@ -173,7 +173,7 @@
 
         const albumPayload = { albumName: fields.albumName.value || activeAlbum.albumName, albumId: fields.albumId.value, artistName: fields.artistName.value, artworkUrl: fields.artworkUrl.value, albumArtworkUrl: fields.albumArtworkUrl.value, bgcolor: fields.bgcolor.value, genre: fields.genre.value, year: fields.year.value, published: fields.published.checked };
         try {
-          await fetch('/.netlify/functions/addTrack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ album: albumPayload, tracks }) });
+          await AdminDataStore.requestJson('/.netlify/functions/catalog', { method: 'POST', body: JSON.stringify({ action: 'addReleaseTracks', album: albumPayload, tracks }) });
           AdminDataStore.invalidateCache(['albums', 'tracks']);
           showTrackStatus('Tracks added.');
           await loadAlbums(albumPayload.albumName);

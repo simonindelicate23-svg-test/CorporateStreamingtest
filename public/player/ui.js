@@ -85,8 +85,9 @@ const paletteCache = new Map();
 const artworkPreloadCache = new Map();
 const audioPreloadCache = new Map();
 const INITIAL_BACKGROUND = playerConfig?.initialBackgroundColor || '#f7f5f0';
+let SITE_BACKGROUND_COLOR = INITIAL_BACKGROUND;
 const INITIAL_OVERLAY_TONE = playerConfig?.initialOverlayTone || 'rgba(12, 12, 18, 0.92)';
-const dynamicThemingEnabled = playerConfig?.dynamicTheming !== false;
+let dynamicThemingEnabled = playerConfig?.dynamicTheming !== false;
 const DEFAULT_ART_PLACEHOLDER = '/img/icons8-music-album-64.png';
 const ALL_TRACKS_ALBUM_ID = playerConfig?.allTracksAlbum?.albumId || 'all-songs-shuffle';
 let DEFAULT_META_DESCRIPTION = 'Listen to tracks and albums.';
@@ -140,7 +141,8 @@ const isDarkMode = () => document.body.classList.contains('dark-mode');
 
 function setBaseBackgroundColor(fallback) {
   const baseColor = isDarkMode() ? DARK_BACKGROUND : fallback || INITIAL_BACKGROUND;
-  document.body.style.backgroundColor = baseColor;
+  document.body.style.removeProperty('background-color');
+  document.documentElement.style.setProperty('--paper', baseColor);
 }
 
 function getBackgroundOpacity(hasBackground) {
@@ -231,6 +233,26 @@ async function applySiteSettings() {
     BRAND_NAME = settings.brandName || BRAND_NAME;
     DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
     BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
+    const faviconHref = settings.faviconUrl || '/favicon.ico';
+    const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
+    faviconEl.href = faviconHref;
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
+    themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
+    const rootStyle = document.documentElement.style;
+    if (settings.themeBackground) {
+      SITE_BACKGROUND_COLOR = settings.themeBackground;
+      rootStyle.setProperty('--paper', settings.themeBackground);
+    }
+    if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
+    if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
+    if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
+    if (settings.themeCardSurface || settings.themeSurface) rootStyle.setProperty('--card', settings.themeCardSurface || settings.themeSurface);
+    if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);
+    if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
+    if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
+    if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
+    if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
+    if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
     ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
@@ -442,8 +464,15 @@ async function loadWelcomeHero() {
     ]);
 
     let settingsFeatured = null;
+    let allowWelcomeConfigFallback = false;
     if (siteSettingsResponse?.ok) {
       const settings = await siteSettingsResponse.json();
+      if (settings?.featuredReleaseEnabled === false) {
+        welcomeHeroContent = null;
+        updateWelcomeState();
+        return;
+      }
+      allowWelcomeConfigFallback = settings?.useWelcomeConfigFallback === true;
       if (settings?.featuredRelease) {
         settingsFeatured = {
           ...settings.featuredRelease,
@@ -453,7 +482,7 @@ async function loadWelcomeHero() {
     }
 
     let fileFeatured = null;
-    if (welcomeResponse?.ok) {
+    if (!settingsFeatured && allowWelcomeConfigFallback && welcomeResponse?.ok) {
       const config = await welcomeResponse.json();
       if (config?.featuredRelease) fileFeatured = config.featuredRelease;
     }
@@ -649,7 +678,9 @@ function updateThemeBackground(layers) {
 }
 
 function applyNeutralTheme(track) {
-  const fallbackBg = track?.bgcolor || INITIAL_BACKGROUND;
+  const fallbackBg = (!dynamicThemingEnabled && !isDarkMode())
+    ? SITE_BACKGROUND_COLOR
+    : (track?.bgcolor || SITE_BACKGROUND_COLOR || INITIAL_BACKGROUND);
   setBaseBackgroundColor(fallbackBg);
   const overlayTone = isDarkMode() ? DARK_OVERLAY_TONE : INITIAL_OVERLAY_TONE;
   document.documentElement.style.setProperty('--overlay-tone', overlayTone);

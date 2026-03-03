@@ -13,19 +13,48 @@
         <h1>Site settings</h1>
         <p class="meta">Manage global branding/content. Values are stored in JSON (FTP/file) and consumed by site pages dynamically.</p>
         <form id="settingsForm">
-                    <div class="form-grid">
+          <div class="form-grid">
             <div><label for="siteTitle">Site title</label><input type="text" id="siteTitle" /></div>
             <div><label for="brandName">Brand name</label><input type="text" id="brandName" /></div>
             <div><label for="metaDescription">Meta description</label><input type="text" id="metaDescription" /></div>
             <div><label for="shareDescription">Share description fallback</label><input type="text" id="shareDescription" /></div>
             <div><label for="ogImage">OG image URL</label><input type="text" id="ogImage" placeholder="/img/og_image.jpg" /></div>
             <div><label for="aboutLinkLabel">About-link label</label><input type="text" id="aboutLinkLabel" /></div>
+
+            <div><label for="logoUrl">Logo URL</label><input type="text" id="logoUrl" /></div>
+            <div><label for="faviconUrl">Favicon URL</label><input type="text" id="faviconUrl" /></div>
+            <div><label for="adminPin">Admin PIN (for uploads)</label><input type="password" id="adminPin" /></div>
+            <div>
+              <label for="logoFile">Upload logo file</label>
+              <input type="file" id="logoFile" accept="image/*" />
+              <button type="button" id="uploadLogoButton" class="button-link button-secondary" style="margin-top:6px;">Upload logo</button>
+            </div>
+            <div>
+              <label for="faviconFile">Upload favicon file</label>
+              <input type="file" id="faviconFile" accept="image/*,.ico" />
+              <button type="button" id="uploadFaviconButton" class="button-link button-secondary" style="margin-top:6px;">Upload favicon</button>
+            </div>
+
             <div><label for="palette">Palette</label><input type="text" id="palette" placeholder="default | dark | warm" /></div>
+            <div><label for="themeBackground">Page background (behind panels)</label><input type="color" id="themeBackground" /></div>
+            <div><label for="themePanelSurface">Library/player panel background</label><input type="color" id="themePanelSurface" /></div>
+            <div><label for="themeTopbarSurface">Top bar background</label><input type="color" id="themeTopbarSurface" /></div>
+            <div><label for="themeControlSurface">Control button background</label><input type="color" id="themeControlSurface" /></div>
+            <div><label for="themeCardSurface">Card base color</label><input type="color" id="themeCardSurface" /></div>
+            <div><label for="themeCardContrast">Card gradient second tone</label><input type="color" id="themeCardContrast" /></div>
+            <div><label for="themeText">Main text</label><input type="color" id="themeText" /></div>
+            <div><label for="themeMutedText">Secondary text</label><input type="color" id="themeMutedText" /></div>
+            <div><label for="themeAccent">Accent buttons/highlights</label><input type="color" id="themeAccent" /></div>
+            <div><label for="themeBorder">Card borders/dividers</label><input type="color" id="themeBorder" /></div>
+            <div><label for="dynamicColorTheming">Dynamic artwork color theming (ColorThief)</label><select id="dynamicColorTheming"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
+
             <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
             <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
             <div><label for="welcomeTitle">Library heading</label><input type="text" id="welcomeTitle" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeSubtitle">Library subtitle (HTML allowed)</label><textarea id="welcomeSubtitle"></textarea></div>
+            <div><label for="featuredReleaseEnabled">Show featured release block</label><select id="featuredReleaseEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
+
             <div><label for="aboutPageTitle">About page title</label><input type="text" id="aboutPageTitle" /></div>
             <div><label for="aboutPageEyebrow">About page eyebrow</label><input type="text" id="aboutPageEyebrow" /></div>
             <div style="grid-column: 1 / -1;"><label for="aboutPageContent">About page body HTML</label><textarea id="aboutPageContent" style="min-height:180px;"></textarea></div>
@@ -39,6 +68,7 @@
             <div style="grid-column: 1 / -1;"><label for="supportSecondaryBody">Support card 2 body</label><textarea id="supportSecondaryBody"></textarea></div>
             <div><label for="supportEmbedUrl">Support embed URL</label><input type="text" id="supportEmbedUrl" /></div>
             <div><label for="supportEmbedTitle">Support embed title</label><input type="text" id="supportEmbedTitle" /></div>
+            <div><label for="copyrightNotice">Copyright notice</label><input type="text" id="copyrightNotice" /></div>
             <div><label for="footerSummary">Footer summary (HTML allowed)</label><input type="text" id="footerSummary" /></div>
             <div style="grid-column: 1 / -1;"><label for="footerContent">Footer content HTML</label><textarea id="footerContent" style="min-height:160px;"></textarea></div>
           </div>
@@ -51,12 +81,11 @@
     <script>
       const status = document.getElementById('status');
       const fields = [
-        'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel',
-        'palette','fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle',
-        'aboutPageTitle','aboutPageEyebrow','aboutPageContent',
-        'supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
-        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
-        'footerSummary','footerContent'
+        'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','dynamicColorTheming',
+        'fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
+        'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
+        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
       ];
 
       function showStatus(message, isError = false) {
@@ -65,24 +94,55 @@
         status.style.background = isError ? '#fff3f3' : '#f1f7ff';
       }
 
+      async function uploadAsset(inputId, targetId) {
+        const pinCode = document.getElementById('adminPin').value.trim();
+        const file = document.getElementById(inputId).files[0];
+        if (!pinCode || !file) return showStatus('PIN and file are required for upload.', true);
+
+        const contentBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+          reader.onerror = () => reject(new Error('Could not read file'));
+          reader.readAsDataURL(file);
+        });
+
+        const uploaded = await AdminDataStore.requestJson('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder: 'branding' })
+        });
+        document.getElementById(targetId).value = uploaded.url || '';
+        showStatus('Upload complete. Save settings to persist.');
+      }
+
       async function loadSettings() {
         const settings = await AdminDataStore.fetchJsonCached('/.netlify/functions/siteSettings', 'site-settings');
         fields.forEach((key) => {
-          document.getElementById(key).value = settings[key] || '';
+          const input = document.getElementById(key);
+          if (!input) return;
+          input.value = settings[key] ?? ((key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') ? 'true' : '');
         });
       }
 
+      document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
+      document.getElementById('uploadFaviconButton').addEventListener('click', () => uploadAsset('faviconFile', 'faviconUrl').catch(() => showStatus('Favicon upload failed.', true)));
+
       document.getElementById('settingsForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const payload = fields.reduce((acc, key) => ({ ...acc, [key]: document.getElementById(key).value.trim() }), {});
+        const patch = fields.reduce((acc, key) => {
+          const raw = document.getElementById(key).value;
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') acc[key] = raw !== 'false';
+          else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
+          return acc;
+        }, {});
+
         try {
-          await fetch('/.netlify/functions/siteSettings', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-          });
+          const existing = await AdminDataStore.requestJson('/.netlify/functions/siteSettings');
+          const payload = { ...existing, ...patch };
+          await AdminDataStore.requestJson('/.netlify/functions/siteSettings', { method: 'POST', body: JSON.stringify(payload) });
           AdminDataStore.invalidateCache(['site-settings']);
-          showStatus('Settings saved. Pages can now consume this JSON dynamically.');
+          showStatus('Settings saved.');
         } catch (error) {
-          showStatus('Could not save settings.', true);
+          showStatus(`Could not save settings: ${error.message}`, true);
         }
       });
 
