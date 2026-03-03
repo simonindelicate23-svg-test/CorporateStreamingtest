@@ -1,36 +1,58 @@
 (function () {
   const FONT_PAIRS = {
+    'inter-plus-jakarta-sans': {
+      label: 'Clean modern — Inter + Plus Jakarta Sans',
+      body: "'Inter', system-ui, sans-serif",
+      heading: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif"
+    },
     'manrope-space-grotesk': {
+      label: 'Geometric studio — Manrope + Space Grotesk',
       body: "'Manrope', system-ui, sans-serif",
       heading: "'Space Grotesk', 'Manrope', system-ui, sans-serif"
     },
-    'inter-playfair-display': {
-      body: "'Inter', system-ui, sans-serif",
-      heading: "'Playfair Display', 'Inter', serif"
-    },
-    'dm-sans-dm-serif-display': {
+    'dm-sans-outfit': {
+      label: 'Contemporary UI — DM Sans + Outfit',
       body: "'DM Sans', system-ui, sans-serif",
-      heading: "'DM Serif Display', 'DM Sans', serif"
+      heading: "'Outfit', 'DM Sans', system-ui, sans-serif"
     },
-    'nunito-merriweather': {
-      body: "'Nunito', system-ui, sans-serif",
-      heading: "'Merriweather', 'Nunito', serif"
-    },
-    'work-sans-ibm-plex-serif': {
+    'work-sans-poppins': {
+      label: 'Balanced product — Work Sans + Poppins',
       body: "'Work Sans', system-ui, sans-serif",
-      heading: "'IBM Plex Serif', 'Work Sans', serif"
+      heading: "'Poppins', 'Work Sans', system-ui, sans-serif"
     },
-    'plus-jakarta-sans-bitter': {
-      body: "'Plus Jakarta Sans', system-ui, sans-serif",
-      heading: "'Bitter', 'Plus Jakarta Sans', serif"
+    'source-sans-3-rubik': {
+      label: 'Friendly utility — Source Sans 3 + Rubik',
+      body: "'Source Sans 3', system-ui, sans-serif",
+      heading: "'Rubik', 'Source Sans 3', system-ui, sans-serif"
     },
-    'rubik-cormorant-garamond': {
-      body: "'Rubik', system-ui, sans-serif",
-      heading: "'Cormorant Garamond', 'Rubik', serif"
+    'nunito-montserrat': {
+      label: 'Warm punchy — Nunito + Montserrat',
+      body: "'Nunito', system-ui, sans-serif",
+      heading: "'Montserrat', 'Nunito', system-ui, sans-serif"
+    },
+    'lato-raleway': {
+      label: 'Classic web — Lato + Raleway',
+      body: "'Lato', system-ui, sans-serif",
+      heading: "'Raleway', 'Lato', system-ui, sans-serif"
+    },
+    'open-sans-oswald': {
+      label: 'Editorial sans — Open Sans + Oswald',
+      body: "'Open Sans', system-ui, sans-serif",
+      heading: "'Oswald', 'Open Sans', system-ui, sans-serif"
+    },
+    'karla-cabin': {
+      label: 'Indie neutral — Karla + Cabin',
+      body: "'Karla', system-ui, sans-serif",
+      heading: "'Cabin', 'Karla', system-ui, sans-serif"
+    },
+    'inter-merriweather': {
+      label: 'Readable contrast — Inter + Merriweather',
+      body: "'Inter', system-ui, sans-serif",
+      heading: "'Merriweather', 'Inter', serif"
     }
   };
 
-  const DEFAULT_FONT_PAIR = 'manrope-space-grotesk';
+  const DEFAULT_FONT_PAIR = 'inter-plus-jakarta-sans';
 
   async function loadSiteSettings() {
     try {

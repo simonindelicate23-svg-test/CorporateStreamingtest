@@ -20,7 +20,7 @@ const defaults = {
   ogImage: '/img/og_image.jpg',
   aboutLinkLabel: 'About this site',
   palette: 'default',
-  fontPair: 'manrope-space-grotesk',
+  fontPair: 'inter-plus-jakarta-sans',
   welcomeMessage: 'Welcome to the music archive.',
   welcomeTitle: 'Albums',
   welcomeSubtitle: 'Explore releases, intros, and shuffle collections.',
