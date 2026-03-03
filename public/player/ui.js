@@ -253,6 +253,7 @@ async function applySiteSettings() {
     if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
     if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
     if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+    if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
     ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;

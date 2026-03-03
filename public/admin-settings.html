@@ -5,6 +5,10 @@
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
+    <script src="/site-settings.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=Rubik:wght@400;500;700&family=Nunito:wght@400;600;700&family=Montserrat:wght@500;600;700&family=Lato:wght@400;700&family=Raleway:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&family=Karla:wght@400;700&family=Cabin:wght@500;600;700&family=Merriweather:wght@400;700&display=swap" />
   </head>
   <body>
     <div class="admin-shell">
@@ -48,8 +52,14 @@
             <div><label for="themeBorder">Card borders/dividers</label><input type="color" id="themeBorder" /></div>
             <div><label for="dynamicColorTheming">Dynamic artwork color theming (ColorThief)</label><select id="dynamicColorTheming"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
 
-            <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
-            <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
+            <div style="grid-column: 1 / -1;">
+              <label for="fontPair">Font style</label>
+              <select id="fontPair"></select>
+              <div id="fontPairPreview" class="font-pair-preview">
+                <p id="fontPairPreviewHeading" class="font-pair-preview__heading">Independent Artist</p>
+                <p id="fontPairPreviewBody" class="font-pair-preview__body">A quick sample of how headings and body copy look together in this style pair.</p>
+              </div>
+            </div>
             <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
             <div><label for="welcomeTitle">Library heading</label><input type="text" id="welcomeTitle" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeSubtitle">Library subtitle (HTML allowed)</label><textarea id="welcomeSubtitle"></textarea></div>
@@ -83,10 +93,32 @@
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','dynamicColorTheming',
-        'fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
+        'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
       ];
+
+      const fontPairs = window.SiteSettings?.FONT_PAIRS || {};
+      const fontPairEntries = Object.entries(fontPairs);
+      const fontPairDefault = window.SiteSettings?.DEFAULT_FONT_PAIR || 'inter-plus-jakarta-sans';
+      const fontPairSelect = document.getElementById('fontPair');
+      const fontPairPreviewHeading = document.getElementById('fontPairPreviewHeading');
+      const fontPairPreviewBody = document.getElementById('fontPairPreviewBody');
+
+      function renderFontPairPreview(pairKey) {
+        const pair = fontPairs[pairKey] || fontPairs[fontPairDefault];
+        if (!pair) return;
+        fontPairPreviewHeading.style.fontFamily = pair.heading;
+        fontPairPreviewBody.style.fontFamily = pair.body;
+      }
+
+      fontPairEntries.forEach(([value, pair]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = pair.label || value;
+        fontPairSelect.appendChild(option);
+      });
+      fontPairSelect.addEventListener('change', (event) => renderFontPairPreview(event.target.value));
 
       function showStatus(message, isError = false) {
         status.textContent = message;
@@ -121,6 +153,8 @@
           if (!input) return;
           input.value = settings[key] ?? ((key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') ? 'true' : '');
         });
+        fontPairSelect.value = settings.fontPair || fontPairDefault;
+        renderFontPairPreview(fontPairSelect.value);
       }
 
       document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
