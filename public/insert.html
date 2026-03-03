@@ -71,19 +71,45 @@
         return parts.join(' | ');
       }
 
+      async function parseUploadResponse(response) {
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        const rawText = await response.text();
+        const isLikelyJson = contentType.includes('application/json') || rawText.trim().startsWith('{') || rawText.trim().startsWith('[');
+        if (!isLikelyJson) {
+          const preview = rawText.replace(/\s+/g, ' ').trim().slice(0, 140);
+          throw new Error(`Upload endpoint returned non-JSON response (status ${response.status}${preview ? `, body starts with: ${preview}` : ''}).`);
+        }
+
+        try {
+          return JSON.parse(rawText || '{}');
+        } catch (_error) {
+          throw new Error(`Upload endpoint returned invalid JSON (status ${response.status}).`);
+        }
+      }
+
       async function uploadFileToMediaHost(file, folder, pinCode) {
         const contentBase64 = await readAsBase64(file);
-        const response = await fetch('/.netlify/functions/uploadMedia', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder })
-        });
+        const endpoints = ['/.netlify/functions/uploadMedia', '/api/uploadMedia'];
+        let lastError = null;
 
-        let result = null;
-        try { result = await response.json(); } catch (_error) { throw new Error('Upload endpoint returned non-JSON response.'); }
-        if (!response.ok) throw new Error(buildUploadErrorMessage(result));
-        if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
-        return result.url;
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder })
+            });
+
+            const result = await parseUploadResponse(response);
+            if (!response.ok) throw new Error(buildUploadErrorMessage(result, `Upload failed via ${endpoint}`));
+            if (!result?.url) throw new Error(buildUploadErrorMessage(result, `Upload via ${endpoint} finished but no media URL was returned.`));
+            return result.url;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+
+        throw lastError || new Error('Upload failed.');
       }
 
       async function uploadAlbumArtwork() {
