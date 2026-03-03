@@ -48,8 +48,10 @@
             <div><label for="themeBorder">Card borders/dividers</label><input type="color" id="themeBorder" /></div>
             <div><label for="dynamicColorTheming">Dynamic artwork color theming (ColorThief)</label><select id="dynamicColorTheming"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
 
-            <div><label for="fontFamily">Body font</label><input type="text" id="fontFamily" placeholder="Inter, system-ui, sans-serif" /></div>
-            <div><label for="headingFont">Heading font</label><input type="text" id="headingFont" /></div>
+            <div>
+              <label for="fontPair">Font style</label>
+              <select id="fontPair"></select>
+            </div>
             <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
             <div><label for="welcomeTitle">Library heading</label><input type="text" id="welcomeTitle" /></div>
             <div style="grid-column: 1 / -1;"><label for="welcomeSubtitle">Library subtitle (HTML allowed)</label><textarea id="welcomeSubtitle"></textarea></div>
@@ -83,10 +85,28 @@
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','dynamicColorTheming',
-        'fontFamily','headingFont','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
+        'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
       ];
+
+      const fontPairs = [
+        { value: 'manrope-space-grotesk', label: 'Modern geometric — Manrope + Space Grotesk' },
+        { value: 'inter-playfair-display', label: 'Editorial contrast — Inter + Playfair Display' },
+        { value: 'dm-sans-dm-serif-display', label: 'Friendly serif blend — DM Sans + DM Serif Display' },
+        { value: 'nunito-merriweather', label: 'Warm readability — Nunito + Merriweather' },
+        { value: 'work-sans-ibm-plex-serif', label: 'Studio neutral — Work Sans + IBM Plex Serif' },
+        { value: 'plus-jakarta-sans-bitter', label: 'Contemporary classic — Plus Jakarta Sans + Bitter' },
+        { value: 'rubik-cormorant-garamond', label: 'Artful bold — Rubik + Cormorant Garamond' }
+      ];
+
+      const fontPairSelect = document.getElementById('fontPair');
+      fontPairs.forEach((pair) => {
+        const option = document.createElement('option');
+        option.value = pair.value;
+        option.textContent = pair.label;
+        fontPairSelect.appendChild(option);
+      });
 
       function showStatus(message, isError = false) {
         status.textContent = message;
@@ -121,6 +141,7 @@
           if (!input) return;
           input.value = settings[key] ?? ((key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') ? 'true' : '');
         });
+        if (!settings.fontPair) fontPairSelect.value = 'manrope-space-grotesk';
       }
 
       document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));

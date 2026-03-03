@@ -37,6 +37,7 @@
     <script>
       window.addEventListener('DOMContentLoaded', async () => {
         const settings = await window.SiteSettings.loadSiteSettings();
+        window.SiteSettings.applyFontPair(settings.fontPair);
         document.title = settings.supportPageTitle || 'Support';
         document.getElementById('supportBrand').textContent = settings.brandName || settings.siteTitle || 'Site';
         document.getElementById('supportTitle').textContent = settings.supportPageTitle || 'Support this project';

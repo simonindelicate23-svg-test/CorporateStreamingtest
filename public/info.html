@@ -22,6 +22,7 @@
     <script>
       window.addEventListener('DOMContentLoaded', async () => {
         const settings = await window.SiteSettings.loadSiteSettings();
+        window.SiteSettings.applyFontPair(settings.fontPair);
         document.title = settings.aboutPageTitle || 'About this site';
         document.getElementById('aboutTitle').textContent = settings.aboutPageTitle || 'About this site';
         document.getElementById('aboutEyebrow').textContent = settings.aboutPageEyebrow || 'Independent music player';
