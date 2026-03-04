@@ -299,6 +299,49 @@
         } catch (_e) { showStatus('Could not save changes.', true); }
       });
 
+      /* ── Upload helpers ───────────────────────────────────────── */
+      const CHUNK_SIZE = 3 * 1024 * 1024;
+      const CHUNK_THRESHOLD = 4 * 1024 * 1024;
+
+      const readSliceAsBase64 = (blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      async function uploadFileToMediaHost(file, folder, onProgress) {
+        const endpoint = '/.netlify/functions/uploadMedia';
+        const token = AdminDataStore.getToken();
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) };
+
+        async function postChunk(payload) {
+          const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+          const result = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(result.message || `Upload failed (${res.status})`);
+          return result;
+        }
+
+        if (file.size <= CHUNK_THRESHOLD) {
+          const contentBase64 = await readSliceAsBase64(file);
+          const result = await postChunk({ fileName: file.name, contentBase64, folder });
+          if (!result?.url) throw new Error('No URL returned from upload');
+          return result.url;
+        }
+
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        let lastResult;
+        for (let i = 0; i < totalChunks; i++) {
+          const slice = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+          const chunkBase64 = await readSliceAsBase64(slice);
+          lastResult = await postChunk({ fileName: file.name, folder, uploadId, chunkIndex: i, totalChunks, chunkBase64 });
+          if (onProgress) onProgress(i + 1, totalChunks);
+        }
+        if (!lastResult?.url) throw new Error('No URL returned after final chunk');
+        return lastResult.url;
+      }
+
       /* ── Add tracks ───────────────────────────────────────────── */
       async function autoFillTrackMetadata(row) {
         const urlInput = row.querySelector('.mp3Url');
@@ -333,14 +376,41 @@
             <div><label>Track name<input type="text" class="trackName" required /></label></div>
             <div>
               <label>MP3 URL<input type="url" class="mp3Url" required /></label>
-              <small class="meta metadataHint" style="display:block;margin-top:4px;">Enter URL to auto-fill metadata.</small>
+              <div class="upload-btn-row" style="margin-top:6px;">
+                <input type="file" class="trackFile" accept="audio/*" />
+                <button type="button" class="button-secondary button-sm uploadTrackBtn">Upload</button>
+              </div>
+              <small class="meta trackUploadStatus"></small>
+              <small class="meta metadataHint" style="display:block;margin-top:4px;">Enter URL or upload a file to auto-fill metadata.</small>
             </div>
             <div><label>Order<input type="number" class="trackNumber" min="1" value="${nextTrackNumber}" required /></label></div>
             <div><label>Duration (s)<input type="number" class="durationSeconds" /></label></div>
             <div><label>Year<input type="number" class="trackYear" /></label></div>
             <div><label>Genre<input type="text" class="trackGenre" /></label></div>
           </div>`;
+
         wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
+
+        wrapper.querySelector('.uploadTrackBtn').addEventListener('click', async () => {
+          const fileInput = wrapper.querySelector('.trackFile');
+          const urlInput = wrapper.querySelector('.mp3Url');
+          const uploadState = wrapper.querySelector('.trackUploadStatus');
+          const file = fileInput.files[0];
+          if (!file) { uploadState.textContent = 'Choose an audio file first.'; return; }
+
+          const btn = wrapper.querySelector('.uploadTrackBtn');
+          btn.disabled = true; btn.textContent = 'Uploading…'; uploadState.textContent = 'Uploading…';
+          try {
+            const url = await uploadFileToMediaHost(file, 'audio', (done, total) => {
+              uploadState.textContent = `Uploading… ${done}/${total} chunks`;
+            });
+            urlInput.value = url;
+            uploadState.textContent = 'Uploaded.';
+            autoFillTrackMetadata(wrapper);
+          } catch (e) { uploadState.textContent = e.message; }
+          finally { btn.disabled = false; btn.textContent = 'Upload'; }
+        });
+
         nextTrackNumber++;
         return wrapper;
       }
