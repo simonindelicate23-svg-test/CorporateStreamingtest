@@ -1260,11 +1260,13 @@ function renderTracks(album) {
     return;
   }
   albumTracks.forEach((track, index) => {
+    const isPaid = track.paid === true;
     const li = document.createElement('li');
-    li.className = 'track-item';
+    li.className = isPaid ? 'track-item paid' : 'track-item';
     li.dataset.id = track._id;
     const prefix = resolvedAlbum?.allTracks || resolvedAlbum?.pseudoType ? `${index + 1}.` : track.trackNumber ? `${track.trackNumber}.` : '';
-    li.innerHTML = `<div>${prefix}</div><div>${track.trackName}</div>`;
+    const lockIcon = isPaid ? '<span class="track-lock" aria-label="Members only">&#128274;</span>' : '';
+    li.innerHTML = `<div>${prefix}${lockIcon}</div><div>${track.trackName}</div>`;
     li.addEventListener('click', () => playTrack(track));
     dom.tracksList.appendChild(li);
   });
@@ -1513,7 +1515,20 @@ function primeAdjacentTracks(track) {
   warmTrackAssets(nearby, 3);
 }
 
+function showPaywallModal(track) {
+  const modal = document.getElementById('paywall-modal');
+  if (!modal) return;
+  const body = document.getElementById('paywall-body');
+  if (body) body.textContent = `"${track.trackName}" is available to supporters. Join to unlock the full catalogue.`;
+  modal.hidden = false;
+  document.getElementById('paywall-dismiss')?.focus();
+}
+
 function playTrack(track, { autoplay = true } = {}) {
+  if (track.paid === true) {
+    showPaywallModal(track);
+    return;
+  }
   state.currentTrack = track;
   ensureQueueForTrack(track);
   const src = resolveTrackUrl(track);
@@ -1808,6 +1823,16 @@ function bindEvents() {
   state.audio.addEventListener('playing', syncPlayState);
   state.audio.addEventListener('waiting', syncPlayState);
   state.audio.addEventListener('pause', syncPlayState);
+
+  // Paywall modal dismiss
+  const paywallModal = document.getElementById('paywall-modal');
+  const paywallDismiss = document.getElementById('paywall-dismiss');
+  if (paywallModal && paywallDismiss) {
+    paywallDismiss.addEventListener('click', () => { paywallModal.hidden = true; });
+    paywallModal.addEventListener('click', (event) => {
+      if (event.target === paywallModal) paywallModal.hidden = true;
+    });
+  }
 }
 
 export async function init() {

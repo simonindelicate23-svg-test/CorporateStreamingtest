@@ -98,6 +98,10 @@
               <input type="checkbox" id="fav" />
               <label for="fav" style="margin:0;">Favourite?</label>
             </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="paid" />
+              <label for="paid" style="margin:0;">Paid / members only &#128274;</label>
+            </div>
           </div>
           <label>Track Text</label>
           <textarea id="trackText"></textarea>
@@ -336,6 +340,7 @@
           document.getElementById('bgcolor').value = track.bgcolor || '';
           document.getElementById('published').checked = track.published !== false;
           document.getElementById('fav').checked = track.fav === true || track.fav === 'true';
+          document.getElementById('paid').checked = track.paid === true || track.paid === 'true';
 
           document.getElementById('editForm').onsubmit = event => {
             event.preventDefault();
@@ -395,6 +400,7 @@
               updatedTrack.published = document.getElementById('published').checked;
             }
             updatedTrack.fav = document.getElementById('fav').checked;
+            updatedTrack.paid = document.getElementById('paid').checked;
 
             fetch('/.netlify/functions/catalog', {
               method: 'POST',

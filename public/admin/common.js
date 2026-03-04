@@ -1,6 +1,8 @@
 (function () {
   const CACHE_PREFIX = 'admin-cache-v1';
   const DEFAULT_TTL_MS = 5 * 60 * 1000;
+  const TOKEN_KEY = 'admin-token';
+  const LOGIN_PAGE = '/admin-login.html';
 
   const tabs = [
     { href: 'admin-settings.html', label: 'Site Settings' },
@@ -13,6 +15,25 @@
     return pathname.split('/').pop() || 'edit.html';
   }
 
+  /* ── Token helpers ────────────────────────────────────────── */
+  function getToken() {
+    return sessionStorage.getItem(TOKEN_KEY) || '';
+  }
+
+  function setToken(token) {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  }
+
+  function clearToken() {
+    sessionStorage.removeItem(TOKEN_KEY);
+  }
+
+  function redirectToLogin() {
+    const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = `${LOGIN_PAGE}?return=${returnTo}`;
+  }
+
+  /* ── Admin header ─────────────────────────────────────────── */
   function mountHeader() {
     const host = document.querySelector('[data-admin-header]');
     if (!host) return;
@@ -23,16 +44,30 @@
     brand.className = 'admin-header__brand';
     brand.innerHTML = 'Music Admin <span>Admin</span>';
 
+    const right = document.createElement('div');
+    right.style.cssText = 'display:flex;align-items:center;gap:16px;';
+
     const back = document.createElement('a');
     back.className = 'admin-header__back';
     back.href = '/player.html';
     back.innerHTML = '&#8592; Back to site';
 
+    const token = getToken();
+    if (token) {
+      const logoutBtn = document.createElement('button');
+      logoutBtn.textContent = 'Sign out';
+      logoutBtn.style.cssText = 'background:none;border:1px solid rgba(0,0,0,0.15);color:#555;padding:5px 12px;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;box-shadow:none;';
+      logoutBtn.addEventListener('click', () => { clearToken(); redirectToLogin(); });
+      right.appendChild(logoutBtn);
+    }
+
+    right.appendChild(back);
     header.appendChild(brand);
-    header.appendChild(back);
+    header.appendChild(right);
     host.appendChild(header);
   }
 
+  /* ── Tab navigation ───────────────────────────────────────── */
   function mountTabs() {
     const host = document.querySelector('[data-admin-tabs]');
     if (!host) return;
@@ -55,6 +90,7 @@
     host.appendChild(nav);
   }
 
+  /* ── Cache ────────────────────────────────────────────────── */
   function loadCache(key, ttlMs = DEFAULT_TTL_MS) {
     try {
       const raw = localStorage.getItem(`${CACHE_PREFIX}:${key}`);
@@ -79,7 +115,14 @@
       if (cached) return cached;
     }
 
-    const response = await fetch(url, options.fetchOptions || {});
+    const token = getToken();
+    const headers = token ? { 'X-Admin-Token': token } : {};
+    const response = await fetch(url, { headers, ...(options.fetchOptions || {}) });
+
+    if (response.status === 401) {
+      redirectToLogin();
+      throw new Error('Unauthorized');
+    }
     if (!response.ok) {
       throw new Error(`Request failed: ${response.status}`);
     }
@@ -93,19 +136,26 @@
     keys.forEach((key) => localStorage.removeItem(`${CACHE_PREFIX}:${key}`));
   }
 
-
+  /* ── Fetch wrapper with auth ──────────────────────────────── */
   async function requestJson(url, options = {}) {
+    const token = getToken();
+    const authHeader = token ? { 'X-Admin-Token': token } : {};
     const response = await fetch(url, {
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      headers: { 'Content-Type': 'application/json', ...authHeader, ...(options.headers || {}) },
       ...options,
     });
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      redirectToLogin();
+      throw new Error('Unauthorized');
+    }
     if (!response.ok) {
       throw new Error(payload?.message || `Request failed: ${response.status}`);
     }
     return payload;
   }
 
+  /* ── Utilities ────────────────────────────────────────────── */
   function inferTrackNameFromUrl(url) {
     try {
       const pathname = new URL(url, window.location.origin).pathname;
@@ -145,5 +195,16 @@
     });
   }
 
-  window.AdminDataStore = { mountHeader, mountTabs, fetchJsonCached, invalidateCache, requestJson, inferTrackNameFromUrl, deriveDurationFromUrl };
+  window.AdminDataStore = {
+    mountHeader,
+    mountTabs,
+    fetchJsonCached,
+    invalidateCache,
+    requestJson,
+    inferTrackNameFromUrl,
+    deriveDurationFromUrl,
+    getToken,
+    setToken,
+    clearToken,
+  };
 })();

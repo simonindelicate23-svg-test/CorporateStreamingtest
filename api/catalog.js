@@ -1,5 +1,6 @@
 const { fetchTrackDurationSeconds } = require('./audioUtils');
 const { loadTracks, saveTracks, withTrackIds } = require('./lib/legacyTracksStore');
+const { isAdmin } = require('./lib/auth');
 
 const json = (statusCode, payload) => ({
   statusCode,
@@ -47,6 +48,7 @@ function toTrackDocument(album = {}, track = {}) {
     genre: track.genre || album.genre,
     year: Number.isNaN(parsedYear) || parsedYear <= 0 ? undefined : parsedYear,
     fav: track.fav === true || track.fav === 'true',
+    paid: track.paid === true || track.paid === 'true',
     published: track.published === false || track.published === 'false' ? false : album.published !== false,
     createdAt: track.createdAt ? new Date(track.createdAt) : new Date(),
   };
@@ -69,6 +71,10 @@ function applyTrackUpdates(track = {}, updates = {}) {
     }
     if (key === 'fav') {
       updated.fav = value === true || value === 'true';
+      return;
+    }
+    if (key === 'paid') {
+      updated.paid = value === true || value === 'true';
       return;
     }
     updated[key] = value;
@@ -172,6 +178,8 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod !== 'POST') return json(405, { message: 'Method not allowed' });
+
+    if (!isAdmin(event)) return json(401, { message: 'Unauthorized' });
 
     const body = JSON.parse(event.body || '{}');
     const action = String(body.action || '').trim();

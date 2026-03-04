@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Admin Login</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
+    <style>
+      body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100svh; padding: 0; }
+      .login-card { width: 100%; max-width: 400px; margin: 0 auto; }
+      .login-logo { text-align: center; margin-bottom: 28px; }
+      .login-logo .admin-badge { display: inline-block; padding: 4px 12px; background: var(--accent); color: #fff; border-radius: 8px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
+      .login-logo h1 { margin: 0; font-size: 1.4rem; }
+      .login-logo p { margin: 6px 0 0; color: #666; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <div class="login-card card">
+      <div class="login-logo">
+        <div class="admin-badge">Admin</div>
+        <h1>Music Admin</h1>
+        <p>Enter your admin token to continue.</p>
+      </div>
+
+      <form id="loginForm">
+        <div style="margin-bottom:14px;">
+          <label for="tokenInput">Admin token</label>
+          <input
+            type="password"
+            id="tokenInput"
+            name="token"
+            autocomplete="current-password"
+            autofocus
+            placeholder="Paste your ADMIN_API_TOKEN here"
+          />
+        </div>
+        <button type="submit" style="width:100%;">Sign in</button>
+        <div id="status" class="status" style="display:none; margin-top:14px;"></div>
+      </form>
+
+      <p style="margin-top:20px; font-size:0.83rem; color:#888; text-align:center;">
+        Set <code>ADMIN_API_TOKEN</code> in your Netlify environment variables.
+        If no token is set, any value will be accepted.
+      </p>
+    </div>
+
+    <script>
+      // If already logged in, go straight to admin
+      window.addEventListener('DOMContentLoaded', () => {
+        const existing = AdminDataStore.getToken();
+        if (existing) {
+          goToReturn();
+        }
+      });
+
+      function goToReturn() {
+        const params = new URLSearchParams(window.location.search);
+        const returnTo = params.get('return') || '/admin-settings.html';
+        window.location.href = returnTo;
+      }
+
+      document.getElementById('loginForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const status = document.getElementById('status');
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const token = document.getElementById('tokenInput').value.trim();
+
+        if (!token) {
+          status.textContent = 'Please enter a token.';
+          status.style.display = 'block';
+          status.className = 'status error';
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Checking…';
+        status.style.display = 'none';
+
+        try {
+          // Verify the token works by hitting a protected endpoint
+          const res = await fetch('/.netlify/functions/siteSettings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+            // Empty patch — harmless: merges existing with itself
+            body: JSON.stringify({ _loginCheck: true }),
+          });
+
+          if (res.status === 401) {
+            status.textContent = 'Invalid token. Check your ADMIN_API_TOKEN environment variable.';
+            status.style.display = 'block';
+            status.className = 'status error';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign in';
+            return;
+          }
+
+          AdminDataStore.setToken(token);
+          goToReturn();
+        } catch (_error) {
+          status.textContent = 'Could not connect. Check your network and try again.';
+          status.style.display = 'block';
+          status.className = 'status error';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign in';
+        }
+      });
+    </script>
+  </body>
+</html>

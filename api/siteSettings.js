@@ -1,4 +1,5 @@
 const { loadSiteSettings, saveSiteSettings } = require('./lib/siteSettingsStore');
+const { isAdmin } = require('./lib/auth');
 
 const jsonResponse = (statusCode, payload) => ({
   statusCode,
@@ -14,6 +15,8 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
+      if (!isAdmin(event)) return jsonResponse(401, { message: 'Unauthorized' });
+
       const body = JSON.parse(event.body || '{}');
       const result = await saveSiteSettings(body || {});
       return jsonResponse(200, { message: 'Settings saved', ...result });

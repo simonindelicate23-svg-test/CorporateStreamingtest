@@ -1,5 +1,6 @@
 const { fetchTrackDurationSeconds } = require('./audioUtils');
 const { appendTracks } = require('./lib/legacyTracksStore');
+const { isAdmin } = require('./lib/auth');
 
 const jsonResponse = (statusCode, payload) => ({
   statusCode,
@@ -58,6 +59,8 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
       return jsonResponse(405, { message: 'Method not allowed' });
     }
+
+    if (!isAdmin(event)) return jsonResponse(401, { message: 'Unauthorized' });
 
     const data = JSON.parse(event.body || '{}');
     const album = data.album || {};
