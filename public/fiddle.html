@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Edit Track</title>
+    <title>Edit Track — Admin</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
   </head>
   <body>
+    <div data-admin-header></div>
     <div class="admin-shell">
+      <div data-admin-tabs></div>
       <div class="card">
         <h1>Edit Track</h1>
         <form id="editForm">
@@ -100,7 +103,7 @@
           <textarea id="trackText"></textarea>
           <div class="actions" style="margin-top:16px;">
             <button type="submit">Update</button>
-            <a class="button-link button-secondary" href="edit.html">Back to list</a>
+            <a class="button-link button-secondary" href="edit.html">Back to directory</a>
           </div>
           <div id="status" class="status" style="display:none;margin-top:12px;"></div>
         </form>
@@ -445,6 +448,11 @@
             }
           });
         });
+
+      window.addEventListener('DOMContentLoaded', () => {
+        AdminDataStore.mountHeader();
+        AdminDataStore.mountTabs();
+      });
     </script>
   </body>
 </html>

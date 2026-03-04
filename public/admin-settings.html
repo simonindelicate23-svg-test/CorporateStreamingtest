@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Site Settings</title>
+    <title>Site Settings — Admin</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
@@ -11,80 +11,284 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=Rubik:wght@400;500;700&family=Nunito:wght@400;600;700&family=Montserrat:wght@500;600;700&family=Lato:wght@400;700&family=Raleway:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&family=Karla:wght@400;700&family=Cabin:wght@500;600;700&family=Merriweather:wght@400;700&display=swap" />
   </head>
   <body>
+    <div data-admin-header></div>
     <div class="admin-shell">
       <div data-admin-tabs></div>
+
       <div class="card">
-        <h1>Site settings</h1>
-        <p class="meta">Manage global branding/content. Values are stored in JSON (FTP/file) and consumed by site pages dynamically.</p>
+        <div class="panel-title">
+          <div>
+            <h1 style="margin-bottom:4px;">Site settings</h1>
+            <p class="meta">Global branding and content. Changes are stored as JSON and picked up by the player and all public pages.</p>
+          </div>
+          <button type="submit" form="settingsForm" id="saveButtonTop">Save settings</button>
+        </div>
+        <div id="status" class="status" style="display:none;margin-bottom:16px;"></div>
+
         <form id="settingsForm">
-          <div class="form-grid">
-            <div><label for="siteTitle">Site title</label><input type="text" id="siteTitle" /></div>
-            <div><label for="brandName">Brand name</label><input type="text" id="brandName" /></div>
-            <div><label for="metaDescription">Meta description</label><input type="text" id="metaDescription" /></div>
-            <div><label for="shareDescription">Share description fallback</label><input type="text" id="shareDescription" /></div>
-            <div><label for="ogImage">OG image URL</label><input type="text" id="ogImage" placeholder="/img/og_image.jpg" /></div>
-            <div><label for="aboutLinkLabel">About-link label</label><input type="text" id="aboutLinkLabel" /></div>
 
-            <div><label for="logoUrl">Logo URL</label><input type="text" id="logoUrl" /></div>
-            <div><label for="faviconUrl">Favicon URL</label><input type="text" id="faviconUrl" /></div>
-            <div><label for="adminPin">Admin PIN (for uploads)</label><input type="password" id="adminPin" /></div>
-            <div>
-              <label for="logoFile">Upload logo file</label>
-              <input type="file" id="logoFile" accept="image/*" />
-              <button type="button" id="uploadLogoButton" class="button-link button-secondary" style="margin-top:6px;">Upload logo</button>
+          <!-- ── 1. Branding ──────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Branding</p>
+            <div class="form-grid">
+              <div>
+                <label for="siteTitle">Site title</label>
+                <input type="text" id="siteTitle" placeholder="e.g. The Mechanical Child" />
+              </div>
+              <div>
+                <label for="brandName">Brand / display name</label>
+                <input type="text" id="brandName" placeholder="e.g. The Mechanical Child" />
+              </div>
+              <div>
+                <label for="metaDescription">Meta description</label>
+                <input type="text" id="metaDescription" placeholder="For search engines and social cards" />
+              </div>
+              <div>
+                <label for="shareDescription">Share description fallback</label>
+                <input type="text" id="shareDescription" placeholder="Used when a track has no description" />
+              </div>
+              <div>
+                <label for="ogImage">Default OG image URL</label>
+                <input type="text" id="ogImage" placeholder="/img/og_image.jpg" />
+              </div>
+              <div>
+                <label for="aboutLinkLabel">About-link label</label>
+                <input type="text" id="aboutLinkLabel" placeholder="e.g. About" />
+              </div>
             </div>
-            <div>
-              <label for="faviconFile">Upload favicon file</label>
-              <input type="file" id="faviconFile" accept="image/*,.ico" />
-              <button type="button" id="uploadFaviconButton" class="button-link button-secondary" style="margin-top:6px;">Upload favicon</button>
+          </div>
+
+          <!-- ── 2. Logo & Favicon ────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Logo &amp; Favicon</p>
+            <div class="form-grid">
+              <div>
+                <label for="logoUrl">Logo URL</label>
+                <input type="text" id="logoUrl" placeholder="https://…" />
+                <div class="inline-actions" style="margin-top:8px;">
+                  <input type="file" id="logoFile" accept="image/*" style="width:auto;flex:1;" />
+                  <button type="button" id="uploadLogoButton" class="button-secondary button-sm">Upload logo</button>
+                </div>
+              </div>
+              <div>
+                <label for="faviconUrl">Favicon URL</label>
+                <input type="text" id="faviconUrl" placeholder="https://… or /img/favicon.ico" />
+                <div class="inline-actions" style="margin-top:8px;">
+                  <input type="file" id="faviconFile" accept="image/*,.ico" style="width:auto;flex:1;" />
+                  <button type="button" id="uploadFaviconButton" class="button-secondary button-sm">Upload favicon</button>
+                </div>
+              </div>
+              <div>
+                <label for="adminPin">Admin PIN <span class="meta" style="font-weight:400;">(for file uploads)</span></label>
+                <input type="password" id="adminPin" autocomplete="off" placeholder="Required for logo / favicon upload" />
+              </div>
             </div>
+          </div>
 
-            <div><label for="palette">Palette</label><input type="text" id="palette" placeholder="default | dark | warm" /></div>
-            <div><label for="themeBackground">Page background (behind panels)</label><input type="color" id="themeBackground" /></div>
-            <div><label for="themePanelSurface">Library/player panel background</label><input type="color" id="themePanelSurface" /></div>
-            <div><label for="themeTopbarSurface">Top bar background</label><input type="color" id="themeTopbarSurface" /></div>
-            <div><label for="themeControlSurface">Control button background</label><input type="color" id="themeControlSurface" /></div>
-            <div><label for="themeCardSurface">Card base color</label><input type="color" id="themeCardSurface" /></div>
-            <div><label for="themeCardContrast">Card gradient second tone</label><input type="color" id="themeCardContrast" /></div>
-            <div><label for="themeText">Main text</label><input type="color" id="themeText" /></div>
-            <div><label for="themeMutedText">Secondary text</label><input type="color" id="themeMutedText" /></div>
-            <div><label for="themeAccent">Accent buttons/highlights</label><input type="color" id="themeAccent" /></div>
-            <div><label for="themeBorder">Card borders/dividers</label><input type="color" id="themeBorder" /></div>
-            <div><label for="dynamicColorTheming">Dynamic artwork color theming (ColorThief)</label><select id="dynamicColorTheming"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
+          <!-- ── 3. Colours ──────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Colours</p>
+            <div class="form-grid">
+              <div>
+                <label for="themeBackground">Page background</label>
+                <input type="color" id="themeBackground" />
+              </div>
+              <div>
+                <label for="themePanelSurface">Library / player panel</label>
+                <input type="color" id="themePanelSurface" />
+              </div>
+              <div>
+                <label for="themeTopbarSurface">Top bar</label>
+                <input type="color" id="themeTopbarSurface" />
+              </div>
+              <div>
+                <label for="themeControlSurface">Control buttons</label>
+                <input type="color" id="themeControlSurface" />
+              </div>
+              <div>
+                <label for="themeCardSurface">Card base colour</label>
+                <input type="color" id="themeCardSurface" />
+              </div>
+              <div>
+                <label for="themeCardContrast">Card gradient second tone</label>
+                <input type="color" id="themeCardContrast" />
+              </div>
+              <div>
+                <label for="themeText">Main text</label>
+                <input type="color" id="themeText" />
+              </div>
+              <div>
+                <label for="themeMutedText">Secondary text</label>
+                <input type="color" id="themeMutedText" />
+              </div>
+              <div>
+                <label for="themeAccent">Accent (buttons / highlights)</label>
+                <input type="color" id="themeAccent" />
+              </div>
+              <div>
+                <label for="themeBorder">Borders / dividers</label>
+                <input type="color" id="themeBorder" />
+              </div>
+              <div>
+                <label for="palette">Palette preset <span class="meta" style="font-weight:400;">(overrides above)</span></label>
+                <input type="text" id="palette" placeholder="default | dark | warm" />
+              </div>
+              <div>
+                <label for="dynamicColorTheming">Dynamic artwork colour theming</label>
+                <select id="dynamicColorTheming">
+                  <option value="true">Enabled (ColorThief)</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-            <div style="grid-column: 1 / -1;">
+          <!-- ── 4. Typography ───────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Typography</p>
+            <div>
               <label for="fontPair">Font style</label>
-              <select id="fontPair"></select>
+              <select id="fontPair" style="max-width:400px;"></select>
               <div id="fontPairPreview" class="font-pair-preview">
                 <p id="fontPairPreviewHeading" class="font-pair-preview__heading">Independent Artist</p>
                 <p id="fontPairPreviewBody" class="font-pair-preview__body">A quick sample of how headings and body copy look together in this style pair.</p>
               </div>
             </div>
-            <div style="grid-column: 1 / -1;"><label for="welcomeMessage">Welcome message</label><textarea id="welcomeMessage"></textarea></div>
-            <div><label for="welcomeTitle">Library heading</label><input type="text" id="welcomeTitle" /></div>
-            <div style="grid-column: 1 / -1;"><label for="welcomeSubtitle">Library subtitle (HTML allowed)</label><textarea id="welcomeSubtitle"></textarea></div>
-            <div><label for="featuredReleaseEnabled">Show featured release block</label><select id="featuredReleaseEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
-
-            <div><label for="aboutPageTitle">About page title</label><input type="text" id="aboutPageTitle" /></div>
-            <div><label for="aboutPageEyebrow">About page eyebrow</label><input type="text" id="aboutPageEyebrow" /></div>
-            <div style="grid-column: 1 / -1;"><label for="aboutPageContent">About page body HTML</label><textarea id="aboutPageContent" style="min-height:180px;"></textarea></div>
-            <div><label for="supportPageTitle">Support page title</label><input type="text" id="supportPageTitle" /></div>
-            <div style="grid-column: 1 / -1;"><label for="supportIntro">Support intro</label><textarea id="supportIntro"></textarea></div>
-            <div><label for="supportPrimaryHeading">Support card 1 heading</label><input type="text" id="supportPrimaryHeading" /></div>
-            <div><label for="supportPrimaryUrl">Support card 1 URL</label><input type="text" id="supportPrimaryUrl" /></div>
-            <div style="grid-column: 1 / -1;"><label for="supportPrimaryBody">Support card 1 body</label><textarea id="supportPrimaryBody"></textarea></div>
-            <div><label for="supportPrimaryCta">Support card 1 CTA</label><input type="text" id="supportPrimaryCta" /></div>
-            <div><label for="supportSecondaryHeading">Support card 2 heading</label><input type="text" id="supportSecondaryHeading" /></div>
-            <div style="grid-column: 1 / -1;"><label for="supportSecondaryBody">Support card 2 body</label><textarea id="supportSecondaryBody"></textarea></div>
-            <div><label for="supportEmbedUrl">Support embed URL</label><input type="text" id="supportEmbedUrl" /></div>
-            <div><label for="supportEmbedTitle">Support embed title</label><input type="text" id="supportEmbedTitle" /></div>
-            <div><label for="copyrightNotice">Copyright notice</label><input type="text" id="copyrightNotice" /></div>
-            <div><label for="footerSummary">Footer summary (HTML allowed)</label><input type="text" id="footerSummary" /></div>
-            <div style="grid-column: 1 / -1;"><label for="footerContent">Footer content HTML</label><textarea id="footerContent" style="min-height:160px;"></textarea></div>
           </div>
-          <div class="actions" style="margin-top:16px;"><button type="submit">Save settings</button></div>
+
+          <!-- ── 5. Library content ──────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Library content</p>
+            <div class="form-grid">
+              <div>
+                <label for="welcomeTitle">Library heading</label>
+                <input type="text" id="welcomeTitle" placeholder="e.g. Discography" />
+              </div>
+              <div>
+                <label for="featuredReleaseEnabled">Show featured release block</label>
+                <select id="featuredReleaseEnabled">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="welcomeMessage">Welcome message <span class="meta" style="font-weight:400;">(HTML allowed)</span></label>
+                <textarea id="welcomeMessage" placeholder="Displayed above the album grid"></textarea>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="welcomeSubtitle">Library subtitle <span class="meta" style="font-weight:400;">(HTML allowed)</span></label>
+                <textarea id="welcomeSubtitle" style="min-height:80px;" placeholder="Short subtitle beneath the heading"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 6. About page ───────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">About page</p>
+            <div class="form-grid">
+              <div>
+                <label for="aboutPageTitle">Page title</label>
+                <input type="text" id="aboutPageTitle" placeholder="e.g. About" />
+              </div>
+              <div>
+                <label for="aboutPageEyebrow">Eyebrow text</label>
+                <input type="text" id="aboutPageEyebrow" placeholder="e.g. The artist" />
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="aboutPageContent">Page body <span class="meta" style="font-weight:400;">(HTML allowed)</span></label>
+                <textarea id="aboutPageContent" style="min-height:200px;" placeholder="Full bio, links, etc."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 7. Support page ─────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Support page</p>
+            <div class="form-grid">
+              <div>
+                <label for="supportPageTitle">Page title</label>
+                <input type="text" id="supportPageTitle" placeholder="e.g. Support the artist" />
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="supportIntro">Intro paragraph</label>
+                <textarea id="supportIntro" style="min-height:80px;"></textarea>
+              </div>
+
+              <div style="grid-column: 1 / -1; padding-top: 4px;">
+                <p class="form-section__title" style="margin-bottom:12px;">Card 1</p>
+                <div class="form-grid">
+                  <div>
+                    <label for="supportPrimaryHeading">Heading</label>
+                    <input type="text" id="supportPrimaryHeading" />
+                  </div>
+                  <div>
+                    <label for="supportPrimaryUrl">URL</label>
+                    <input type="text" id="supportPrimaryUrl" placeholder="https://…" />
+                  </div>
+                  <div>
+                    <label for="supportPrimaryCta">CTA button label</label>
+                    <input type="text" id="supportPrimaryCta" placeholder="e.g. Buy now" />
+                  </div>
+                  <div style="grid-column: 1 / -1;">
+                    <label for="supportPrimaryBody">Body text</label>
+                    <textarea id="supportPrimaryBody" style="min-height:80px;"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div style="grid-column: 1 / -1; padding-top: 4px;">
+                <p class="form-section__title" style="margin-bottom:12px;">Card 2</p>
+                <div class="form-grid">
+                  <div>
+                    <label for="supportSecondaryHeading">Heading</label>
+                    <input type="text" id="supportSecondaryHeading" />
+                  </div>
+                  <div style="grid-column: 1 / -1;">
+                    <label for="supportSecondaryBody">Body text</label>
+                    <textarea id="supportSecondaryBody" style="min-height:80px;"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div style="grid-column: 1 / -1; padding-top: 4px;">
+                <p class="form-section__title" style="margin-bottom:12px;">Embed</p>
+                <div class="form-grid">
+                  <div>
+                    <label for="supportEmbedUrl">Embed URL</label>
+                    <input type="text" id="supportEmbedUrl" placeholder="e.g. PayPal button URL" />
+                  </div>
+                  <div>
+                    <label for="supportEmbedTitle">Embed title</label>
+                    <input type="text" id="supportEmbedTitle" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 8. Footer ───────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Footer</p>
+            <div class="form-grid">
+              <div>
+                <label for="copyrightNotice">Copyright notice</label>
+                <input type="text" id="copyrightNotice" placeholder="e.g. © 2025 Artist Name" />
+              </div>
+              <div>
+                <label for="footerSummary">Footer summary <span class="meta" style="font-weight:400;">(HTML allowed)</span></label>
+                <input type="text" id="footerSummary" />
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="footerContent">Footer content <span class="meta" style="font-weight:400;">(HTML allowed)</span></label>
+                <textarea id="footerContent" style="min-height:160px;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:28px; padding-top:24px; border-top:1px solid rgba(0,0,0,0.07);">
+            <button type="submit">Save settings</button>
+          </div>
         </form>
-        <div id="status" class="status" style="display:none;"></div>
       </div>
     </div>
 
@@ -123,7 +327,7 @@
       function showStatus(message, isError = false) {
         status.textContent = message;
         status.style.display = 'block';
-        status.style.background = isError ? '#fff3f3' : '#f1f7ff';
+        status.className = isError ? 'status error' : 'status';
       }
 
       async function uploadAsset(inputId, targetId) {
@@ -162,6 +366,10 @@
 
       document.getElementById('settingsForm').addEventListener('submit', async (event) => {
         event.preventDefault();
+        const saveBtn = document.getElementById('saveButtonTop');
+        const submitBtn = event.target.querySelector('button[type="submit"]:not(#saveButtonTop)');
+        [saveBtn, submitBtn].forEach((b) => { if (b) b.disabled = true; });
+
         const patch = fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
           if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') acc[key] = raw !== 'false';
@@ -177,10 +385,13 @@
           showStatus('Settings saved.');
         } catch (error) {
           showStatus(`Could not save settings: ${error.message}`, true);
+        } finally {
+          [saveBtn, submitBtn].forEach((b) => { if (b) b.disabled = false; });
         }
       });
 
       window.addEventListener('DOMContentLoaded', async () => {
+        AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
         try { await loadSettings(); } catch (error) { showStatus('Could not load settings.', true); }
       });
