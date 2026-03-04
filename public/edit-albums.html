@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Edit Releases</title>
+    <title>Edit Releases — Admin</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
   </head>
   <body>
+    <div data-admin-header></div>
     <div class="admin-shell">
       <div data-admin-tabs></div>
       <div class="card">
@@ -217,6 +218,7 @@
       });
 
       window.addEventListener('DOMContentLoaded', async () => {
+        AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
         try { await loadAlbums(); } catch (_error) { showStatus('Could not load releases.', true); }
       });

@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>View Track</title>
+    <title>Track Details — Admin</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
   </head>
   <body>
+    <div data-admin-header></div>
     <div class="admin-shell">
+      <div data-admin-tabs></div>
       <div class="card">
         <h1>View Track</h1>
         <div id="track" class="tracks-preview"></div>
@@ -106,6 +109,11 @@
 
       publishToggle.addEventListener('click', togglePublish);
       deleteButton.addEventListener('click', deleteTrack);
+
+      window.addEventListener('DOMContentLoaded', () => {
+        AdminDataStore.mountHeader();
+        AdminDataStore.mountTabs();
+      });
     </script>
   </body>
 </html>

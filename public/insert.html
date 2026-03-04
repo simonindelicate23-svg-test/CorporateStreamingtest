@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Add Tracks</title>
+    <title>Add Tracks — Admin</title>
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
   </head>
   <body>
+    <div data-admin-header></div>
     <div class="admin-shell">
       <div data-admin-tabs></div>
       <div class="card">
@@ -267,12 +268,6 @@
         submitButton.textContent = 'Saving…';
 
         const formData = new FormData(addTrackForm);
-        if (formData.get('pinCode') !== '1310') {
-          showStatus('Incorrect PIN code', true);
-          submitButton.disabled = false;
-          submitButton.textContent = 'Save release';
-          return;
-        }
 
         const album = {
           albumName: formData.get('albumName'), artistName: formData.get('artistName'), artworkUrl: formData.get('artworkUrl'),
@@ -308,7 +303,10 @@
         }
       });
 
-      window.addEventListener('DOMContentLoaded', () => AdminDataStore.mountTabs());
+      window.addEventListener('DOMContentLoaded', () => {
+        AdminDataStore.mountHeader();
+        AdminDataStore.mountTabs();
+      });
     </script>
   </body>
 </html>

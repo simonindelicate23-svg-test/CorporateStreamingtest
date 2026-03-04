@@ -13,6 +13,26 @@
     return pathname.split('/').pop() || 'edit.html';
   }
 
+  function mountHeader() {
+    const host = document.querySelector('[data-admin-header]');
+    if (!host) return;
+    const header = document.createElement('header');
+    header.className = 'admin-header';
+
+    const brand = document.createElement('div');
+    brand.className = 'admin-header__brand';
+    brand.innerHTML = 'Music Admin <span>Admin</span>';
+
+    const back = document.createElement('a');
+    back.className = 'admin-header__back';
+    back.href = '/player.html';
+    back.innerHTML = '&#8592; Back to site';
+
+    header.appendChild(brand);
+    header.appendChild(back);
+    host.appendChild(header);
+  }
+
   function mountTabs() {
     const host = document.querySelector('[data-admin-tabs]');
     if (!host) return;
@@ -125,5 +145,5 @@
     });
   }
 
-  window.AdminDataStore = { mountTabs, fetchJsonCached, invalidateCache, requestJson, inferTrackNameFromUrl, deriveDurationFromUrl };
+  window.AdminDataStore = { mountHeader, mountTabs, fetchJsonCached, invalidateCache, requestJson, inferTrackNameFromUrl, deriveDurationFromUrl };
 })();
