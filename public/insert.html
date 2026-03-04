@@ -13,6 +13,12 @@
       .track-row-remove:hover { color: #b42318; }
       .upload-btn-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
       .upload-btn-row input[type="file"] { flex: 1; min-width: 0; }
+      .import-section { background: #f5f3ef; border: 1.5px dashed rgba(0,0,0,0.15); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+      .import-section h2 { margin: 0 0 4px; font-size: 1rem; }
+      .import-progress { margin-top: 10px; }
+      .import-progress-bar-track { height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+      .import-progress-bar { height: 100%; background: #5a4e3a; border-radius: 3px; width: 0; transition: width 0.2s; }
+      .import-result-summary { margin-top: 10px; font-size: 0.88rem; color: #5a4e3a; font-weight: 500; }
     </style>
   </head>
   <body>
@@ -26,6 +32,21 @@
             <p class="meta">Create a release and add its tracks in one flow.</p>
           </div>
           <a class="button-link button-secondary" href="edit.html">Track directory</a>
+        </div>
+
+        <!-- ── Import from folder ───────────────────────────────── -->
+        <div class="import-section">
+          <h2>Import from folder URL</h2>
+          <p class="meta" style="margin-bottom:12px;">Paste the URL of a web-accessible folder containing audio files. The server will scan for tracks and read their metadata automatically.</p>
+          <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+            <input type="url" id="folderUrl" placeholder="https://example.com/music/my-album/" style="flex:1;min-width:200px;" />
+            <button type="button" id="scanFolderBtn" class="button-secondary">Scan folder</button>
+          </div>
+          <div class="import-progress" id="importProgress" style="display:none;">
+            <span class="meta" id="importProgressText">Scanning…</span>
+            <div class="import-progress-bar-track"><div class="import-progress-bar" id="importProgressBar"></div></div>
+          </div>
+          <div class="import-result-summary" id="importSummary" style="display:none;"></div>
         </div>
 
         <form id="addTrackForm">
@@ -393,6 +414,164 @@
         } catch (_e) { /* silently ignore */ }
       }
 
+      /* ── Folder import ────────────────────────────────────────── */
+      const METADATA_CONCURRENCY = 3;
+
+      function mostCommon(values) {
+        if (!values.length) return null;
+        const freq = {};
+        values.forEach(v => { if (v) freq[v] = (freq[v] || 0) + 1; });
+        return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      }
+
+      function inferTrackOrder(filename, meta) {
+        // Prefer ID3 track number
+        const fromId3 = meta.trackNumber ? parseInt(meta.trackNumber, 10) : NaN;
+        if (!Number.isNaN(fromId3) && fromId3 > 0) return fromId3;
+        // Try leading digits in filename: "03 - Song.mp3" or "03_Song.mp3"
+        const m = filename.match(/^(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
+      }
+
+      async function runFolderImport() {
+        const folderUrl = document.getElementById('folderUrl').value.trim();
+        if (!folderUrl) return;
+
+        const progressEl = document.getElementById('importProgress');
+        const progressText = document.getElementById('importProgressText');
+        const progressBar = document.getElementById('importProgressBar');
+        const summaryEl = document.getElementById('importSummary');
+        const scanBtn = document.getElementById('scanFolderBtn');
+
+        scanBtn.disabled = true;
+        progressEl.style.display = 'block';
+        summaryEl.style.display = 'none';
+        progressBar.style.width = '0';
+        progressText.textContent = 'Fetching folder listing…';
+
+        let listing;
+        try {
+          listing = await AdminDataStore.requestJson(
+            '/.netlify/functions/scanFolder?url=' + encodeURIComponent(folderUrl)
+          );
+        } catch (err) {
+          progressText.textContent = `Error: ${err.message}`;
+          scanBtn.disabled = false;
+          return;
+        }
+
+        if (!listing.audioFiles?.length) {
+          progressText.textContent = 'No audio files found in that folder.';
+          scanBtn.disabled = false;
+          return;
+        }
+
+        const total = listing.audioFiles.length;
+        progressText.textContent = `Found ${total} audio file${total !== 1 ? 's' : ''}. Reading metadata…`;
+
+        // Batch-fetch metadata with limited concurrency
+        const results = new Array(total);
+        let done = 0;
+
+        async function fetchOne(i) {
+          const file = listing.audioFiles[i];
+          try {
+            const meta = await AdminDataStore.requestJson(
+              '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(file.url)
+            );
+            results[i] = { file, meta };
+          } catch (_) {
+            results[i] = { file, meta: {} };
+          }
+          done++;
+          progressBar.style.width = `${Math.round((done / total) * 100)}%`;
+          progressText.textContent = `Reading metadata… ${done}/${total}`;
+        }
+
+        // Run in batches of METADATA_CONCURRENCY
+        for (let i = 0; i < total; i += METADATA_CONCURRENCY) {
+          await Promise.all(
+            listing.audioFiles.slice(i, i + METADATA_CONCURRENCY).map((_, j) => fetchOne(i + j))
+          );
+        }
+
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Done. Populating form…';
+
+        // ── Infer release-level fields ────────────────────────────
+        const albumNames   = results.map(r => r.meta.albumName).filter(Boolean);
+        const artistNames  = results.map(r => r.meta.artistName).filter(Boolean);
+        const years        = results.map(r => r.meta.year ? String(r.meta.year) : null).filter(Boolean);
+        const genres       = results.map(r => r.meta.genre).filter(Boolean);
+
+        const inferredAlbum  = mostCommon(albumNames);
+        const inferredArtist = mostCommon(artistNames);
+        const inferredYear   = mostCommon(years);
+        const inferredGenre  = mostCommon(genres);
+
+        // Try to get folder name as fallback album title
+        const folderName = folderUrl.replace(/\/$/, '').split('/').pop();
+        const albumNameField  = document.getElementById('albumName');
+        const artistNameField = document.getElementById('artistName');
+        const yearField       = document.getElementById('year');
+        const genreField      = document.getElementById('genre');
+
+        if (!albumNameField.value) albumNameField.value = inferredAlbum || AdminDataStore.inferTrackNameFromUrl(folderUrl.replace(/\/$/, '') + '/x') || folderName || '';
+        if (!artistNameField.value && inferredArtist) artistNameField.value = inferredArtist;
+        if (!yearField.value && inferredYear) yearField.value = inferredYear;
+        if (!genreField.value && inferredGenre) genreField.value = inferredGenre;
+
+        // ── Artwork ───────────────────────────────────────────────
+        const artworkField = document.getElementById('artworkUrl');
+        if (!artworkField.value && listing.suggestedArtwork) {
+          artworkField.value = listing.suggestedArtwork.url;
+          updateArtworkPreview(listing.suggestedArtwork.url);
+        }
+
+        // ── Sort tracks by inferred order ─────────────────────────
+        results.sort((a, b) => {
+          const oa = inferTrackOrder(a.file.filename, a.meta) ?? 9999;
+          const ob = inferTrackOrder(b.file.filename, b.meta) ?? 9999;
+          if (oa !== ob) return oa - ob;
+          return a.file.filename.localeCompare(b.file.filename, undefined, { numeric: true });
+        });
+
+        // ── Populate track rows ───────────────────────────────────
+        tracksContainer.innerHTML = '';
+        nextTrackNumber = 1;
+        results.forEach(({ file, meta }, idx) => {
+          const row = createTrackRow(); // increments nextTrackNumber
+          tracksContainer.appendChild(row);
+
+          row.querySelector('.mp3Url').value = file.url;
+          row.querySelector('.trackName').value =
+            meta.trackName || AdminDataStore.inferTrackNameFromUrl(file.url) || file.filename;
+
+          const order = inferTrackOrder(file.filename, meta) ?? (idx + 1);
+          row.querySelector('.trackNumber').value = order;
+
+          if (meta.durationSeconds) row.querySelector('.durationSeconds').value = meta.durationSeconds;
+          if (meta.year) row.querySelector('.trackYear').value = meta.year;
+          if (meta.genre) row.querySelector('.trackGenre').value = meta.genre;
+
+          const hint = row.querySelector('.metadataHint');
+          if (hint) {
+            hint.textContent = meta.durationSeconds
+              ? `${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2, '0')}`
+              : 'No duration found.';
+          }
+        });
+
+        const artworkNote = listing.suggestedArtwork ? ` Suggested artwork: ${listing.suggestedArtwork.filename}.` : (listing.imageFiles?.length ? ` ${listing.imageFiles.length} image file(s) found — set artwork URL manually.` : ' No artwork found in folder.');
+        summaryEl.textContent = `Imported ${results.length} track${results.length !== 1 ? 's' : ''}.${artworkNote} Review the fields below and save when ready.`;
+        summaryEl.style.display = 'block';
+        progressEl.style.display = 'none';
+        scanBtn.disabled = false;
+
+        // Scroll to release section
+        document.getElementById('albumName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
       /* ── Init ─────────────────────────────────────────────────── */
       window.addEventListener('DOMContentLoaded', () => {
         AdminDataStore.mountHeader();
@@ -400,6 +579,10 @@
         tracksContainer.appendChild(createTrackRow());
         loadArtistDefault();
         loadExistingTracks();
+        document.getElementById('scanFolderBtn').addEventListener('click', runFolderImport);
+        document.getElementById('folderUrl').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); runFolderImport(); }
+        });
       });
     </script>
   </body>
