@@ -32,18 +32,14 @@
               <input type="text" id="albumId" />
             </div>
             <div>
-              <label>Admin PIN (for media uploads)</label>
-              <input type="password" id="pinCode" autocomplete="off" />
-            </div>
-            <div>
               <label>Artwork URL</label>
               <input type="text" id="artworkUrl" />
-              <label style="margin-top:8px;">Replace artwork file</label>
-              <div class="inline-field">
-                <input type="file" id="artworkFile" accept="image/*" />
-                <button type="button" id="uploadArtwork" class="button-secondary">Upload artwork</button>
+              <div class="inline-actions" style="margin-top:8px;">
+                <input type="file" id="artworkFile" accept="image/*" style="flex:1;min-width:0;" />
+                <button type="button" id="uploadArtwork" class="button-secondary button-sm">Upload</button>
               </div>
               <small id="artworkUploadStatus" class="meta"></small>
+              <img id="artworkPreview" style="width:100%;aspect-ratio:1;border-radius:10px;background:#f0ede8;border:1px solid rgba(0,0,0,0.08);object-fit:cover;display:none;margin-top:8px;" alt="Artwork preview" />
             </div>
             <div>
               <label>Album Artwork URL</label>
@@ -122,13 +118,6 @@
       const uploadArtworkBtn = document.getElementById('uploadArtwork');
       const uploadAudioBtn = document.getElementById('uploadAudio');
 
-      const textDecoderLatin1 = new TextDecoder('latin1');
-      const textDecoderUtf16 = new TextDecoder('utf-16');
-
-      function decodeSynchsafe(bytes) {
-        return ((bytes[0] & 0x7f) << 21) | ((bytes[1] & 0x7f) << 14) | ((bytes[2] & 0x7f) << 7) | (bytes[3] & 0x7f);
-      }
-
       function buildUploadErrorMessage(result, fallback) {
         if (!result) return fallback;
         return result.detail || result.message || fallback;
@@ -150,51 +139,38 @@
         }
       }
 
-      function shouldUseApiFallback() {
-        return ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
-      }
-
-      async function sendUploadRequest(endpoint, file, folder, pinCode) {
-        const formData = new FormData();
-        formData.append('pinCode', pinCode);
-        formData.append('folder', folder);
-        formData.append('file', file, file.name);
-        return fetch(endpoint, { method: 'POST', body: formData });
-      }
-
-      async function uploadFileToMediaHost(file, folder, pinCode) {
-        const primaryEndpoint = '/.netlify/functions/uploadMedia';
-        let response;
-
-        try {
-          response = await sendUploadRequest(primaryEndpoint, file, folder, pinCode);
-        } catch (error) {
-          if (!shouldUseApiFallback()) throw error;
-          const fallbackResponse = await sendUploadRequest('/api/uploadMedia', file, folder, pinCode);
-          const fallbackResult = await parseUploadResponse(fallbackResponse);
-          if (!fallbackResponse.ok) throw new Error(buildUploadErrorMessage(fallbackResult, 'Upload failed via /api/uploadMedia'));
-          if (!fallbackResult?.url) throw new Error(buildUploadErrorMessage(fallbackResult, 'Upload via /api/uploadMedia finished but no media URL was returned.'));
-          return fallbackResult.url;
-        }
-
+      async function uploadFileToMediaHost(file, folder) {
+        const endpoint = '/.netlify/functions/uploadMedia';
+        const token = AdminDataStore.getToken();
+        const b64 = await new Promise((res, rej) => {
+          const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+        });
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+          body: JSON.stringify({ fileName: file.name, contentBase64: b64, folder }),
+        });
         const result = await parseUploadResponse(response);
-        if (!response.ok) throw new Error(buildUploadErrorMessage(result, `Upload failed via ${primaryEndpoint}`));
-        if (!result?.url) throw new Error(buildUploadErrorMessage(result, `Upload via ${primaryEndpoint} finished but no media URL was returned.`));
+        if (!response.ok) throw new Error(buildUploadErrorMessage(result, 'Upload failed'));
+        if (!result?.url) throw new Error('No URL returned from upload');
         return result.url;
       }
 
+      function updateArtworkPreview(url) {
+        const img = document.getElementById('artworkPreview');
+        if (!img) return;
+        if (!url) { img.style.display = 'none'; return; }
+        img.src = url;
+        img.onload = () => { img.style.display = 'block'; };
+        img.onerror = () => { img.style.display = 'none'; };
+      }
+
       async function uploadReplacement(kind) {
-        const pinCode = document.getElementById('pinCode').value.trim();
         const isArtwork = kind === 'artwork';
         const fileInput = document.getElementById(isArtwork ? 'artworkFile' : 'audioFile');
         const button = document.getElementById(isArtwork ? 'uploadArtwork' : 'uploadAudio');
         const statusNode = document.getElementById(isArtwork ? 'artworkUploadStatus' : 'audioUploadStatus');
         const file = fileInput.files[0];
-
-        if (!pinCode) {
-          statusNode.textContent = 'Enter PIN before uploading files.';
-          return;
-        }
 
         if (!file) {
           statusNode.textContent = `Choose a ${isArtwork ? 'image' : 'audio'} file first.`;
@@ -204,19 +180,20 @@
         button.disabled = true;
         const originalLabel = button.textContent;
         button.textContent = 'Uploading…';
-        statusNode.textContent = 'Uploading to media host…';
+        statusNode.textContent = 'Uploading…';
 
         try {
-          const uploadedUrl = await uploadFileToMediaHost(file, isArtwork ? 'artwork' : 'audio', pinCode);
+          const uploadedUrl = await uploadFileToMediaHost(file, isArtwork ? 'artwork' : 'audio');
           if (isArtwork) {
             document.getElementById('artworkUrl').value = uploadedUrl;
+            updateArtworkPreview(uploadedUrl);
             if (!document.getElementById('albumArtworkUrl').value.trim()) {
               document.getElementById('albumArtworkUrl').value = uploadedUrl;
             }
           } else {
             document.getElementById('mp3Url').value = uploadedUrl;
           }
-          statusNode.textContent = `${isArtwork ? 'Artwork' : 'Audio'} uploaded: ${uploadedUrl}`;
+          statusNode.textContent = 'Uploaded.';
         } catch (error) {
           statusNode.textContent = error.message;
         } finally {
@@ -226,58 +203,14 @@
       }
 
 
-      function decodeFrameText(view) {
-        const encoding = view.getUint8(0);
-        const raw = new Uint8Array(view.buffer, view.byteOffset + 1, view.byteLength - 1);
-        if (encoding === 1 || encoding === 2) {
-          return textDecoderUtf16.decode(raw).replace(/\u0000/g, '').trim();
-        }
-        return textDecoderLatin1.decode(raw).replace(/\u0000/g, '').trim();
-      }
-
-      function parseId3Tags(buffer) {
-        const view = new DataView(buffer);
-        if (view.getUint8(0) !== 0x49 || view.getUint8(1) !== 0x44 || view.getUint8(2) !== 0x33) {
-          return {};
-        }
-
-        const version = view.getUint8(3);
-        const tagSize = decodeSynchsafe([view.getUint8(6), view.getUint8(7), view.getUint8(8), view.getUint8(9)]);
-        let offset = 10;
-        const metadata = {};
-
-        while (offset + 10 <= tagSize + 10) {
-          const frameId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
-          if (!frameId.trim()) break;
-
-          const frameSizeBytes = [view.getUint8(offset + 4), view.getUint8(offset + 5), view.getUint8(offset + 6), view.getUint8(offset + 7)];
-          const frameSize = version === 4 ? decodeSynchsafe(frameSizeBytes) : new DataView(new Uint8Array(frameSizeBytes).buffer).getUint32(0);
-          const frameStart = offset + 10;
-          const frameEnd = frameStart + frameSize;
-
-          if (frameEnd > buffer.byteLength) break;
-
-          const frameView = new DataView(buffer, frameStart, frameSize);
-          if (frameId.startsWith('T') && frameSize > 0) {
-            const text = decodeFrameText(frameView);
-            if (frameId === 'TIT2') metadata.trackName = text;
-            if (frameId === 'TPE1') metadata.artistName = text;
-            if (frameId === 'TALB') metadata.albumName = text;
-            if (frameId === 'TRCK') metadata.trackNumber = text.replace(/\D+/g, '') || text;
-            if (frameId === 'TDRC' || frameId === 'TYER') metadata.year = text;
-            if (frameId === 'TCON') metadata.genre = text;
-          }
-
-          offset = frameEnd;
-        }
-
-        return metadata;
-      }
-
       function populateFieldsFromMetadata(metadata) {
-        if (metadata.trackName) document.getElementById('trackName').value = metadata.trackName;
-        if (metadata.artistName) document.getElementById('artistName').value = metadata.artistName;
-        if (metadata.albumName) document.getElementById('albumName').value = metadata.albumName;
+        // Server proxy uses trackName; ID3 lib uses title — accept both
+        const name = metadata.trackName || metadata.title;
+        const artist = metadata.artistName || metadata.artist;
+        const album = metadata.albumName || metadata.album;
+        if (name) document.getElementById('trackName').value = name;
+        if (artist) document.getElementById('artistName').value = artist;
+        if (album) document.getElementById('albumName').value = album;
         if (metadata.trackNumber) document.getElementById('trackNumber').value = metadata.trackNumber;
         if (metadata.year) document.getElementById('year').value = metadata.year;
         if (metadata.genre) document.getElementById('genre').value = metadata.genre;
@@ -288,33 +221,18 @@
 
       async function fetchAudioMetadata(url) {
         status.style.display = 'block';
-        status.textContent = 'Fetching metadata...';
-        status.style.background = '#f1f7ff';
-        status.style.borderColor = '#d5e5ff';
+        status.textContent = 'Fetching metadata…';
+        status.className = 'status';
 
         try {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error('Unable to fetch audio');
-
-          const arrayBuffer = await response.arrayBuffer();
-          const tagMetadata = parseId3Tags(arrayBuffer);
-
-          const audio = new Audio();
-          const blob = new Blob([arrayBuffer]);
-          audio.src = URL.createObjectURL(blob);
-
-          const duration = await new Promise((resolve, reject) => {
-            audio.addEventListener('loadedmetadata', () => resolve(audio.duration));
-            audio.addEventListener('error', () => reject(new Error('Could not load audio metadata')));
-          });
-
-          URL.revokeObjectURL(audio.src);
-          return { ...tagMetadata, durationSeconds: duration };
+          // Server-side proxy — no CORS issues regardless of hosting
+          const meta = await AdminDataStore.requestJson(
+            '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url)
+          );
+          return meta;
         } catch (error) {
-          console.error(error);
-          status.textContent = 'Could not fetch metadata. Check the URL and CORS permissions.';
-          status.style.background = '#fff3f3';
-          status.style.borderColor = '#f1aeb5';
+          status.textContent = 'Could not fetch metadata: ' + error.message;
+          status.className = 'status error';
           throw error;
         }
       }
@@ -328,6 +246,8 @@
           document.getElementById('albumName').value = track.albumName || '';
           document.getElementById('albumId').value = track.albumId || '';
           document.getElementById('artworkUrl').value = track.artworkUrl || '';
+          updateArtworkPreview(track.artworkUrl || '');
+          document.getElementById('artworkUrl').addEventListener('input', (e) => updateArtworkPreview(e.target.value.trim()));
           document.getElementById('albumArtworkUrl').value = track.albumArtworkUrl || '';
           document.getElementById('mp3Url').value = track.mp3Url || '';
           document.getElementById('trackNumber').value = track.trackNumber || '';
@@ -402,21 +322,19 @@
             updatedTrack.fav = document.getElementById('fav').checked;
             updatedTrack.paid = document.getElementById('paid').checked;
 
-            fetch('/.netlify/functions/catalog', {
+            AdminDataStore.requestJson('/.netlify/functions/catalog', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'updateTrack', id: updatedTrack._id, updates: updatedTrack })
             })
               .then(() => {
-                status.textContent = 'Track updated!';
+                status.textContent = 'Track updated.';
+                status.className = 'status';
                 status.style.display = 'block';
               })
-              .catch(error => {
-                console.error('Error updating track:', error);
-                status.textContent = 'Error updating track';
+              .catch((error) => {
+                status.textContent = 'Error updating track: ' + error.message;
+                status.className = 'status error';
                 status.style.display = 'block';
-                status.style.background = '#fff3f3';
-                status.style.borderColor = '#f1aeb5';
               });
           };
 

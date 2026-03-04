@@ -71,4 +71,6 @@ async function fetchTrackDurationSeconds(url) {
 
 module.exports = {
   fetchTrackDurationSeconds,
+  fetchPartialAudio,
+  parseBitrateFromFrame,
 };

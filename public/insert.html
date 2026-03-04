@@ -5,6 +5,15 @@
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
+    <style>
+      .artwork-preview { width: 100%; aspect-ratio: 1; border-radius: 10px; background: #f0ede8; border: 1px solid rgba(0,0,0,0.08); object-fit: cover; display: none; margin-top: 8px; }
+      .artwork-preview.visible { display: block; }
+      .track-row.card { position: relative; padding: 18px; }
+      .track-row-remove { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #aaa; font-size: 1.1rem; cursor: pointer; box-shadow: none; padding: 2px 6px; }
+      .track-row-remove:hover { color: #b42318; }
+      .upload-btn-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+      .upload-btn-row input[type="file"] { flex: 1; min-width: 0; }
+    </style>
   </head>
   <body>
     <div data-admin-header></div>
@@ -13,35 +22,82 @@
       <div class="card">
         <div class="panel-title">
           <div>
-            <h1>Add tracks</h1>
-            <p class="meta">Create a release and add tracks in one flow. Metadata (duration + title hints) is inferred automatically when an MP3 URL is set.</p>
+            <h1 style="margin-bottom:4px;">Add a new release</h1>
+            <p class="meta">Create a release and add its tracks in one flow.</p>
           </div>
-          <a class="button-link button-secondary" href="edit.html">Open directory</a>
+          <a class="button-link button-secondary" href="edit.html">Track directory</a>
         </div>
 
         <form id="addTrackForm">
-          <div class="form-grid">
-            <div><label for="albumName">Release title</label><input type="text" id="albumName" name="albumName" required /></div>
-            <div><label for="albumId">Release ID</label><input type="text" id="albumId" name="albumId" placeholder="slug" /></div>
-            <div><label for="artistName">Artist name</label><input type="text" id="artistName" name="artistName" value="Independent Artist" required /></div>
-            <div>
-              <label for="artworkUrl">Artwork URL</label>
-              <input type="url" id="artworkUrl" name="artworkUrl" />
-              <div class="inline-actions" style="margin-top:8px;">
-                <input type="file" id="artworkFile" accept="image/*" />
-                <button type="button" id="uploadArtworkButton" class="button-link button-secondary">Upload artwork</button>
+
+          <!-- ── Release metadata ──────────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Release</p>
+            <div class="form-grid">
+              <div>
+                <label for="albumName">Release title</label>
+                <input type="text" id="albumName" name="albumName" required placeholder="e.g. Debut EP" />
               </div>
-              <small id="artworkUploadStatus" class="meta"></small>
+              <div>
+                <label for="artistName">Artist name</label>
+                <input type="text" id="artistName" name="artistName" required placeholder="Loading from settings…" />
+              </div>
+              <div>
+                <label for="genre">Genre</label>
+                <input type="text" id="genre" name="genre" placeholder="e.g. Indie Folk" />
+              </div>
+              <div>
+                <label for="year">Year</label>
+                <input type="number" id="year" name="year" placeholder="2025" />
+              </div>
+              <div>
+                <label for="albumId">Release ID <span class="meta" style="font-weight:400;">(optional, for share links)</span></label>
+                <input type="text" id="albumId" name="albumId" placeholder="auto-generated from title" />
+              </div>
+              <div>
+                <label for="bgcolor">Card background colour <span class="meta" style="font-weight:400;">(optional)</span></label>
+                <input type="text" id="bgcolor" name="bgcolor" placeholder="#f0ede8" />
+              </div>
             </div>
-            <div><label for="albumArtworkUrl">Player artwork URL</label><input type="url" id="albumArtworkUrl" name="albumArtworkUrl" /></div>
-            <div><label for="pinCode">PIN Code</label><input type="password" id="pinCode" name="pinCode" required /></div>
           </div>
 
-          <h3>Tracks</h3>
-          <div id="tracksContainer" class="tracks-preview"></div>
-          <button type="button" id="addTrackButton">+ Add track</button>
-          <div class="actions" style="margin-top:16px;"><button type="submit" id="submitButton">Save release</button></div>
-          <div id="formStatus" class="status" style="display:none;"></div>
+          <!-- ── Artwork ───────────────────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Artwork</p>
+            <div class="form-grid">
+              <div>
+                <label for="artworkUrl">Artwork URL</label>
+                <input type="url" id="artworkUrl" name="artworkUrl" placeholder="https://…" />
+                <div class="upload-btn-row">
+                  <input type="file" id="artworkFile" accept="image/*" />
+                  <button type="button" id="uploadArtworkButton" class="button-secondary button-sm">Upload</button>
+                </div>
+                <small id="artworkUploadStatus" class="meta"></small>
+                <img id="artworkPreview" class="artwork-preview" alt="Artwork preview" />
+              </div>
+              <div style="display:flex;flex-direction:column;justify-content:flex-end;">
+                <p class="meta" style="margin-bottom:8px;">The same image is used as the track artwork and album card artwork. Aspect ratio 1:1 recommended (e.g. 1000×1000).</p>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:8px;">
+                  <input type="checkbox" id="publishRelease" name="publishRelease" checked />
+                  Publish release immediately
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Tracks ────────────────────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Tracks</p>
+            <div id="tracksContainer" class="tracks-preview"></div>
+            <div class="actions" style="margin-top:12px;">
+              <button type="button" id="addTrackButton" class="button-secondary">+ Add track</button>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:28px; padding-top:24px; border-top:1px solid rgba(0,0,0,0.07);">
+            <button type="submit" id="submitButton">Save release</button>
+          </div>
+          <div id="formStatus" class="status" style="display:none; margin-top:12px;"></div>
         </form>
       </div>
     </div>
@@ -49,229 +105,194 @@
     <script>
       const addTrackForm = document.getElementById('addTrackForm');
       const tracksContainer = document.getElementById('tracksContainer');
-      const addTrackButton = document.getElementById('addTrackButton');
       const formStatus = document.getElementById('formStatus');
       const submitButton = document.getElementById('submitButton');
+      const artworkPreview = document.getElementById('artworkPreview');
       let nextTrackNumber = 1;
 
-      const artworkFileInput = document.getElementById('artworkFile');
-      const uploadArtworkButton = document.getElementById('uploadArtworkButton');
-      const artworkUploadStatus = document.getElementById('artworkUploadStatus');
-
-            // Drop-in replacement for uploadFileToMediaHost in add.html
-      // Automatically chunks files > CHUNK_THRESHOLD to stay under Netlify's 6MB body limit.
-
-      const CHUNK_SIZE = 3 * 1024 * 1024;     // 3 MB per chunk (base64 inflates ~33% → ~4 MB on wire)
-      const CHUNK_THRESHOLD = 4 * 1024 * 1024; // files larger than 4 MB go via chunked upload
-
-      const readAsBase64 = (file) =>
-        new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result).split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-      const readSliceAsBase64 = (blob) =>
-        new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result).split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-
-      function buildUploadErrorMessage(result, fallback = 'Upload failed') {
-        const parts = [result?.message || fallback];
-        if (result?.detail) parts.push(`detail: ${result.detail}`);
-        if (result?.requestId) parts.push(`requestId: ${result.requestId}`);
-        return parts.join(' | ');
+      /* ── Artwork preview ──────────────────────────────────────── */
+      function updateArtworkPreview(url) {
+        if (!url) { artworkPreview.classList.remove('visible'); return; }
+        artworkPreview.src = url;
+        artworkPreview.onload = () => artworkPreview.classList.add('visible');
+        artworkPreview.onerror = () => artworkPreview.classList.remove('visible');
       }
 
-      async function postJson(url, payload) {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        let result = null;
-        try { result = await response.json(); } catch (e) {
-          throw new Error('Upload endpoint returned non-JSON response.');
-        }
-        if (!response.ok) throw new Error(buildUploadErrorMessage(result));
-        return result;
-      }
+      document.getElementById('artworkUrl').addEventListener('input', (e) => updateArtworkPreview(e.target.value.trim()));
 
-      async function uploadFileToMediaHost(file, folder, pinCode, onProgress) {
+      /* ── Upload helpers ───────────────────────────────────────── */
+      const CHUNK_SIZE = 3 * 1024 * 1024;
+      const CHUNK_THRESHOLD = 4 * 1024 * 1024;
+
+      const readSliceAsBase64 = (blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      async function uploadFileToMediaHost(file, folder, onProgress) {
         const endpoint = '/.netlify/functions/uploadMedia';
+        const token = AdminDataStore.getToken();
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) };
 
-        // Small files: single request (original behaviour)
+        async function postChunk(payload) {
+          const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+          const result = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(result.message || `Upload failed (${res.status})`);
+          return result;
+        }
+
         if (file.size <= CHUNK_THRESHOLD) {
-          const contentBase64 = await readAsBase64(file);
-          const result = await postJson(endpoint, {
-            pinCode,
-            fileName: file.name,
-            contentBase64,
-            folder,
-          });
-          if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'No URL returned.'));
+          const contentBase64 = await readSliceAsBase64(file);
+          const result = await postChunk({ fileName: file.name, contentBase64, folder });
+          if (!result?.url) throw new Error('No URL returned from upload');
           return result.url;
         }
 
-        // Large files: chunked upload
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        // Unique session ID so the server can reassemble chunks from this upload
         const uploadId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-
         let lastResult;
         for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_SIZE;
-          const slice = file.slice(start, start + CHUNK_SIZE);
+          const slice = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
           const chunkBase64 = await readSliceAsBase64(slice);
-
-          lastResult = await postJson(endpoint, {
-            pinCode,
-            fileName: file.name,
-            folder,
-            uploadId,
-            chunkIndex: i,
-            totalChunks,
-            chunkBase64,
-          });
-
+          lastResult = await postChunk({ fileName: file.name, folder, uploadId, chunkIndex: i, totalChunks, chunkBase64 });
           if (onProgress) onProgress(i + 1, totalChunks);
         }
-
-        if (!lastResult?.url) {
-          throw new Error(buildUploadErrorMessage(lastResult, 'No URL returned after final chunk.'));
-        }
+        if (!lastResult?.url) throw new Error('No URL returned after final chunk');
         return lastResult.url;
       }
 
-      async function uploadAlbumArtwork() {
-        const file = artworkFileInput.files[0];
-        const pinCode = document.getElementById('pinCode').value.trim();
-        if (!pinCode) { artworkUploadStatus.textContent = 'Enter PIN before uploading files.'; return; }
-        if (!file) { artworkUploadStatus.textContent = 'Choose an image file first.'; return; }
-
-        uploadArtworkButton.disabled = true;
-        const originalLabel = uploadArtworkButton.textContent;
-        uploadArtworkButton.textContent = 'Uploading…';
-        artworkUploadStatus.textContent = 'Uploading to media host…';
-
+      /* ── Artwork upload ───────────────────────────────────────── */
+      document.getElementById('uploadArtworkButton').addEventListener('click', async () => {
+        const file = document.getElementById('artworkFile').files[0];
+        const statusEl = document.getElementById('artworkUploadStatus');
+        if (!file) { statusEl.textContent = 'Choose an image file first.'; return; }
+        const btn = document.getElementById('uploadArtworkButton');
+        btn.disabled = true; btn.textContent = 'Uploading…'; statusEl.textContent = 'Uploading…';
         try {
-          const uploadedUrl = await uploadFileToMediaHost(file, 'artwork', pinCode);
-          document.getElementById('artworkUrl').value = uploadedUrl;
-          if (!document.getElementById('albumArtworkUrl').value.trim()) {
-            document.getElementById('albumArtworkUrl').value = uploadedUrl;
-          }
-          artworkUploadStatus.textContent = `Artwork uploaded: ${uploadedUrl}`;
-        } catch (error) {
-          artworkUploadStatus.textContent = error.message;
-        } finally {
-          uploadArtworkButton.disabled = false;
-          uploadArtworkButton.textContent = originalLabel;
-        }
-      }
+          const url = await uploadFileToMediaHost(file, 'artwork');
+          document.getElementById('artworkUrl').value = url;
+          updateArtworkPreview(url);
+          statusEl.textContent = 'Uploaded.';
+        } catch (e) { statusEl.textContent = e.message; }
+        finally { btn.disabled = false; btn.textContent = 'Upload'; }
+      });
 
-      function showStatus(message, isError) {
-        formStatus.textContent = message;
-        formStatus.style.display = 'block';
-        formStatus.style.background = isError ? '#fff3f3' : '#f1f7ff';
-        formStatus.style.borderColor = isError ? '#f1aeb5' : '#d5e5ff';
-        formStatus.style.color = isError ? '#8c1d2e' : '#1f4b99';
+      /* ── Server-side metadata proxy ───────────────────────────── */
+      async function fetchMetadataFromServer(url) {
+        return AdminDataStore.requestJson(
+          '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url)
+        );
       }
 
       async function autoFillTrackMetadata(row) {
         const urlInput = row.querySelector('.mp3Url');
         const nameInput = row.querySelector('.trackName');
         const durationInput = row.querySelector('.durationSeconds');
+        const yearInput = row.querySelector('.trackYear');
+        const genreInput = row.querySelector('.trackGenre');
         const hint = row.querySelector('.metadataHint');
         const url = urlInput.value.trim();
         if (!url) return;
 
-        if (!nameInput.value.trim()) {
-          nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
-        }
+        // Immediately infer name from URL filename
+        if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
 
-        hint.textContent = 'Reading metadata…';
-        const seconds = await AdminDataStore.deriveDurationFromUrl(url);
-        if (seconds && !durationInput.value) durationInput.value = seconds;
-        hint.textContent = seconds ? `Metadata ready (${seconds}s)` : 'Metadata lookup skipped (source blocked or missing headers).';
+        hint.textContent = 'Fetching metadata…';
+        try {
+          const meta = await fetchMetadataFromServer(url);
+          if (meta.trackName && !nameInput.value.trim()) nameInput.value = meta.trackName;
+          else if (meta.trackName) nameInput.placeholder = meta.trackName; // show as hint
+          if (meta.durationSeconds && !durationInput.value) durationInput.value = meta.durationSeconds;
+          if (meta.year && !yearInput.value) yearInput.value = meta.year;
+          if (meta.genre && !genreInput.value) genreInput.value = meta.genre;
+          hint.textContent = meta.durationSeconds
+            ? `Metadata ready — ${Math.floor(meta.durationSeconds / 60)}:${String(meta.durationSeconds % 60).padStart(2,'0')}`
+            : 'Metadata read (no duration found).';
+        } catch (_e) {
+          // Fallback: duration-only via <audio> element (works for same-origin or permissive CORS)
+          const seconds = await AdminDataStore.deriveDurationFromUrl(url);
+          if (seconds && !durationInput.value) durationInput.value = seconds;
+          hint.textContent = seconds
+            ? `Duration ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2,'0')} (ID3 tags unavailable)`
+            : 'Could not read metadata.';
+        }
       }
 
+      /* ── Track rows ───────────────────────────────────────────── */
       function createTrackRow() {
+        const num = nextTrackNumber++;
         const wrapper = document.createElement('div');
         wrapper.className = 'track-row card';
         wrapper.innerHTML = `
-          <label>Track name<input type="text" class="trackName" required /></label>
-          <label>MP3 URL<input type="url" class="mp3Url" required /></label>
-          <label>Upload MP3<input type="file" class="trackFile" accept="audio/*" /></label>
-          <div class="inline-actions"><button type="button" class="button-link button-secondary uploadTrackButton">Upload audio</button></div>
-          <small class="meta trackUploadStatus"></small>
-          <label>Order<input type="number" class="trackNumber" min="1" value="${nextTrackNumber}" required /></label>
-          <label>Duration (s)<input type="number" class="durationSeconds" /></label>
-          <label>Year<input type="number" class="trackYear" /></label>
-          <label>Genre<input type="text" class="trackGenre" /></label>
-          <label>Track medium<input type="text" class="trackMedium" /></label>
-          <label>Track notes<textarea class="trackText"></textarea></label>
-          <small class="meta metadataHint">Metadata will auto-load from MP3 URL.</small>`;
+          <button type="button" class="track-row-remove" title="Remove track" aria-label="Remove track">&#10005;</button>
+          <div class="form-grid">
+            <div><label>Track name<input type="text" class="trackName" required /></label></div>
+            <div>
+              <label>MP3 URL<input type="url" class="mp3Url" required /></label>
+              <div class="upload-btn-row">
+                <input type="file" class="trackFile" accept="audio/*" />
+                <button type="button" class="button-secondary button-sm uploadTrackBtn">Upload</button>
+              </div>
+              <small class="meta trackUploadStatus"></small>
+            </div>
+            <div><label>Order<input type="number" class="trackNumber" min="1" value="${num}" required /></label></div>
+            <div><label>Duration (s)<input type="number" class="durationSeconds" /></label></div>
+            <div><label>Year<input type="number" class="trackYear" /></label></div>
+            <div><label>Genre<input type="text" class="trackGenre" /></label></div>
+            <div style="grid-column:1/-1"><label>Notes / lyrics<textarea class="trackText" style="min-height:60px;"></textarea></label></div>
+          </div>
+          <small class="meta metadataHint" style="margin-top:6px;display:block;">Enter an MP3 URL to auto-fill metadata.</small>`;
+
+        wrapper.querySelector('.track-row-remove').addEventListener('click', () => {
+          if (tracksContainer.querySelectorAll('.track-row').length > 1) wrapper.remove();
+        });
 
         wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
-        wrapper.querySelector('.uploadTrackButton').addEventListener('click', async () => {
+
+        wrapper.querySelector('.uploadTrackBtn').addEventListener('click', async () => {
           const fileInput = wrapper.querySelector('.trackFile');
           const urlInput = wrapper.querySelector('.mp3Url');
           const uploadState = wrapper.querySelector('.trackUploadStatus');
           const file = fileInput.files[0];
-          const pinCode = document.getElementById('pinCode').value.trim();
+          if (!file) { uploadState.textContent = 'Choose an audio file first.'; return; }
 
-          if (!pinCode) {
-            uploadState.textContent = 'Enter PIN before uploading files.';
-            return;
-          }
-
-          if (!file) {
-            uploadState.textContent = 'Choose an audio file first.';
-            return;
-          }
-
-          const uploadButton = wrapper.querySelector('.uploadTrackButton');
-          uploadButton.disabled = true;
-          const originalLabel = uploadButton.textContent;
-          uploadButton.textContent = 'Uploading…';
-          uploadState.textContent = 'Uploading to media host…';
-
+          const btn = wrapper.querySelector('.uploadTrackBtn');
+          btn.disabled = true; btn.textContent = 'Uploading…'; uploadState.textContent = 'Uploading…';
           try {
-            const uploadedUrl = await uploadFileToMediaHost(file, 'audio', pinCode);
-            urlInput.value = uploadedUrl;
-            uploadState.textContent = `Audio uploaded: ${uploadedUrl}`;
+            const url = await uploadFileToMediaHost(file, 'audio', (done, total) => {
+              uploadState.textContent = `Uploading… ${done}/${total} chunks`;
+            });
+            urlInput.value = url;
+            uploadState.textContent = 'Uploaded.';
             autoFillTrackMetadata(wrapper);
-          } catch (error) {
-            uploadState.textContent = error.message;
-          } finally {
-            uploadButton.disabled = false;
-            uploadButton.textContent = originalLabel;
-          }
+          } catch (e) { uploadState.textContent = e.message; }
+          finally { btn.disabled = false; btn.textContent = 'Upload'; }
         });
 
-        nextTrackNumber++;
         return wrapper;
       }
 
-      function addTrackRow() { tracksContainer.appendChild(createTrackRow()); }
-      addTrackButton.addEventListener('click', addTrackRow);
-      uploadArtworkButton.addEventListener('click', uploadAlbumArtwork);
-      addTrackRow();
+      document.getElementById('addTrackButton').addEventListener('click', () => tracksContainer.appendChild(createTrackRow()));
 
+      /* ── Submit ───────────────────────────────────────────────── */
       addTrackForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         submitButton.disabled = true;
         submitButton.textContent = 'Saving…';
-
-        const formData = new FormData(addTrackForm);
+        formStatus.style.display = 'none';
 
         const album = {
-          albumName: formData.get('albumName'), artistName: formData.get('artistName'), artworkUrl: formData.get('artworkUrl'),
-          albumId: formData.get('albumId'), albumArtworkUrl: formData.get('albumArtworkUrl')
+          albumName: document.getElementById('albumName').value,
+          artistName: document.getElementById('artistName').value,
+          artworkUrl: document.getElementById('artworkUrl').value,
+          albumArtworkUrl: document.getElementById('artworkUrl').value,
+          albumId: document.getElementById('albumId').value,
+          genre: document.getElementById('genre').value,
+          year: document.getElementById('year').value,
+          bgcolor: document.getElementById('bgcolor').value,
+          published: document.getElementById('publishRelease').checked,
         };
 
         const tracks = [...tracksContainer.querySelectorAll('.track-row')].map((row) => ({
@@ -281,31 +302,56 @@
           durationSeconds: row.querySelector('.durationSeconds').value,
           year: row.querySelector('.trackYear').value,
           genre: row.querySelector('.trackGenre').value,
-          trackMedium: row.querySelector('.trackMedium').value,
-          trackText: row.querySelector('.trackText').value
+          trackText: row.querySelector('.trackText').value,
         }));
 
         try {
-          await AdminDataStore.requestJson('/.netlify/functions/catalog', { method: 'POST', body: JSON.stringify({ action: 'addReleaseTracks', album, tracks }) });
+          await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'addReleaseTracks', album, tracks }),
+          });
           AdminDataStore.invalidateCache(['tracks', 'albums']);
-          showStatus('Release and tracks saved.', false);
+          formStatus.textContent = `Release "${album.albumName}" saved with ${tracks.length} track${tracks.length !== 1 ? 's' : ''}.`;
+          formStatus.className = 'status';
+          formStatus.style.display = 'block';
           addTrackForm.reset();
-          artworkUploadStatus.textContent = '';
+          document.getElementById('artworkUrl').value = '';
+          updateArtworkPreview('');
           tracksContainer.innerHTML = '';
           nextTrackNumber = 1;
-          addTrackRow();
+          tracksContainer.appendChild(createTrackRow());
+          // Reload artist from settings
+          loadArtistDefault();
         } catch (error) {
-          console.error(error);
-          showStatus('Save failed.', true);
+          formStatus.textContent = `Save failed: ${error.message}`;
+          formStatus.className = 'status error';
+          formStatus.style.display = 'block';
         } finally {
           submitButton.disabled = false;
           submitButton.textContent = 'Save release';
         }
       });
 
+      /* ── Default artist from site settings ───────────────────── */
+      async function loadArtistDefault() {
+        try {
+          const settings = await AdminDataStore.fetchJsonCached('/.netlify/functions/siteSettings', 'site-settings');
+          const artistField = document.getElementById('artistName');
+          if (!artistField.value.trim()) {
+            artistField.value = settings.brandName || settings.siteTitle || '';
+          }
+          if (!artistField.placeholder || artistField.placeholder === 'Loading from settings…') {
+            artistField.placeholder = settings.brandName || settings.siteTitle || 'Artist name';
+          }
+        } catch (_e) { /* silently ignore */ }
+      }
+
+      /* ── Init ─────────────────────────────────────────────────── */
       window.addEventListener('DOMContentLoaded', () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
+        tracksContainer.appendChild(createTrackRow());
+        loadArtistDefault();
       });
     </script>
   </body>

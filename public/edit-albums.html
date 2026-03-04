@@ -5,142 +5,280 @@
     <link rel="stylesheet" href="/styles/admin.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
+    <style>
+      .artwork-col { display: flex; flex-direction: column; gap: 8px; }
+      .artwork-preview { width: 100%; aspect-ratio: 1; border-radius: 10px; background: #f0ede8; border: 1px solid rgba(0,0,0,0.08); object-fit: cover; display: none; }
+      .artwork-preview.visible { display: block; }
+      .upload-btn-row { display: flex; gap: 8px; align-items: center; }
+      .upload-btn-row input[type="file"] { flex: 1; min-width: 0; }
+      .track-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+      .track-list li { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 8px; background: #faf8f4; border: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+      .track-list li .track-num { color: #999; font-size: 0.8rem; text-align: center; }
+      .track-list li .track-dur { color: #999; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    </style>
   </head>
   <body>
     <div data-admin-header></div>
     <div class="admin-shell">
       <div data-admin-tabs></div>
+
+      <!-- ── Release picker ──────────────────────────────────────── -->
       <div class="card">
-        <h1>Edit releases</h1>
-        <p class="meta">Album-level edits propagate to every track. Track metadata is inferred automatically from MP3 URLs when adding new tracks.</p>
-        <div class="form-grid">
-          <div><label for="albumSelect">Choose release</label><select id="albumSelect"></select></div>
-          <div><label>Track count</label><div id="trackCount" class="meta">—</div></div>
+        <div class="panel-title">
+          <div>
+            <h1 style="margin-bottom:4px;">Edit releases</h1>
+            <p class="meta">Select a release to view tracks and edit metadata.</p>
+          </div>
+          <a class="button-link" href="insert.html">+ New release</a>
         </div>
-        <div id="status" class="status" style="display:none;"></div>
+        <div>
+          <label for="albumSelect">Release</label>
+          <select id="albumSelect" style="max-width:480px;"></select>
+        </div>
+        <div id="status" class="status" style="display:none; margin-top:14px;"></div>
       </div>
 
-
-      <div class="card" id="featuredCard" style="display:none;">
-        <h2>Featured release</h2>
-        <p class="meta">Set the currently selected release as canonical featured release for the welcome hero. The latest save always wins.</p>
-        <div class="actions"><button type="button" id="setFeaturedButton">Set selected release as featured</button></div>
-        <div id="featuredStatus" class="status" style="display:none;margin-top:12px;"></div>
+      <!-- ── Track list ──────────────────────────────────────────── -->
+      <div class="card" id="trackListCard" style="display:none;">
+        <div class="panel-title">
+          <h2 style="margin-bottom:0;">Tracks</h2>
+          <p class="meta" id="trackCount"></p>
+        </div>
+        <ul class="track-list" id="trackList"></ul>
       </div>
 
+      <!-- ── Release metadata form ───────────────────────────────── -->
       <div class="card" id="formCard" style="display:none;">
+        <h2 style="margin-bottom:20px;">Release metadata</h2>
         <form id="albumForm">
           <div class="form-grid">
-            <div><label for="albumName">Album name</label><input type="text" id="albumName" required /></div>
             <div>
-              <label for="albumId">Release ID (optional)</label>
+              <label for="albumName">Album name</label>
+              <input type="text" id="albumName" required />
+            </div>
+            <div>
+              <label for="artistName">Artist name</label>
+              <input type="text" id="artistName" />
+            </div>
+            <div>
+              <label for="genre">Genre</label>
+              <input type="text" id="genre" />
+            </div>
+            <div>
+              <label for="year">Year</label>
+              <input type="number" id="year" />
+            </div>
+            <div>
+              <label for="albumId">Release ID <span class="meta" style="font-weight:400;">(for share links)</span></label>
               <input type="text" id="albumId" placeholder="slug-for-share-links" />
             </div>
-            <div><label for="artistName">Artist name</label><input type="text" id="artistName" /></div>
-            <div><label for="artworkUrl">Artwork URL</label><input type="url" id="artworkUrl" /></div>
-            <div><label for="albumArtworkUrl">Album artwork URL</label><input type="url" id="albumArtworkUrl" /></div>
-            <div><label for="bgcolor">Background colour</label><input type="text" id="bgcolor" /></div>
-            <div><label for="genre">Genre</label><input type="text" id="genre" /></div>
-            <div><label for="year">Year</label><input type="number" id="year" /></div>
-            <div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="published" /><label for="published" style="margin:0;">Published?</label></div>
+            <div>
+              <label for="bgcolor">Card background colour</label>
+              <input type="text" id="bgcolor" />
+            </div>
+            <div class="artwork-col">
+              <label for="artworkUrl">Artwork URL</label>
+              <input type="url" id="artworkUrl" placeholder="https://…" />
+              <div class="upload-btn-row">
+                <input type="file" id="artworkFile" accept="image/*" />
+                <button type="button" id="uploadArtworkButton" class="button-secondary button-sm">Upload</button>
+              </div>
+              <small id="artworkUploadStatus" class="meta"></small>
+              <img id="artworkPreview" class="artwork-preview" alt="Artwork preview" />
+            </div>
+            <div>
+              <label for="albumArtworkUrl">Player artwork URL <span class="meta" style="font-weight:400;">(leave blank to use artwork URL)</span></label>
+              <input type="url" id="albumArtworkUrl" placeholder="Usually same as artwork URL" />
+              <div style="margin-top:16px;">
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;">
+                  <input type="checkbox" id="published" /> Published
+                </label>
+              </div>
+            </div>
           </div>
-          <div class="actions" style="margin-top:16px;"><button type="submit">Apply album updates</button></div>
+          <div class="actions" style="margin-top:20px;">
+            <button type="submit">Save metadata</button>
+          </div>
         </form>
       </div>
 
-      <div class="card" id="addTracksCard" style="display:none;">
-        <h2>Add tracks to release</h2>
-        <form id="addTracksForm">
-          <div id="tracksContainer" class="tracks-preview"></div>
-          <button type="button" id="addTrackButton">+ Add track</button>
-          <div class="actions" style="margin-top:16px;"><button type="submit">Save tracks</button></div>
-        </form>
-        <div id="trackStatus" class="status" style="display:none;"></div>
+      <!-- ── Featured release ────────────────────────────────────── -->
+      <div class="card" id="featuredCard" style="display:none;">
+        <h2 style="margin-bottom:8px;">Featured release</h2>
+        <p class="meta">Pin this release as the featured hero on the player home screen.</p>
+        <div class="actions" style="margin-top:12px;">
+          <button type="button" id="setFeaturedButton">Set as featured release</button>
+        </div>
+        <div id="featuredStatus" class="status" style="display:none; margin-top:12px;"></div>
       </div>
+
+      <!-- ── Add tracks ──────────────────────────────────────────── -->
+      <div class="card" id="addTracksCard" style="display:none;">
+        <h2 style="margin-bottom:8px;">Add tracks to this release</h2>
+        <p class="meta">New tracks inherit the release artwork and artist name.</p>
+        <form id="addTracksForm">
+          <div id="tracksContainer" class="tracks-preview" style="margin-top:16px;"></div>
+          <div class="actions" style="margin-top:12px;">
+            <button type="button" id="addTrackButton" class="button-secondary">+ Add track</button>
+          </div>
+          <div class="actions" style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(0,0,0,0.07);">
+            <button type="submit">Save new tracks</button>
+          </div>
+        </form>
+        <div id="trackStatus" class="status" style="display:none; margin-top:12px;"></div>
+      </div>
+
     </div>
 
     <script>
-      const albumSelect = document.getElementById('albumSelect');
-      const status = document.getElementById('status');
-      const formCard = document.getElementById('formCard');
-      const trackCount = document.getElementById('trackCount');
-      const addTracksCard = document.getElementById('addTracksCard');
+      const albumSelect     = document.getElementById('albumSelect');
+      const statusEl        = document.getElementById('status');
+      const formCard        = document.getElementById('formCard');
+      const trackListCard   = document.getElementById('trackListCard');
+      const trackList       = document.getElementById('trackList');
+      const trackCountEl    = document.getElementById('trackCount');
+      const addTracksCard   = document.getElementById('addTracksCard');
       const tracksContainer = document.getElementById('tracksContainer');
-      const addTrackButton = document.getElementById('addTrackButton');
-      const addTracksForm = document.getElementById('addTracksForm');
-      const trackStatus = document.getElementById('trackStatus');
-      const featuredCard = document.getElementById('featuredCard');
-      const featuredStatus = document.getElementById('featuredStatus');
-      const setFeaturedButton = document.getElementById('setFeaturedButton');
+      const addTrackButton  = document.getElementById('addTrackButton');
+      const addTracksForm   = document.getElementById('addTracksForm');
+      const trackStatus     = document.getElementById('trackStatus');
+      const featuredCard    = document.getElementById('featuredCard');
+      const featuredStatus  = document.getElementById('featuredStatus');
+      const artworkPreview  = document.getElementById('artworkPreview');
+      const artworkUploadStatus = document.getElementById('artworkUploadStatus');
 
-      const fields = ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','bgcolor','genre','year','published'].reduce((acc, id) => ({ ...acc, [id]: document.getElementById(id) }), {});
+      const fields = ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','bgcolor','genre','year','published']
+        .reduce((acc, id) => ({ ...acc, [id]: document.getElementById(id) }), {});
+
       let albums = [];
+      let allTracks = [];
       let activeAlbum = null;
       let nextTrackNumber = 1;
 
-      function showStatus(message, isError = false) { status.textContent = message; status.style.display = 'block'; status.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
-      function showTrackStatus(message, isError = false) { trackStatus.textContent = message; trackStatus.style.display = 'block'; trackStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
-      function showFeaturedStatus(message, isError = false) { featuredStatus.textContent = message; featuredStatus.style.display = 'block'; featuredStatus.style.background = isError ? '#fff3f3' : '#f1f7ff'; }
-      function slugify(value = '') {
-        return String(value || '')
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
+      /* ── Status ───────────────────────────────────────────────── */
+      function showStatus(msg, isError = false) { statusEl.textContent = msg; statusEl.style.display = 'block'; statusEl.className = isError ? 'status error' : 'status'; }
+      function showTrackStatus(msg, isError = false) { trackStatus.textContent = msg; trackStatus.style.display = 'block'; trackStatus.className = isError ? 'status error' : 'status'; }
+      function showFeaturedStatus(msg, isError = false) { featuredStatus.textContent = msg; featuredStatus.style.display = 'block'; featuredStatus.className = isError ? 'status error' : 'status'; }
+
+      function slugify(v = '') { return String(v).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+      function fmtDur(s) { if (!s) return ''; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2,'0')}`; }
+
+      /* ── Artwork preview ──────────────────────────────────────── */
+      function updateArtworkPreview(url) {
+        if (!url) { artworkPreview.classList.remove('visible'); return; }
+        artworkPreview.src = url;
+        artworkPreview.onload = () => artworkPreview.classList.add('visible');
+        artworkPreview.onerror = () => artworkPreview.classList.remove('visible');
+      }
+
+      fields.artworkUrl.addEventListener('input', (e) => updateArtworkPreview(e.target.value.trim()));
+
+      /* ── Artwork upload ───────────────────────────────────────── */
+      document.getElementById('uploadArtworkButton').addEventListener('click', async () => {
+        const file = document.getElementById('artworkFile').files[0];
+        if (!file) { artworkUploadStatus.textContent = 'Choose an image file first.'; return; }
+        const btn = document.getElementById('uploadArtworkButton');
+        btn.disabled = true; btn.textContent = 'Uploading…'; artworkUploadStatus.textContent = 'Uploading…';
+        try {
+          const token = AdminDataStore.getToken();
+          const hdrs = { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) };
+          const b64 = await new Promise((res, rej) => {
+            const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+          });
+          const result = await fetch('/.netlify/functions/uploadMedia', {
+            method: 'POST', headers: hdrs,
+            body: JSON.stringify({ fileName: file.name, contentBase64: b64, folder: 'artwork' }),
+          }).then((r) => r.json());
+          if (!result?.url) throw new Error(result?.message || 'No URL returned');
+          fields.artworkUrl.value = result.url;
+          if (!fields.albumArtworkUrl.value) fields.albumArtworkUrl.value = result.url;
+          updateArtworkPreview(result.url);
+          artworkUploadStatus.textContent = 'Uploaded.';
+        } catch (e) { artworkUploadStatus.textContent = e.message; }
+        finally { btn.disabled = false; btn.textContent = 'Upload'; }
+      });
+
+      /* ── Track list ───────────────────────────────────────────── */
+      function renderTrackList(albumName) {
+        const tracks = allTracks
+          .filter((t) => t.albumName === albumName)
+          .sort((a, b) => (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0));
+
+        trackCountEl.textContent = `${tracks.length} track${tracks.length !== 1 ? 's' : ''}`;
+        trackList.innerHTML = '';
+
+        if (!tracks.length) {
+          const li = document.createElement('li');
+          li.style.cssText = 'grid-column:1/-1;color:#999;font-style:italic;padding:12px;';
+          li.textContent = 'No tracks in this release yet — add some below.';
+          trackList.appendChild(li);
+          return;
+        }
+
+        tracks.forEach((track) => {
+          const li = document.createElement('li');
+          const pub = track.published === false ? ' <span class="badge warning" style="font-size:0.7rem;">draft</span>' : '';
+          const paid = track.paid ? ' 🔒' : '';
+          li.innerHTML = `<span class="track-num">${track.trackNumber || '—'}</span><span>${track.trackName || 'Untitled'}${paid}${pub}</span><span class="track-dur">${fmtDur(track.durationSeconds)}</span>`;
+          const link = document.createElement('a');
+          link.href = `fiddle.html?id=${track._id}`;
+          link.className = 'button-link button-secondary button-sm';
+          link.style.cssText = 'padding:4px 10px;font-size:0.78rem;';
+          link.textContent = 'Edit';
+          li.appendChild(link);
+          trackList.appendChild(li);
+        });
+      }
+
+      /* ── Populate form ────────────────────────────────────────── */
+      function populateForm(album) {
+        activeAlbum = album;
+        const show = (el, v) => { el.style.display = v ? 'block' : 'none'; };
+        if (!album) {
+          [formCard, trackListCard, addTracksCard, featuredCard].forEach((c) => show(c, false));
+          return;
+        }
+        [formCard, trackListCard, addTracksCard, featuredCard].forEach((c) => show(c, true));
+
+        fields.albumName.value       = album.albumName || '';
+        fields.albumId.value         = album.albumId || '';
+        fields.artistName.value      = album.artistName || '';
+        fields.artworkUrl.value      = album.artworkUrl || '';
+        fields.albumArtworkUrl.value = album.albumArtworkUrl || '';
+        fields.bgcolor.value         = album.bgcolor || '';
+        fields.genre.value           = album.genre || '';
+        fields.year.value            = album.year || '';
+        fields.published.checked     = album.published !== false;
+
+        updateArtworkPreview(album.artworkUrl || album.albumArtworkUrl || '');
+        renderTrackList(album.albumName);
+        resetTrackAddForm();
+      }
+
+      /* ── Load data ────────────────────────────────────────────── */
+      async function loadAlbums(selectedName) {
+        [albums, allTracks] = await Promise.all([
+          AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=albums', 'albums', { bypassCache: true }),
+          AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=tracks', 'tracks', { bypassCache: true }),
+        ]);
+        renderAlbumOptions();
+        if (selectedName) albumSelect.value = selectedName;
+        populateForm(albums.find((a) => a.albumName === albumSelect.value) || null);
       }
 
       function renderAlbumOptions() {
-        albumSelect.innerHTML = '<option value="">Select release</option>';
-        albums.forEach((album) => {
-          const option = document.createElement('option');
-          option.value = album.albumName || '';
-          option.textContent = album.albumName || 'Untitled release';
-          albumSelect.appendChild(option);
+        albumSelect.innerHTML = '<option value="">— Select a release —</option>';
+        albums.forEach((a) => {
+          const opt = document.createElement('option');
+          opt.value = a.albumName;
+          opt.textContent = a.albumName + (a.artistName ? ' — ' + a.artistName : '');
+          albumSelect.appendChild(opt);
         });
       }
 
-      function populateForm(album) {
-        activeAlbum = album;
-        if (!album) { formCard.style.display = 'none'; addTracksCard.style.display = 'none'; featuredCard.style.display = 'none'; trackCount.textContent = '—'; return; }
-        formCard.style.display = 'block'; addTracksCard.style.display = 'block'; featuredCard.style.display = 'block';
-        fields.albumName.value = album.albumName || ''; fields.albumId.value = album.albumId || ''; fields.artistName.value = album.artistName || '';
-        fields.artworkUrl.value = album.artworkUrl || ''; fields.albumArtworkUrl.value = album.albumArtworkUrl || ''; fields.bgcolor.value = album.bgcolor || '';
-        fields.genre.value = album.genre || ''; fields.year.value = album.year || ''; fields.published.checked = album.published !== false;
-        trackCount.textContent = album.trackCount || 0;
-        resetTrackForm();
-      }
+      albumSelect.addEventListener('change', () => populateForm(albums.find((a) => a.albumName === albumSelect.value) || null));
 
-      async function loadAlbums(selectedName) {
-        albums = await AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=albums', 'albums');
-        renderAlbumOptions();
-        if (selectedName) albumSelect.value = selectedName;
-        populateForm(albums.find((a) => a.albumName === albumSelect.value));
-      }
-
-      function createTrackRow() {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'track-row card';
-        wrapper.innerHTML = `<label>Track name<input type="text" class="trackName" required /></label><label>MP3 URL<input type="url" class="mp3Url" required /></label><label>Order<input type="number" class="trackNumber" value="${nextTrackNumber}" min="1" required /></label><label>Duration (s)<input type="number" class="durationSeconds" /></label><label>Year<input type="number" class="trackYear" /></label><label>Genre<input type="text" class="trackGenre" /></label><label>Track medium<input type="text" class="trackMedium" /></label><label>Track notes<textarea class="trackText"></textarea></label><small class="meta metadataHint">Metadata will auto-load from MP3 URL.</small>`;
-        wrapper.querySelector('.mp3Url').addEventListener('change', async () => {
-          const urlInput = wrapper.querySelector('.mp3Url');
-          const hint = wrapper.querySelector('.metadataHint');
-          const nameInput = wrapper.querySelector('.trackName');
-          const durationInput = wrapper.querySelector('.durationSeconds');
-          if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(urlInput.value);
-          hint.textContent = 'Reading metadata…';
-          const seconds = await AdminDataStore.deriveDurationFromUrl(urlInput.value);
-          if (seconds && !durationInput.value) durationInput.value = seconds;
-          hint.textContent = seconds ? `Metadata ready (${seconds}s)` : 'Metadata lookup skipped.';
-        });
-        nextTrackNumber += 1;
-        return wrapper;
-      }
-
-      function resetTrackForm() { tracksContainer.innerHTML = ''; nextTrackNumber = Number(activeAlbum?.trackCount || 0) + 1; tracksContainer.appendChild(createTrackRow()); trackStatus.style.display = 'none'; }
-
-      albumSelect.addEventListener('change', () => populateForm(albums.find((album) => album.albumName === albumSelect.value)));
-      addTrackButton.addEventListener('click', () => tracksContainer.appendChild(createTrackRow()));
-
+      /* ── Album form ───────────────────────────────────────────── */
       document.getElementById('albumForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!activeAlbum) return;
@@ -150,77 +288,130 @@
         });
         if ((activeAlbum.published !== false) !== fields.published.checked) updates.published = fields.published.checked;
         if (!Object.keys(updates).length) return showStatus('No changes to save.');
-
         try {
-          await AdminDataStore.requestJson('/.netlify/functions/catalog', { method: 'POST', body: JSON.stringify({ action: 'updateAlbum', albumName: activeAlbum.albumName, updates }) });
+          await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'updateAlbum', albumName: activeAlbum.albumName, updates }),
+          });
           AdminDataStore.invalidateCache(['albums', 'tracks']);
-          showStatus('Album updated.');
+          showStatus('Release metadata saved.');
           await loadAlbums(fields.albumName.value);
-        } catch (_error) { showStatus('Could not update album.', true); }
+        } catch (_e) { showStatus('Could not save changes.', true); }
       });
+
+      /* ── Add tracks ───────────────────────────────────────────── */
+      async function autoFillTrackMetadata(row) {
+        const urlInput = row.querySelector('.mp3Url');
+        const nameInput = row.querySelector('.trackName');
+        const durationInput = row.querySelector('.durationSeconds');
+        const yearInput = row.querySelector('.trackYear');
+        const genreInput = row.querySelector('.trackGenre');
+        const hint = row.querySelector('.metadataHint');
+        const url = urlInput.value.trim();
+        if (!url) return;
+        if (!nameInput.value.trim()) nameInput.value = AdminDataStore.inferTrackNameFromUrl(url);
+        hint.textContent = 'Fetching metadata…';
+        try {
+          const meta = await AdminDataStore.requestJson('/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(url));
+          if (meta.durationSeconds && !durationInput.value) durationInput.value = meta.durationSeconds;
+          if (meta.year && !yearInput.value) yearInput.value = meta.year;
+          if (meta.genre && !genreInput.value) genreInput.value = meta.genre;
+          hint.textContent = meta.durationSeconds ? fmtDur(meta.durationSeconds) : 'Metadata read.';
+        } catch (_e) {
+          const seconds = await AdminDataStore.deriveDurationFromUrl(url);
+          if (seconds && !durationInput.value) durationInput.value = seconds;
+          hint.textContent = seconds ? fmtDur(seconds) : 'Could not read metadata.';
+        }
+      }
+
+      function createTrackRow() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'track-row card';
+        wrapper.style.cssText = 'position:relative;padding:16px;';
+        wrapper.innerHTML = `
+          <div class="form-grid">
+            <div><label>Track name<input type="text" class="trackName" required /></label></div>
+            <div>
+              <label>MP3 URL<input type="url" class="mp3Url" required /></label>
+              <small class="meta metadataHint" style="display:block;margin-top:4px;">Enter URL to auto-fill metadata.</small>
+            </div>
+            <div><label>Order<input type="number" class="trackNumber" min="1" value="${nextTrackNumber}" required /></label></div>
+            <div><label>Duration (s)<input type="number" class="durationSeconds" /></label></div>
+            <div><label>Year<input type="number" class="trackYear" /></label></div>
+            <div><label>Genre<input type="text" class="trackGenre" /></label></div>
+          </div>`;
+        wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
+        nextTrackNumber++;
+        return wrapper;
+      }
+
+      function resetTrackAddForm() {
+        tracksContainer.innerHTML = '';
+        nextTrackNumber = Number(activeAlbum?.trackCount || 0) + 1;
+        tracksContainer.appendChild(createTrackRow());
+        trackStatus.style.display = 'none';
+      }
+
+      addTrackButton.addEventListener('click', () => tracksContainer.appendChild(createTrackRow()));
 
       addTracksForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (!activeAlbum) return showTrackStatus('Select an album first.', true);
-
+        if (!activeAlbum) return showTrackStatus('Select a release first.', true);
         const tracks = [...tracksContainer.querySelectorAll('.track-row')].map((row) => ({
-          trackName: row.querySelector('.trackName').value.trim(), mp3Url: row.querySelector('.mp3Url').value.trim(),
-          trackNumber: row.querySelector('.trackNumber').value, durationSeconds: row.querySelector('.durationSeconds').value,
-          year: row.querySelector('.trackYear').value, genre: row.querySelector('.trackGenre').value,
-          trackMedium: row.querySelector('.trackMedium').value, trackText: row.querySelector('.trackText').value
-        })).filter((track) => track.trackName && track.mp3Url);
+          trackName: row.querySelector('.trackName').value.trim(),
+          mp3Url: row.querySelector('.mp3Url').value.trim(),
+          trackNumber: row.querySelector('.trackNumber').value,
+          durationSeconds: row.querySelector('.durationSeconds').value,
+          year: row.querySelector('.trackYear').value,
+          genre: row.querySelector('.trackGenre').value,
+        })).filter((t) => t.trackName && t.mp3Url);
 
-        if (!tracks.length) return showTrackStatus('Add at least one track.', true);
+        if (!tracks.length) return showTrackStatus('Add at least one track with a name and URL.', true);
 
-        const albumPayload = { albumName: fields.albumName.value || activeAlbum.albumName, albumId: fields.albumId.value, artistName: fields.artistName.value, artworkUrl: fields.artworkUrl.value, albumArtworkUrl: fields.albumArtworkUrl.value, bgcolor: fields.bgcolor.value, genre: fields.genre.value, year: fields.year.value, published: fields.published.checked };
-        try {
-          await AdminDataStore.requestJson('/.netlify/functions/catalog', { method: 'POST', body: JSON.stringify({ action: 'addReleaseTracks', album: albumPayload, tracks }) });
-          AdminDataStore.invalidateCache(['albums', 'tracks']);
-          showTrackStatus('Tracks added.');
-          await loadAlbums(albumPayload.albumName);
-        } catch (_error) { showTrackStatus('Could not save tracks.', true); }
-      });
-
-
-      setFeaturedButton.addEventListener('click', async () => {
-        if (!activeAlbum) return showFeaturedStatus('Select an album first.', true);
-
-        const albumId = (fields.albumId.value || activeAlbum.albumId || slugify(fields.albumName.value || activeAlbum.albumName || '')).trim();
-
-        const featuredRelease = {
-          title: (fields.albumName.value || activeAlbum.albumName || '').trim(),
-          albumId,
-          coverImageUrl: (fields.albumArtworkUrl.value || fields.artworkUrl.value || activeAlbum.albumArtworkUrl || activeAlbum.artworkUrl || '').trim(),
-          tagline: `Now featuring ${((fields.albumName.value || activeAlbum.albumName || '').trim())}.`,
-          ctaText: 'Listen Now',
-          featuredAt: new Date().toISOString(),
-          source: 'edit-albums'
+        const albumPayload = {
+          albumName: fields.albumName.value || activeAlbum.albumName,
+          albumId: fields.albumId.value, artistName: fields.artistName.value,
+          artworkUrl: fields.artworkUrl.value,
+          albumArtworkUrl: fields.albumArtworkUrl.value || fields.artworkUrl.value,
+          bgcolor: fields.bgcolor.value, genre: fields.genre.value,
+          year: fields.year.value, published: fields.published.checked,
         };
 
-        if (!featuredRelease.title || !featuredRelease.coverImageUrl) {
-          return showFeaturedStatus('Featured release needs both title and artwork URL.', true);
-        }
-
         try {
-          const existing = await fetch('/.netlify/functions/siteSettings').then((response) => response.ok ? response.json() : ({}));
-          const payload = { ...existing, featuredRelease, featuredReleaseUpdatedAt: featuredRelease.featuredAt };
-          const response = await fetch('/.netlify/functions/siteSettings', {
+          await AdminDataStore.requestJson('/.netlify/functions/catalog', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ action: 'addReleaseTracks', album: albumPayload, tracks }),
           });
-          if (!response.ok) throw new Error('Could not persist featured release settings.');
-          AdminDataStore.invalidateCache(['site-settings']);
-          showFeaturedStatus('Featured release updated. This is now the canonical featured release.');
-        } catch (_error) {
-          showFeaturedStatus('Could not set featured release.', true);
-        }
+          AdminDataStore.invalidateCache(['albums', 'tracks']);
+          showTrackStatus(`${tracks.length} track${tracks.length !== 1 ? 's' : ''} added.`);
+          await loadAlbums(albumPayload.albumName);
+        } catch (_e) { showTrackStatus('Could not save tracks.', true); }
       });
 
+      /* ── Featured release ─────────────────────────────────────── */
+      document.getElementById('setFeaturedButton').addEventListener('click', async () => {
+        if (!activeAlbum) return showFeaturedStatus('Select a release first.', true);
+        const albumId = (fields.albumId.value || activeAlbum.albumId || slugify(fields.albumName.value || activeAlbum.albumName)).trim();
+        const coverUrl = (fields.albumArtworkUrl.value || fields.artworkUrl.value || '').trim();
+        const title = (fields.albumName.value || activeAlbum.albumName || '').trim();
+        if (!title || !coverUrl) return showFeaturedStatus('Release needs a title and artwork URL.', true);
+        try {
+          const existing = await AdminDataStore.requestJson('/.netlify/functions/siteSettings');
+          const featuredRelease = { title, albumId, coverImageUrl: coverUrl, tagline: `Now featuring ${title}.`, ctaText: 'Listen Now', featuredAt: new Date().toISOString(), source: 'edit-albums' };
+          await AdminDataStore.requestJson('/.netlify/functions/siteSettings', {
+            method: 'POST',
+            body: JSON.stringify({ ...existing, featuredRelease, featuredReleaseUpdatedAt: featuredRelease.featuredAt }),
+          });
+          AdminDataStore.invalidateCache(['site-settings']);
+          showFeaturedStatus('Featured release updated.');
+        } catch (_e) { showFeaturedStatus('Could not set featured release.', true); }
+      });
+
+      /* ── Init ─────────────────────────────────────────────────── */
       window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
-        try { await loadAlbums(); } catch (_error) { showStatus('Could not load releases.', true); }
+        try { await loadAlbums(); } catch (_e) { showStatus('Could not load releases.', true); }
       });
     </script>
   </body>

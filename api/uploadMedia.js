@@ -1,6 +1,7 @@
 const path = require('path');
 const { Readable } = require('stream');
 const ftp = require('basic-ftp');
+const { isAdmin } = require('./lib/auth');
 
 // ---------- helpers ----------
 
@@ -98,10 +99,12 @@ exports.handler = async (event) => {
     return json(400, { message: 'Invalid JSON body', requestId });
   }
 
-  // PIN check
-  const requiredPin = process.env.ADMIN_PIN || '1310';
-  if ((body.pinCode || '') !== requiredPin) {
-    return json(401, { message: 'Invalid PIN code', requestId });
+  // Auth: accept admin token (preferred) or legacy PIN (fallback)
+  const tokenOk = isAdmin(event);
+  const legacyPin = process.env.ADMIN_PIN;
+  const pinOk = legacyPin && (body.pinCode || '') === legacyPin;
+  if (!tokenOk && !pinOk) {
+    return json(401, { message: 'Unauthorized — provide a valid admin token or PIN', requestId });
   }
 
   const {
