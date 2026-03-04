@@ -1079,10 +1079,7 @@ function showAlbumGallery() {
 function goToWelcome() {
   state.currentAlbum = null;
   state.currentAlbumId = null;
-  const url = new URL(window.location.href);
-  url.searchParams.delete('album');
-  url.searchParams.delete('track');
-  history.replaceState(null, '', url);
+  history.replaceState(null, '', '/');
   refreshDocumentMetadata();
   showAlbumGallery();
   syncViewportLayout();
@@ -1353,7 +1350,20 @@ function hideOverlay() {
 function openNowPlayingOverlay() {
   if (!state.currentTrack) return;
   if (state.currentTrack?.albumName) {
+    // Snapshot queue before setAlbum() resets it
+    const prevItems = state.queue?.items?.slice() ?? [];
+    const prevShuffle = state.queue?.shuffleEnabled ?? false;
+    const prevRepeat = state.queue?.repeatEnabled ?? false;
+    const prevCurrentId = state.queue?.currentId;
     setAlbum(state.currentTrack.albumName);
+    // If shuffle was active over a broader set (e.g. "all songs"), restore it
+    if (prevShuffle && prevItems.length > (state.queue?.items?.length ?? 0)) {
+      state.queue.items = prevItems;
+      state.queue.shuffleEnabled = true;
+      state.queue.repeatEnabled = prevRepeat;
+      state.queue.currentId = prevCurrentId;
+      syncPlayModes();
+    }
     highlightActiveTrack();
   }
   showOverlay();

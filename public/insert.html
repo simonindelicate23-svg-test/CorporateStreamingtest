@@ -249,7 +249,11 @@
           if (tracksContainer.querySelectorAll('.track-row').length > 1) wrapper.remove();
         });
 
-        wrapper.querySelector('.mp3Url').addEventListener('change', () => autoFillTrackMetadata(wrapper));
+        wrapper.querySelector('.mp3Url').addEventListener('change', () => {
+          autoFillTrackMetadata(wrapper);
+          const url = wrapper.querySelector('.mp3Url').value.trim();
+          if (url) warnIfDuplicate(url, wrapper.querySelector('.trackUploadStatus'));
+        });
 
         wrapper.querySelector('.uploadTrackBtn').addEventListener('click', async () => {
           const fileInput = wrapper.querySelector('.trackFile');
@@ -258,16 +262,30 @@
           const file = fileInput.files[0];
           if (!file) { uploadState.textContent = 'Choose an audio file first.'; return; }
 
+          // Warn on filename match before uploading
+          const filenameLower = file.name.toLowerCase();
+          const filenameMatch = existingTracks.find(t => {
+            const existing = (t.mp3Url || '').split('/').pop().replace(/^\d+-/, '').toLowerCase();
+            return existing && existing === filenameLower;
+          });
+          if (filenameMatch) {
+            uploadState.style.color = '#856404';
+            uploadState.textContent = `⚠ A file named "${file.name}" may already exist as "${filenameMatch.trackName || file.name}" in "${filenameMatch.albumName || 'catalog'}". Uploading anyway…`;
+          }
+
           const btn = wrapper.querySelector('.uploadTrackBtn');
-          btn.disabled = true; btn.textContent = 'Uploading…'; uploadState.textContent = 'Uploading…';
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          if (!filenameMatch) uploadState.textContent = 'Uploading…';
           try {
             const url = await uploadFileToMediaHost(file, 'audio', (done, total) => {
               uploadState.textContent = `Uploading… ${done}/${total} chunks`;
             });
             urlInput.value = url;
+            uploadState.style.color = '';
             uploadState.textContent = 'Uploaded.';
+            warnIfDuplicate(url, uploadState);
             autoFillTrackMetadata(wrapper);
-          } catch (e) { uploadState.textContent = e.message; }
+          } catch (e) { uploadState.style.color = ''; uploadState.textContent = e.message; }
           finally { btn.disabled = false; btn.textContent = 'Upload'; }
         });
 
@@ -332,6 +350,35 @@
         }
       });
 
+      /* ── Duplicate detection ──────────────────────────────────── */
+      let existingTracks = [];
+
+      async function loadExistingTracks() {
+        try {
+          existingTracks = await AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=tracks', 'tracks');
+        } catch (_e) { /* non-fatal */ }
+      }
+
+      function findDuplicateTrack(url) {
+        if (!url || !existingTracks.length) return null;
+        const exact = existingTracks.find(t => t.mp3Url === url);
+        if (exact) return exact;
+        const filename = url.split('/').pop().replace(/^\d+-/, '').toLowerCase();
+        if (!filename) return null;
+        return existingTracks.find(t => {
+          const existing = (t.mp3Url || '').split('/').pop().replace(/^\d+-/, '').toLowerCase();
+          return existing && existing === filename;
+        }) || null;
+      }
+
+      function warnIfDuplicate(url, statusEl) {
+        const dup = findDuplicateTrack(url);
+        if (dup) {
+          statusEl.style.color = '#856404';
+          statusEl.textContent = `⚠ Possible duplicate: "${dup.trackName || url}" already in "${dup.albumName || 'catalog'}".`;
+        }
+      }
+
       /* ── Default artist from site settings ───────────────────── */
       async function loadArtistDefault() {
         try {
@@ -352,6 +399,7 @@
         AdminDataStore.mountTabs();
         tracksContainer.appendChild(createTrackRow());
         loadArtistDefault();
+        loadExistingTracks();
       });
     </script>
   </body>

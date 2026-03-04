@@ -252,3 +252,39 @@ small.meta { font-size: 0.83rem; }
   color: #4c4c4c;
   font-size: 0.95rem;
 }
+
+/* ── Mobile responsive ─────────────────────────────────────── */
+@media (max-width: 600px) {
+  .admin-header { padding: 0 14px; }
+  .admin-header__brand > span:first-child { display: none; } /* hide ADMIN badge on tiny screens */
+
+  .admin-shell { padding: 10px 10px 0; }
+
+  .card { padding: 16px; }
+
+  .panel-title { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .panel-title > * { width: 100%; }
+  .panel-title .button-link { text-align: center; justify-content: center; }
+
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr; }
+
+  /* Tables scroll horizontally rather than overflowing */
+  .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* File inputs don't push buttons off screen */
+  .upload-btn-row { flex-wrap: wrap; }
+  .upload-btn-row input[type="file"] { width: 100%; min-width: 0; flex: 1 1 100%; }
+
+  /* Action rows stack */
+  .actions { flex-direction: column; align-items: stretch; }
+  .actions button, .actions .button-link { width: 100%; justify-content: center; }
+
+  /* Inline fields stay usable */
+  .inline-field { flex-wrap: wrap; }
+  .inline-field input { min-width: 0; }
+
+  /* Color fields don't clip */
+  .color-field { flex-wrap: wrap; }
+  .color-field input[type="text"] { min-width: 0; }
+}
