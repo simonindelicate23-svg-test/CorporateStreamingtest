@@ -29,8 +29,18 @@
               <input type="text" id="albumId" />
             </div>
             <div>
+              <label>Admin PIN (for media uploads)</label>
+              <input type="password" id="pinCode" autocomplete="off" />
+            </div>
+            <div>
               <label>Artwork URL</label>
               <input type="text" id="artworkUrl" />
+              <label style="margin-top:8px;">Replace artwork file</label>
+              <div class="inline-field">
+                <input type="file" id="artworkFile" accept="image/*" />
+                <button type="button" id="uploadArtwork" class="button-secondary">Upload artwork</button>
+              </div>
+              <small id="artworkUploadStatus" class="meta"></small>
             </div>
             <div>
               <label>Album Artwork URL</label>
@@ -42,6 +52,12 @@
                 <input type="text" id="mp3Url" />
                 <button type="button" id="fetchMetadata" class="button-secondary">Fetch metadata</button>
               </div>
+              <label style="margin-top:8px;">Replace audio file</label>
+              <div class="inline-field">
+                <input type="file" id="audioFile" accept="audio/*" />
+                <button type="button" id="uploadAudio" class="button-secondary">Upload audio</button>
+              </div>
+              <small id="audioUploadStatus" class="meta"></small>
             </div>
             <div>
               <label>Track Number</label>
@@ -96,6 +112,8 @@
       const id = urlParams.get('id');
       const status = document.getElementById('status');
       const fetchMetadataBtn = document.getElementById('fetchMetadata');
+      const uploadArtworkBtn = document.getElementById('uploadArtwork');
+      const uploadAudioBtn = document.getElementById('uploadAudio');
 
       const textDecoderLatin1 = new TextDecoder('latin1');
       const textDecoderUtf16 = new TextDecoder('utf-16');
@@ -103,6 +121,103 @@
       function decodeSynchsafe(bytes) {
         return ((bytes[0] & 0x7f) << 21) | ((bytes[1] & 0x7f) << 14) | ((bytes[2] & 0x7f) << 7) | (bytes[3] & 0x7f);
       }
+
+      function buildUploadErrorMessage(result, fallback) {
+        if (!result) return fallback;
+        return result.detail || result.message || fallback;
+      }
+
+      async function parseUploadResponse(response) {
+        const rawText = await response.text();
+        const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+        const isLikelyJson = contentType.includes('application/json') || rawText.trim().startsWith('{') || rawText.trim().startsWith('[');
+        if (!isLikelyJson) {
+          const preview = rawText.replace(/\s+/g, ' ').trim().slice(0, 140);
+          throw new Error(`Upload endpoint returned non-JSON response (status ${response.status}${preview ? `, body starts with: ${preview}` : ''}).`);
+        }
+
+        try {
+          return JSON.parse(rawText || '{}');
+        } catch (_error) {
+          throw new Error(`Upload endpoint returned invalid JSON (status ${response.status}).`);
+        }
+      }
+
+      function shouldUseApiFallback() {
+        return ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+      }
+
+      async function sendUploadRequest(endpoint, file, folder, pinCode) {
+        const formData = new FormData();
+        formData.append('pinCode', pinCode);
+        formData.append('folder', folder);
+        formData.append('file', file, file.name);
+        return fetch(endpoint, { method: 'POST', body: formData });
+      }
+
+      async function uploadFileToMediaHost(file, folder, pinCode) {
+        const primaryEndpoint = '/.netlify/functions/uploadMedia';
+        let response;
+
+        try {
+          response = await sendUploadRequest(primaryEndpoint, file, folder, pinCode);
+        } catch (error) {
+          if (!shouldUseApiFallback()) throw error;
+          const fallbackResponse = await sendUploadRequest('/api/uploadMedia', file, folder, pinCode);
+          const fallbackResult = await parseUploadResponse(fallbackResponse);
+          if (!fallbackResponse.ok) throw new Error(buildUploadErrorMessage(fallbackResult, 'Upload failed via /api/uploadMedia'));
+          if (!fallbackResult?.url) throw new Error(buildUploadErrorMessage(fallbackResult, 'Upload via /api/uploadMedia finished but no media URL was returned.'));
+          return fallbackResult.url;
+        }
+
+        const result = await parseUploadResponse(response);
+        if (!response.ok) throw new Error(buildUploadErrorMessage(result, `Upload failed via ${primaryEndpoint}`));
+        if (!result?.url) throw new Error(buildUploadErrorMessage(result, `Upload via ${primaryEndpoint} finished but no media URL was returned.`));
+        return result.url;
+      }
+
+      async function uploadReplacement(kind) {
+        const pinCode = document.getElementById('pinCode').value.trim();
+        const isArtwork = kind === 'artwork';
+        const fileInput = document.getElementById(isArtwork ? 'artworkFile' : 'audioFile');
+        const button = document.getElementById(isArtwork ? 'uploadArtwork' : 'uploadAudio');
+        const statusNode = document.getElementById(isArtwork ? 'artworkUploadStatus' : 'audioUploadStatus');
+        const file = fileInput.files[0];
+
+        if (!pinCode) {
+          statusNode.textContent = 'Enter PIN before uploading files.';
+          return;
+        }
+
+        if (!file) {
+          statusNode.textContent = `Choose a ${isArtwork ? 'image' : 'audio'} file first.`;
+          return;
+        }
+
+        button.disabled = true;
+        const originalLabel = button.textContent;
+        button.textContent = 'Uploading…';
+        statusNode.textContent = 'Uploading to media host…';
+
+        try {
+          const uploadedUrl = await uploadFileToMediaHost(file, isArtwork ? 'artwork' : 'audio', pinCode);
+          if (isArtwork) {
+            document.getElementById('artworkUrl').value = uploadedUrl;
+            if (!document.getElementById('albumArtworkUrl').value.trim()) {
+              document.getElementById('albumArtworkUrl').value = uploadedUrl;
+            }
+          } else {
+            document.getElementById('mp3Url').value = uploadedUrl;
+          }
+          statusNode.textContent = `${isArtwork ? 'Artwork' : 'Audio'} uploaded: ${uploadedUrl}`;
+        } catch (error) {
+          statusNode.textContent = error.message;
+        } finally {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
+      }
+
 
       function decodeFrameText(view) {
         const encoding = view.getUint8(0);
@@ -314,6 +429,19 @@
               status.style.borderColor = '#d5e5ff';
             } catch (error) {
               console.error(error);
+            }
+          });
+
+          uploadArtworkBtn.addEventListener('click', () => uploadReplacement('artwork'));
+          uploadAudioBtn.addEventListener('click', async () => {
+            await uploadReplacement('audio');
+            const url = document.getElementById('mp3Url').value.trim();
+            if (!url) return;
+            try {
+              const metadata = await fetchAudioMetadata(url);
+              populateFieldsFromMetadata(metadata);
+            } catch (_error) {
+              // ignore metadata parsing errors after upload
             }
           });
         });
