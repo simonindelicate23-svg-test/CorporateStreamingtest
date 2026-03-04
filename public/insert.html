@@ -57,12 +57,27 @@
       const uploadArtworkButton = document.getElementById('uploadArtworkButton');
       const artworkUploadStatus = document.getElementById('artworkUploadStatus');
 
-      const readAsBase64 = (file) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+            // Drop-in replacement for uploadFileToMediaHost in add.html
+      // Automatically chunks files > CHUNK_THRESHOLD to stay under Netlify's 6MB body limit.
+
+      const CHUNK_SIZE = 3 * 1024 * 1024;     // 3 MB per chunk (base64 inflates ~33% → ~4 MB on wire)
+      const CHUNK_THRESHOLD = 4 * 1024 * 1024; // files larger than 4 MB go via chunked upload
+
+      const readAsBase64 = (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+      const readSliceAsBase64 = (blob) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
 
       function buildUploadErrorMessage(result, fallback = 'Upload failed') {
         const parts = [result?.message || fallback];
@@ -71,19 +86,64 @@
         return parts.join(' | ');
       }
 
-      async function uploadFileToMediaHost(file, folder, pinCode) {
-        const contentBase64 = await readAsBase64(file);
-        const response = await fetch('/.netlify/functions/uploadMedia', {
+      async function postJson(url, payload) {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder })
+          body: JSON.stringify(payload),
         });
-
         let result = null;
-        try { result = await response.json(); } catch (_error) { throw new Error('Upload endpoint returned non-JSON response.'); }
+        try { result = await response.json(); } catch (e) {
+          throw new Error('Upload endpoint returned non-JSON response.');
+        }
         if (!response.ok) throw new Error(buildUploadErrorMessage(result));
-        if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'Upload finished but no media URL was returned.'));
-        return result.url;
+        return result;
+      }
+
+      async function uploadFileToMediaHost(file, folder, pinCode, onProgress) {
+        const endpoint = '/.netlify/functions/uploadMedia';
+
+        // Small files: single request (original behaviour)
+        if (file.size <= CHUNK_THRESHOLD) {
+          const contentBase64 = await readAsBase64(file);
+          const result = await postJson(endpoint, {
+            pinCode,
+            fileName: file.name,
+            contentBase64,
+            folder,
+          });
+          if (!result?.url) throw new Error(buildUploadErrorMessage(result, 'No URL returned.'));
+          return result.url;
+        }
+
+        // Large files: chunked upload
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        // Unique session ID so the server can reassemble chunks from this upload
+        const uploadId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+        let lastResult;
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const slice = file.slice(start, start + CHUNK_SIZE);
+          const chunkBase64 = await readSliceAsBase64(slice);
+
+          lastResult = await postJson(endpoint, {
+            pinCode,
+            fileName: file.name,
+            folder,
+            uploadId,
+            chunkIndex: i,
+            totalChunks,
+            chunkBase64,
+          });
+
+          if (onProgress) onProgress(i + 1, totalChunks);
+        }
+
+        if (!lastResult?.url) {
+          throw new Error(buildUploadErrorMessage(lastResult, 'No URL returned after final chunk.'));
+        }
+        return lastResult.url;
       }
 
       async function uploadAlbumArtwork() {

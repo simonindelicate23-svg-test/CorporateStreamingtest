@@ -2,7 +2,10 @@ const path = require('path');
 const { Readable } = require('stream');
 const ftp = require('basic-ftp');
 
-const normalizeSegment = (value) => String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+// ---------- helpers ----------
+
+const normalizeSegment = (value) =>
+  String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
 const safeFilename = (name) => {
   const base = path.basename(String(name || 'upload.bin'));
@@ -22,169 +25,178 @@ const redactHost = (host) => {
   return `${first.slice(0, 2)}***.${rest.join('.')}`;
 };
 
-const buildDiagnostics = (requestId) => ({
-  requestId,
-  startedAt: new Date().toISOString(),
-  steps: [],
-});
+// ---------- in-process chunk store ----------
+// Netlify Functions can reuse warm instances, so this works for sequential
+// uploads from the same client. Each upload session gets a unique uploadId.
+// Chunks are evicted after CHUNK_TTL_MS to avoid leaking memory on failures.
 
-const addStep = (diagnostics, stage, data = {}) => {
-  diagnostics.steps.push({
-    at: new Date().toISOString(),
-    stage,
-    ...data,
-  });
-};
+const CHUNK_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const chunkStore = new Map(); // uploadId -> { chunks: Buffer[], lastSeen: number, meta }
 
-exports.handler = async (event) => {
-  const requestId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  const diagnostics = buildDiagnostics(requestId);
-
-  if (event.httpMethod !== 'POST') {
-    addStep(diagnostics, 'rejected.method', { method: event.httpMethod });
-    return json(405, { message: 'Method not allowed', requestId, diagnostics });
+function pruneExpired() {
+  const now = Date.now();
+  for (const [id, session] of chunkStore) {
+    if (now - session.lastSeen > CHUNK_TTL_MS) chunkStore.delete(id);
   }
+}
 
-  let body;
-  try {
-    body = JSON.parse(event.body || '{}');
-  } catch (error) {
-    addStep(diagnostics, 'rejected.json_parse', { error: error.message });
-    return json(400, { message: 'Invalid JSON body', requestId, diagnostics });
-  }
+// ---------- FTP upload ----------
 
-  addStep(diagnostics, 'request.received', {
-    hasPinCode: Boolean(body.pinCode),
-    fileName: safeFilename(body.fileName),
-    folder: normalizeSegment(body.folder || 'misc') || 'misc',
-    contentLengthBase64: String(body.contentBase64 || '').length,
-  });
-
-  const requiredPin = process.env.ADMIN_PIN || '1310';
-  if ((body.pinCode || '') !== requiredPin) {
-    addStep(diagnostics, 'rejected.pin_mismatch');
-    return json(401, { message: 'Invalid PIN code', requestId, diagnostics });
-  }
-
-  const fileName = safeFilename(body.fileName);
-  const contentBase64 = body.contentBase64 || '';
-  const folder = normalizeSegment(body.folder || 'misc') || 'misc';
-
-  if (!fileName || !contentBase64) {
-    addStep(diagnostics, 'rejected.missing_payload', {
-      hasFileName: Boolean(fileName),
-      hasContentBase64: Boolean(contentBase64),
-    });
-    return json(400, { message: 'fileName and contentBase64 are required', requestId, diagnostics });
-  }
-
+async function uploadBufferToFtp(buffer, remotePath) {
   const ftpHost = process.env.FTP_HOST;
   const ftpUser = process.env.FTP_USER;
   const ftpPassword = process.env.FTP_PASSWORD;
-  const ftpBasePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
   const ftpPublicBaseUrl = String(process.env.FTP_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
 
   if (!ftpHost || !ftpUser || !ftpPassword || !ftpPublicBaseUrl) {
-    addStep(diagnostics, 'rejected.missing_config', {
-      hasFtpHost: Boolean(ftpHost),
-      hasFtpUser: Boolean(ftpUser),
-      hasFtpPassword: Boolean(ftpPassword),
-      hasFtpPublicBaseUrl: Boolean(ftpPublicBaseUrl),
-    });
-    return json(500, {
-      message: 'Upload is not configured. Set FTP_HOST, FTP_USER, FTP_PASSWORD and FTP_PUBLIC_BASE_URL.',
-      requestId,
-      diagnostics,
-    });
+    throw new Error(
+      'Upload not configured. Set FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_PUBLIC_BASE_URL.'
+    );
   }
 
-  const stamp = Date.now();
-  const remotePath = [ftpBasePath, folder, `${stamp}-${fileName}`].filter(Boolean).join('/');
   const remoteDirectory = path.posix.dirname(remotePath);
-  const buffer = Buffer.from(contentBase64, 'base64');
-
-  addStep(diagnostics, 'upload.prepared', {
-    remotePath,
-    remoteDirectory,
-    ftpHost: redactHost(ftpHost),
-    ftpUser,
-    secure: process.env.FTP_SECURE === 'true',
-    bytes: buffer.length,
-  });
-
-  if (!buffer.length) {
-    addStep(diagnostics, 'rejected.empty_buffer');
-    return json(400, { message: 'Decoded upload file is empty.', requestId, diagnostics });
-  }
-
+  const remoteFileName = path.posix.basename(remotePath);
   const client = new ftp.Client();
   client.ftp.verbose = false;
 
   try {
-    addStep(diagnostics, 'ftp.connect.start');
     await client.access({
       host: ftpHost,
       user: ftpUser,
       password: ftpPassword,
       secure: process.env.FTP_SECURE === 'true',
     });
-    addStep(diagnostics, 'ftp.connect.success');
-
-    const ftpStartDir = await client.pwd();
-    addStep(diagnostics, 'ftp.pwd.before_ensureDir', { pwd: ftpStartDir });
     await client.ensureDir(remoteDirectory);
-    const ftpUploadDir = await client.pwd();
-    addStep(diagnostics, 'ftp.pwd.after_ensureDir', { pwd: ftpUploadDir });
-
-    const remoteFileName = path.posix.basename(remotePath);
     await client.uploadFrom(Readable.from(buffer), remoteFileName);
-    addStep(diagnostics, 'ftp.upload.complete', { remoteFileName });
 
-    const uploadedFileSize = await client.size(remoteFileName);
-    addStep(diagnostics, 'ftp.verify.size', { uploadedFileSize });
-    if (uploadedFileSize !== buffer.length) {
-      const mismatchMessage = `Uploaded file size mismatch (expected ${buffer.length}, got ${uploadedFileSize})`;
-      addStep(diagnostics, 'ftp.verify.failed', { mismatchMessage });
-      throw new Error(mismatchMessage);
+    const uploadedSize = await client.size(remoteFileName);
+    if (uploadedSize !== buffer.length) {
+      throw new Error(
+        `Size mismatch after upload (expected ${buffer.length}, got ${uploadedSize})`
+      );
     }
 
-    const publicUrl = `${ftpPublicBaseUrl}/${remotePath}`;
-    addStep(diagnostics, 'upload.success', { publicUrl });
+    return `${ftpPublicBaseUrl}/${remotePath}`;
+  } finally {
+    client.close();
+  }
+}
 
-    console.log('Media upload succeeded', {
+// ---------- handler ----------
+
+exports.handler = async (event) => {
+  const requestId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+  if (event.httpMethod !== 'POST') {
+    return json(405, { message: 'Method not allowed', requestId });
+  }
+
+  let body;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    return json(400, { message: 'Invalid JSON body', requestId });
+  }
+
+  // PIN check
+  const requiredPin = process.env.ADMIN_PIN || '1310';
+  if ((body.pinCode || '') !== requiredPin) {
+    return json(401, { message: 'Invalid PIN code', requestId });
+  }
+
+  const {
+    fileName,
+    folder = 'misc',
+    contentBase64,      // non-chunked (small files / legacy)
+    // chunked fields:
+    uploadId,           // unique ID for this upload session
+    chunkIndex,         // 0-based
+    totalChunks,        // total number of chunks
+    chunkBase64,        // base64 payload for this chunk
+  } = body;
+
+  const safeName = safeFilename(fileName);
+  const safeFolder = normalizeSegment(folder) || 'misc';
+  const ftpBasePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
+
+  // ---- non-chunked path (file was small enough to send whole) ----
+  if (contentBase64 !== undefined) {
+    if (!safeName || !contentBase64) {
+      return json(400, { message: 'fileName and contentBase64 are required', requestId });
+    }
+    const buffer = Buffer.from(contentBase64, 'base64');
+    if (!buffer.length) return json(400, { message: 'Decoded file is empty', requestId });
+
+    const stamp = Date.now();
+    const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
+      .filter(Boolean).join('/');
+
+    try {
+      const publicUrl = await uploadBufferToFtp(buffer, remotePath);
+      return json(200, { message: 'Upload complete', url: publicUrl, bytes: buffer.length, requestId });
+    } catch (err) {
+      console.error('Upload failed', { requestId, error: err.message });
+      return json(500, { message: 'Upload failed', detail: err.message, requestId });
+    }
+  }
+
+  // ---- chunked path ----
+  if (!uploadId || chunkIndex === undefined || totalChunks === undefined || !chunkBase64) {
+    return json(400, {
+      message: 'For chunked uploads supply: uploadId, chunkIndex, totalChunks, chunkBase64',
       requestId,
-      remotePath,
-      bytes: buffer.length,
-      ftpHost: redactHost(ftpHost),
-      secure: process.env.FTP_SECURE === 'true',
     });
+  }
 
+  pruneExpired();
+
+  const chunkBuffer = Buffer.from(chunkBase64, 'base64');
+
+  if (!chunkStore.has(uploadId)) {
+    // First chunk — initialise session
+    chunkStore.set(uploadId, {
+      chunks: new Array(totalChunks).fill(null),
+      lastSeen: Date.now(),
+      meta: { safeName, safeFolder, totalChunks },
+    });
+  }
+
+  const session = chunkStore.get(uploadId);
+  session.chunks[chunkIndex] = chunkBuffer;
+  session.lastSeen = Date.now();
+
+  const received = session.chunks.filter(Boolean).length;
+  const isComplete = received === totalChunks;
+
+  if (!isComplete) {
+    // Acknowledge receipt and ask for more
+    return json(200, {
+      message: 'Chunk received',
+      chunkIndex,
+      received,
+      totalChunks,
+      requestId,
+    });
+  }
+
+  // All chunks in — assemble and upload
+  chunkStore.delete(uploadId);
+  const assembled = Buffer.concat(session.chunks);
+
+  const stamp = Date.now();
+  const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
+    .filter(Boolean).join('/');
+
+  try {
+    const publicUrl = await uploadBufferToFtp(assembled, remotePath);
     return json(200, {
       message: 'Upload complete',
       url: publicUrl,
-      bytes: buffer.length,
-      path: remotePath,
+      bytes: assembled.length,
       requestId,
-      diagnostics,
     });
-  } catch (error) {
-    addStep(diagnostics, 'upload.failed', {
-      errorMessage: error.message,
-      errorCode: error.code,
-      errorName: error.name,
-      stack: error.stack,
-    });
-
-    console.error('Upload failed', {
-      requestId,
-      errorMessage: error.message,
-      errorCode: error.code,
-      errorStack: error.stack,
-      diagnostics,
-    });
-
-    return json(500, { message: 'Upload failed', detail: error.message, requestId, diagnostics });
-  } finally {
-    client.close();
+  } catch (err) {
+    console.error('Chunked upload failed at FTP stage', { requestId, error: err.message });
+    return json(500, { message: 'Upload failed', detail: err.message, requestId });
   }
 };
