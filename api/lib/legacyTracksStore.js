@@ -143,29 +143,6 @@ const loadTracks = async () => {
   return result;
 };
 
-const appendTracks = async (newTracks) => {
-  const store = preferredStore();
-  clearCachedTracks();
-
-  if (store === 'ftp-json' || (store === 'auto' && hasFtpConfig())) {
-    const existing = await readFromFtp();
-    const merged = existing.concat(newTracks);
-    const result = await writeToFtp(merged);
-    setCachedTracks(merged, 'ftp-json');
-    return result;
-  }
-
-  if (store === 'file-json' || store === 'auto') {
-    const existing = await readFromFile();
-    const merged = existing.concat(newTracks);
-    const result = await writeToFile(merged);
-    setCachedTracks(merged, 'file-json');
-    return result;
-  }
-
-  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use ftp-json, file-json, or auto.`);
-};
-
 const saveTracks = async (tracks) => {
   const store = preferredStore();
   clearCachedTracks();
@@ -199,7 +176,6 @@ const withTrackIds = (tracks = []) => {
 
 module.exports = {
   loadTracks,
-  appendTracks,
   saveTracks,
   withTrackIds,
 };
