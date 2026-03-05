@@ -19,6 +19,11 @@
           <a class="button-link" href="insert.html">+ Add release</a>
         </div>
         <div class="form-grid"><div><label for="search">Filter</label><input id="search" type="text" placeholder="Track / album / artist" /></div></div>
+        <div style="margin-top:12px;">
+          <button id="fillDurationsBtn" class="button-link button-secondary">Fill missing durations</button>
+          <span id="fillDurationsHint" class="meta" style="margin-left:10px;"></span>
+        </div>
+        <div id="fillDurationsResults" style="display:none;margin-top:12px;"></div>
         <div id="status" class="status" style="display:none;"></div>
       </div>
       <div class="card">
@@ -104,6 +109,38 @@
           tableBody.appendChild(tr);
         });
       }
+
+      document.getElementById('fillDurationsBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('fillDurationsBtn');
+        const hint = document.getElementById('fillDurationsHint');
+        const results = document.getElementById('fillDurationsResults');
+        btn.disabled = true;
+        btn.textContent = 'Working…';
+        hint.textContent = '';
+        results.style.display = 'none';
+        results.innerHTML = '';
+        try {
+          const data = await AdminDataStore.requestJson('/.netlify/functions/fillTrackDurations', { method: 'POST' });
+          hint.textContent = `${data.updated} of ${data.processed} tracks updated.`;
+          if (data.failures && data.failures.length > 0) {
+            const lines = data.failures.map((f) => {
+              const name = [f.trackName, f.albumName].filter(Boolean).join(' — ') || String(f.id);
+              return `<li><strong>${name}</strong><br><span class="meta">${f.reason}</span>${f.mp3Url ? `<br><span class="meta" style="word-break:break-all;">${f.mp3Url}</span>` : ''}</li>`;
+            });
+            results.innerHTML = `<p class="meta" style="margin-bottom:6px;">${data.failures.length} track${data.failures.length !== 1 ? 's' : ''} could not be updated:</p><ul style="margin:0;padding-left:20px;line-height:1.8;">${lines.join('')}</ul>`;
+            results.style.cssText = 'display:block;background:#fff3f3;border:1px solid #f5c6cb;border-radius:6px;padding:12px 16px;margin-top:12px;';
+          }
+          if (data.updated > 0) {
+            AdminDataStore.invalidateCache(['tracks']);
+            await loadTracks();
+          }
+        } catch (err) {
+          hint.textContent = 'Request failed – see console for details.';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Fill missing durations';
+        }
+      });
 
       searchInput.addEventListener('input', renderRows);
       window.addEventListener('DOMContentLoaded', async () => {
