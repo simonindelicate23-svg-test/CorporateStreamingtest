@@ -40,11 +40,12 @@ function parseBitrateFromFrame(buffer) {
   return 0;
 }
 
-async function fetchPartialAudio(url, byteCount = 262144) {
+async function fetchPartialAudio(url, byteCount = 262144, signal) {
   const response = await fetch(url, {
     headers: {
       Range: `bytes=0-${byteCount - 1}`,
     },
+    ...(signal ? { signal } : {}),
   });
 
   if (!response.ok && response.status !== 206) {
