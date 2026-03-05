@@ -1,95 +1,78 @@
 #!/usr/bin/env node
+/**
+ * fresh-install.js
+ *
+ * Validates that the required environment variables are set before you
+ * start the dev server. No database required — the app runs on FTP + JSON.
+ *
+ * Usage:
+ *   node scripts/fresh-install.js
+ */
+
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
 const envExample = path.join(rootDir, '.env.example');
 const envFile = path.join(rootDir, '.env');
 
-const banner = (msg) => console.log(`\n=== ${msg} ===`);
-const info = (msg) => console.log(`[INFO] ${msg}`);
-const ok = (msg) => console.log(`[OK] ${msg}`);
-const fail = (msg) => console.error(`[FAIL] ${msg}`);
+const ok   = (msg) => console.log(`  \u2713  ${msg}`);
+const warn = (msg) => console.warn(`  !  ${msg}`);
+const fail = (msg) => { console.error(`  \u2717  ${msg}`); process.exitCode = 1; };
 
-const loadDotEnv = () => {
-  if (!fs.existsSync(envFile)) return;
-  const lines = fs.readFileSync(envFile, 'utf8').split(/\r?\n/);
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq === -1) continue;
-    const key = line.slice(0, eq).trim();
-    const value = line.slice(eq + 1).trim();
-    if (!process.env[key]) process.env[key] = value;
-  }
-};
-
-const run = (cmd, args) =>
-  new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: rootDir, stdio: 'pipe', shell: process.platform === 'win32' });
-
-    child.stdout.on('data', (chunk) => process.stdout.write(`[${cmd}] ${chunk}`));
-    child.stderr.on('data', (chunk) => process.stderr.write(`[${cmd}] ${chunk}`));
-
-    child.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`${cmd} ${args.join(' ')} exited with code ${code}`));
-    });
-  });
-
-const checkMongoConnection = async () => {
-  const { MongoClient } = require('mongodb');
-  const uri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB_NAME;
-
-  if (!uri || !dbName) {
-    throw new Error('MONGODB_URI and MONGODB_DB_NAME must be set in .env before running bootstrap.');
-  }
-
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
-  await client.connect();
-  await client.db(dbName).command({ ping: 1 });
-  await client.close();
-};
-
-const main = async () => {
-  banner('Self-host bootstrap');
-  info(`Node version: ${process.version}`);
-
+// Bootstrap .env from example if it doesn't exist yet
+if (!fs.existsSync(envFile)) {
   if (!fs.existsSync(envExample)) {
-    fail('Missing .env.example file.');
+    fail('Missing .env.example — cannot create .env.');
     process.exit(1);
   }
+  fs.copyFileSync(envExample, envFile);
+  console.log('\nCreated .env from .env.example');
+  console.log('Open .env and fill in your FTP credentials and ADMIN_API_TOKEN, then run this again.\n');
+  process.exit(0);
+}
 
-  if (!fs.existsSync(envFile)) {
-    fs.copyFileSync(envExample, envFile);
-    ok('Created .env from .env.example');
-    info('Please edit .env and set MONGODB_URI/MONGODB_DB_NAME/PayPal values, then run this command again.');
-    process.exit(0);
+// Load .env into process.env
+const lines = fs.readFileSync(envFile, 'utf8').split(/\r?\n/);
+for (const rawLine of lines) {
+  const line = rawLine.trim();
+  if (!line || line.startsWith('#')) continue;
+  const eq = line.indexOf('=');
+  if (eq === -1) continue;
+  const key = line.slice(0, eq).trim();
+  const value = line.slice(eq + 1).trim();
+  if (!process.env[key]) process.env[key] = value;
+}
+
+console.log('\nChecking configuration...\n');
+
+// Required for the app to function
+const required = [
+  ['APP_BASE_URL',        'Your Netlify or local dev URL'],
+  ['FTP_HOST',           'FTP server hostname'],
+  ['FTP_USER',           'FTP username'],
+  ['FTP_PASSWORD',       'FTP password'],
+  ['FTP_PUBLIC_BASE_URL','Public URL where uploaded files are served from'],
+  ['ADMIN_API_TOKEN',    'Admin secret token (generate any random string)'],
+];
+
+let allGood = true;
+for (const [key, description] of required) {
+  if (process.env[key]) {
+    ok(`${key}`);
+  } else {
+    fail(`${key} is not set — ${description}`);
+    allGood = false;
   }
+}
 
-  ok('Found .env');
-  loadDotEnv();
+console.log('');
 
-  banner('Checking MongoDB connection');
-  await checkMongoConnection();
-  ok('MongoDB connection successful');
-
-  banner('Running setup (indexes)');
-  await run('npm', ['run', 'setup']);
-  ok('Setup complete');
-
-  banner('Running migration (legacy -> normalized)');
-  await run('npm', ['run', 'migrate']);
-  ok('Migration complete');
-
-  banner('Bootstrap finished');
-  info('Next: run `npx netlify dev` and open http://localhost:8888/player.html');
-};
-
-main().catch((error) => {
-  fail(error.message);
+if (!allGood) {
+  console.error('Fix the missing values in .env and run this again.\n');
   process.exit(1);
-});
+}
+
+ok('All required variables are set.');
+console.log('\nNext step: npx netlify dev\n');
+console.log('Then open http://localhost:8888/install.html for the full setup guide.\n');

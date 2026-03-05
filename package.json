@@ -4,9 +4,6 @@
   "description": "Come Forth and be Born",
   "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "setup": "node scripts/setup.js",
-    "migrate": "node scripts/migrate-normalized.js",
     "fresh-install": "node scripts/fresh-install.js"
   },
   "author": "Simon Indelicate",
