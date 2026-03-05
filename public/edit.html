@@ -120,31 +120,53 @@
         results.style.display = 'none';
         results.innerHTML = '';
         try {
-          let totalProcessed = 0, totalUpdated = 0, allFailures = [], remaining = 1;
-          while (remaining > 0) {
-            const data = await AdminDataStore.requestJson('/.netlify/functions/fillTrackDurations', { method: 'POST' });
-            totalProcessed += data.processed || 0;
-            totalUpdated += data.updated || 0;
-            allFailures = allFailures.concat(data.failures || []);
-            remaining = data.remaining || 0;
-            hint.textContent = remaining > 0
-              ? `Updated ${totalUpdated} so far, ${remaining} remaining…`
-              : `${totalUpdated} of ${totalProcessed} tracks updated.`;
+          const missing = tracks.filter(t => !t.durationSeconds || t.durationSeconds <= 0);
+          if (missing.length === 0) {
+            hint.textContent = 'All tracks already have durations.';
+            return;
           }
-          if (allFailures.length > 0) {
-            const lines = allFailures.map((f) => {
-              const name = [f.trackName, f.albumName].filter(Boolean).join(' — ') || String(f.id);
+          let updated = 0;
+          const failures = [];
+          for (let i = 0; i < missing.length; i++) {
+            const track = missing[i];
+            hint.textContent = `Processing ${i + 1} of ${missing.length}…`;
+            if (!track.mp3Url) {
+              failures.push({ trackName: track.trackName, albumName: track.albumName, reason: 'No MP3 URL set' });
+              continue;
+            }
+            try {
+              const meta = await AdminDataStore.requestJson(
+                '/.netlify/functions/getTrackMetadata?url=' + encodeURIComponent(track.mp3Url)
+              );
+              if (!meta.durationSeconds) {
+                failures.push({ trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason: 'Could not determine duration' });
+                continue;
+              }
+              await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'updateTrack', id: track._id, updates: { durationSeconds: meta.durationSeconds } }),
+              });
+              track.durationSeconds = meta.durationSeconds;
+              updated++;
+            } catch (err) {
+              failures.push({ trackName: track.trackName, albumName: track.albumName, mp3Url: track.mp3Url, reason: err.message });
+            }
+          }
+          hint.textContent = `${updated} of ${missing.length} tracks updated.`;
+          if (failures.length > 0) {
+            const lines = failures.map((f) => {
+              const name = [f.trackName, f.albumName].filter(Boolean).join(' — ') || 'Unknown';
               return `<li><strong>${name}</strong><br><span class="meta">${f.reason}</span>${f.mp3Url ? `<br><span class="meta" style="word-break:break-all;">${f.mp3Url}</span>` : ''}</li>`;
             });
-            results.innerHTML = `<p class="meta" style="margin-bottom:6px;">${allFailures.length} track${allFailures.length !== 1 ? 's' : ''} could not be updated:</p><ul style="margin:0;padding-left:20px;line-height:1.8;">${lines.join('')}</ul>`;
+            results.innerHTML = `<p class="meta" style="margin-bottom:6px;">${failures.length} track${failures.length !== 1 ? 's' : ''} could not be updated:</p><ul style="margin:0;padding-left:20px;line-height:1.8;">${lines.join('')}</ul>`;
             results.style.cssText = 'display:block;background:#fff3f3;border:1px solid #f5c6cb;border-radius:6px;padding:12px 16px;margin-top:12px;';
           }
-          if (totalUpdated > 0) {
+          if (updated > 0) {
             AdminDataStore.invalidateCache(['tracks']);
             await loadTracks();
           }
         } catch (err) {
-          hint.textContent = 'Request failed – see console for details.';
+          hint.textContent = 'Error: ' + err.message;
         } finally {
           btn.disabled = false;
           btn.textContent = 'Fill missing durations';
