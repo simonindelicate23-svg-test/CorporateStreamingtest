@@ -236,10 +236,6 @@
                   <button type="button" id="uploadFaviconButton" class="button-secondary button-sm">Upload favicon</button>
                 </div>
               </div>
-              <div>
-                <label for="adminPin">Admin PIN <span class="meta" style="font-weight:400;">(for file uploads)</span></label>
-                <input type="password" id="adminPin" autocomplete="off" placeholder="Required for logo / favicon upload" />
-              </div>
             </div>
           </div>
 
@@ -566,9 +562,8 @@
       }
 
       async function uploadAsset(inputId, targetId) {
-        const pinCode = document.getElementById('adminPin').value.trim();
         const file = document.getElementById(inputId).files[0];
-        if (!pinCode || !file) return showStatus('PIN and file are required for upload.', true);
+        if (!file) return showStatus('Please select a file to upload.', true);
 
         const contentBase64 = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -579,7 +574,7 @@
 
         const uploaded = await AdminDataStore.requestJson('/.netlify/functions/uploadMedia', {
           method: 'POST',
-          body: JSON.stringify({ pinCode, fileName: file.name, contentBase64, folder: 'branding' })
+          body: JSON.stringify({ fileName: file.name, contentBase64, folder: 'branding' })
         });
         document.getElementById(targetId).value = uploaded.url || '';
         showStatus('Upload complete. Save settings to persist.');
