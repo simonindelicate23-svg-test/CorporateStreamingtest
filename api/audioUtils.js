@@ -68,36 +68,43 @@ async function fetchPartialAudio(url, byteCount = 262144, signal, startByte = 0)
 }
 
 // Returns the bitrate for a URL, fetching past an oversized ID3 tag if needed.
+// Also returns id3Offset (bytes consumed by the ID3v2 header + tag body) so
+// callers can subtract it from totalSize before computing duration.
 // signal is optional AbortSignal.
 async function fetchBitrate(url, signal) {
   const { buffer, totalSize } = await fetchPartialAudio(url, 262144, signal);
 
+  // Determine how many bytes at the start of the file belong to the ID3v2 tag.
+  // These bytes are metadata (titles, artwork, …) and must not be counted as
+  // audio data when estimating duration from file size ÷ bitrate.
+  let id3Offset = 0;
+  if (buffer.length >= 10 && buffer.subarray(0, 3).toString('utf8') === 'ID3') {
+    id3Offset = 10 + syncSafeToInt(buffer.subarray(6, 10));
+  }
+
   let bitrate = parseBitrateFromFrame(buffer);
 
-  // If no frame found and the file opens with an ID3v2 tag that extends
-  // beyond our 256 KB window (e.g. embedded album art), fetch a small chunk
-  // from just after the tag where the actual audio frames start.
-  if (!bitrate && buffer.length >= 10 && buffer.subarray(0, 3).toString('utf8') === 'ID3') {
-    const tagSize = syncSafeToInt(buffer.subarray(6, 10));
-    const tagEnd = 10 + tagSize;
-    if (tagEnd > buffer.length) {
-      try {
-        const { buffer: frameChunk } = await fetchPartialAudio(url, 8192, signal, tagEnd);
-        bitrate = parseBitrateFromFrame(frameChunk);
-      } catch (_) {
-        // best-effort; fall through with bitrate=0
-      }
+  // If no frame found and the ID3 tag extends beyond our 256 KB window
+  // (e.g. a large embedded album art), fetch a small chunk from just after
+  // the tag where the actual audio frames start.
+  if (!bitrate && id3Offset > buffer.length) {
+    try {
+      const { buffer: frameChunk } = await fetchPartialAudio(url, 8192, signal, id3Offset);
+      bitrate = parseBitrateFromFrame(frameChunk);
+    } catch (_) {
+      // best-effort; fall through with bitrate=0
     }
   }
 
-  return { bitrate, totalSize };
+  return { bitrate, totalSize, id3Offset };
 }
 
 async function fetchTrackDurationSeconds(url, signal) {
   if (!url) return 0;
-  const { bitrate, totalSize } = await fetchBitrate(url, signal);
+  const { bitrate, totalSize, id3Offset } = await fetchBitrate(url, signal);
   if (!bitrate || !totalSize) return 0;
-  return Math.round((totalSize * 8) / (bitrate * 1000));
+  const audioBytes = totalSize - id3Offset;
+  return Math.round((audioBytes * 8) / (bitrate * 1000));
 }
 
 module.exports = {

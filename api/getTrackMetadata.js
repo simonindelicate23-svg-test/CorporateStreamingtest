@@ -31,9 +31,10 @@ exports.handler = async (event) => {
     // Fetch the first 256 KB for ID3 tag parsing; also resolve bitrate (which
     // handles files with oversized tags by fetching past them if needed).
     const { buffer } = await fetchPartialAudio(url, 262144);
-    const { bitrate, totalSize } = await fetchBitrate(url);
+    const { bitrate, totalSize, id3Offset } = await fetchBitrate(url);
     const id3 = parseId3v2(buffer);
-    const durationSeconds = bitrate && totalSize ? Math.round((totalSize * 8) / (bitrate * 1000)) : null;
+    const audioBytes = totalSize - id3Offset;
+    const durationSeconds = bitrate && audioBytes > 0 ? Math.round((audioBytes * 8) / (bitrate * 1000)) : null;
 
     // Artwork: only pay the cost of fetching / encoding the image when explicitly requested.
     let artworkDataUrl = null;
