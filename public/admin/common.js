@@ -8,7 +8,8 @@
     { href: 'admin-settings.html', label: 'Site Settings' },
     { href: 'insert.html', label: 'Add Tracks' },
     { href: 'edit.html', label: 'Track Directory' },
-    { href: 'edit-albums.html', label: 'Edit Releases' }
+    { href: 'edit-albums.html', label: 'Edit Releases' },
+    { href: 'admin-pseudo-albums.html', label: 'Pseudo Albums' }
   ];
 
   function normalizePage(pathname) {

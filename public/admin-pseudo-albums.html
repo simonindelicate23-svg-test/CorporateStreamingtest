@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Pseudo Albums — Admin</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
+    <style>
+      /* ── Pseudo album cards ──────────────────────────────────── */
+      .pseudo-list { display: grid; gap: 20px; }
+
+      .pseudo-entry {
+        border: 1px solid rgba(0,0,0,0.09);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        transition: opacity 0.2s;
+      }
+      .pseudo-entry.disabled { opacity: 0.55; }
+
+      .pseudo-entry__header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        background: #faf9f6;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+      }
+
+      .pseudo-art-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #e8e4de;
+        flex-shrink: 0;
+        border: 1px solid rgba(0,0,0,0.07);
+      }
+
+      .pseudo-entry__title {
+        flex: 1;
+        min-width: 0;
+      }
+      .pseudo-entry__title strong {
+        display: block;
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pseudo-entry__title span {
+        font-size: 0.78rem;
+        color: #888;
+      }
+
+      .pseudo-entry__toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .toggle-switch {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+      .toggle-switch input { opacity: 0; width: 0; height: 0; }
+      .toggle-track {
+        position: absolute; inset: 0;
+        background: #ccc;
+        border-radius: 11px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .toggle-track::before {
+        content: '';
+        position: absolute;
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        top: 3px; left: 3px;
+        transition: transform 0.2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      }
+      .toggle-switch input:checked + .toggle-track { background: #4f46e5; }
+      .toggle-switch input:checked + .toggle-track::before { transform: translateX(18px); }
+
+      .pseudo-entry__body { padding: 16px 20px; }
+
+      .pseudo-entry__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      @media (max-width: 640px) { .pseudo-entry__fields { grid-template-columns: 1fr; } }
+
+      .pseudo-entry__fields .full { grid-column: 1 / -1; }
+
+      /* ── Drag handle ──────────────────────────────────────────── */
+      .drag-handle {
+        cursor: grab;
+        color: #bbb;
+        font-size: 1.1rem;
+        padding: 0 6px;
+        user-select: none;
+        flex-shrink: 0;
+      }
+      .drag-handle:active { cursor: grabbing; }
+
+      /* ── Artwork preview ──────────────────────────────────────── */
+      .artwork-row { display: flex; gap: 10px; align-items: flex-start; }
+      .artwork-row > div { flex: 1; }
+      .artwork-preview-sm {
+        width: 72px; height: 72px;
+        border-radius: 8px;
+        object-fit: cover;
+        border: 1px solid rgba(0,0,0,0.09);
+        flex-shrink: 0;
+        display: none;
+      }
+      .artwork-preview-sm.visible { display: block; }
+
+      /* ── Track picker ─────────────────────────────────────────── */
+      .track-picker {
+        border: 1px solid rgba(0,0,0,0.09);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .track-picker__search {
+        padding: 10px;
+        border-bottom: 1px solid rgba(0,0,0,0.07);
+        background: #fafaf8;
+      }
+      .track-picker__search input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 6px;
+        font-size: 0.85rem;
+      }
+      .track-picker__list {
+        max-height: 280px;
+        overflow-y: auto;
+        padding: 6px;
+        display: grid;
+        gap: 2px;
+      }
+      .track-picker__item {
+        display: grid;
+        grid-template-columns: 20px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        background: transparent;
+        border: none;
+        text-align: left;
+        width: 100%;
+      }
+      .track-picker__item:hover { background: #f4f2ee; }
+      .track-picker__item input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4f46e5; }
+      .track-picker__item .ti-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .track-picker__item .ti-album { color: #999; font-size: 0.78rem; }
+
+      .selected-tracks-summary {
+        padding: 8px 12px;
+        background: #f0eef9;
+        border-top: 1px solid rgba(79,70,229,0.15);
+        font-size: 0.82rem;
+        color: #4f46e5;
+        font-weight: 600;
+      }
+
+      /* ── Add custom playlist ──────────────────────────────────── */
+      .add-playlist-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 20px;
+        background: #f4f2ee;
+        border: 2px dashed rgba(0,0,0,0.12);
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #555;
+        width: 100%;
+        text-align: left;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .add-playlist-btn:hover { border-color: #4f46e5; background: #eeedf8; color: #4f46e5; }
+
+      /* ── Delete button ────────────────────────────────────────── */
+      .delete-pseudo-btn {
+        background: none;
+        border: none;
+        color: #c0392b;
+        cursor: pointer;
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        opacity: 0.7;
+      }
+      .delete-pseudo-btn:hover { opacity: 1; background: #fdf0ee; }
+
+      /* ── Gradient art preview ─────────────────────────────────── */
+      .pseudo-art-thumb[data-generated] {
+        font-size: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-admin-header></div>
+    <div class="admin-shell">
+      <div data-admin-tabs></div>
+
+      <div class="card">
+        <div class="panel-title">
+          <div>
+            <h1 style="margin-bottom:4px;">Pseudo Albums</h1>
+            <p class="meta">Virtual albums that aggregate or filter your track library. Toggle, reorder, rename, and assign artwork — or create custom playlists.</p>
+          </div>
+          <button type="button" id="saveBtn">Save</button>
+        </div>
+        <div id="statusBar" class="status" style="display:none;margin-bottom:16px;"></div>
+
+        <div class="pseudo-list" id="pseudoList"></div>
+
+        <div style="margin-top:16px;">
+          <button type="button" class="add-playlist-btn" id="addPlaylistBtn">
+            + Add custom playlist
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function () {
+      /* ─────────────────────────────────────────────────────────
+         State
+      ───────────────────────────────────────────────────────── */
+      const BUILT_IN_TYPES = [
+        { pseudoType: 'all-tracks',  label: 'Shuffle Everything', description: 'All tracks in the library, shuffled' },
+        { pseudoType: 'whats-new',   label: "What's New",         description: 'Newest tracks first (sorted by date added)' },
+        { pseudoType: 'favorites',   label: 'Favorites',          description: 'Tracks marked as favourites (fav: true)' },
+      ];
+
+      let pseudoAlbums = [];   // working copy
+      let allTracks    = [];   // for track picker
+      let dragSrcIdx   = null;
+
+      /* ─────────────────────────────────────────────────────────
+         Gradient art generator (mirrors player/ui.js)
+      ───────────────────────────────────────────────────────── */
+      const PALETTES = {
+        'all-tracks':      ['#4f3bff', '#8b5cf6'],
+        'whats-new':       ['#0ea5e9', '#06b6d4'],
+        'favorites':       ['#ec4899', '#ef4444'],
+        'custom-playlist': ['#f97316', '#eab308'],
+      };
+
+      function generateGradientArt(albumName, pseudoType) {
+        const [c1, c2] = PALETTES[pseudoType] || ['#6b7280', '#374151'];
+        const label = albumName || 'Collection';
+        const words = label.split(' ');
+        const lines = [];
+        let current = '';
+        words.forEach(w => {
+          if (!current) { current = w; }
+          else if ((current + ' ' + w).length <= 14) { current += ' ' + w; }
+          else { lines.push(current); current = w; }
+        });
+        if (current) lines.push(current);
+        const lineHeight = 42;
+        const totalHeight = lines.length * lineHeight;
+        const startY = 150 - totalHeight / 2 + 30;
+        const textEls = lines.map((line, i) =>
+          `<text x="150" y="${startY + i * lineHeight}" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="34" fill="rgba(255,255,255,0.92)">${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text>`
+        ).join('');
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/>${textEls}</svg>`;
+        return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Status
+      ───────────────────────────────────────────────────────── */
+      function showStatus(msg, isError = false) {
+        const el = document.getElementById('statusBar');
+        el.textContent = msg;
+        el.style.display = 'block';
+        el.className = isError ? 'status error' : 'status';
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Artwork upload helper
+      ───────────────────────────────────────────────────────── */
+      async function uploadArtwork(file) {
+        const b64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result).split(',')[1]);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const result = await AdminDataStore.requestJson('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          body: JSON.stringify({ fileName: file.name, contentBase64: b64, folder: 'artwork' }),
+        });
+        if (!result?.url) throw new Error('No URL returned');
+        return result.url;
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Build a single pseudo-album row
+      ───────────────────────────────────────────────────────── */
+      function buildEntry(entry, index) {
+        const builtIn = BUILT_IN_TYPES.find(b => b.pseudoType === entry.pseudoType);
+        const isCustom = entry.pseudoType === 'custom-playlist';
+        const artSrc = entry.albumArtworkUrl || generateGradientArt(entry.albumName, entry.pseudoType);
+
+        const el = document.createElement('div');
+        el.className = 'pseudo-entry' + (entry.enabled ? '' : ' disabled');
+        el.dataset.idx = index;
+
+        /* ── Header ── */
+        const header = document.createElement('div');
+        header.className = 'pseudo-entry__header';
+
+        // Drag handle
+        const handle = document.createElement('span');
+        handle.className = 'drag-handle';
+        handle.title = 'Drag to reorder';
+        handle.textContent = '⠿';
+        handle.draggable = true;
+        handle.addEventListener('dragstart', e => { dragSrcIdx = index; e.dataTransfer.effectAllowed = 'move'; });
+        header.appendChild(handle);
+
+        // Art thumb
+        const thumb = document.createElement('img');
+        thumb.className = 'pseudo-art-thumb';
+        thumb.alt = entry.albumName + ' art';
+        thumb.src = artSrc;
+        if (!entry.albumArtworkUrl) thumb.dataset.generated = '1';
+        header.appendChild(thumb);
+
+        // Title + type badge
+        const titleBlock = document.createElement('div');
+        titleBlock.className = 'pseudo-entry__title';
+        const nameStrong = document.createElement('strong');
+        nameStrong.textContent = entry.albumName || '(unnamed)';
+        const typeSpan = document.createElement('span');
+        typeSpan.textContent = builtIn ? builtIn.description : 'Custom playlist';
+        titleBlock.appendChild(nameStrong);
+        titleBlock.appendChild(typeSpan);
+        header.appendChild(titleBlock);
+
+        // Toggle
+        const toggleWrap = document.createElement('label');
+        toggleWrap.className = 'pseudo-entry__toggle';
+        toggleWrap.title = 'Enable / disable';
+        const toggleSwitch = document.createElement('label');
+        toggleSwitch.className = 'toggle-switch';
+        const toggleInput = document.createElement('input');
+        toggleInput.type = 'checkbox';
+        toggleInput.checked = entry.enabled !== false;
+        toggleInput.addEventListener('change', () => {
+          pseudoAlbums[index].enabled = toggleInput.checked;
+          el.classList.toggle('disabled', !toggleInput.checked);
+        });
+        const toggleTrack = document.createElement('span');
+        toggleTrack.className = 'toggle-track';
+        toggleSwitch.appendChild(toggleInput);
+        toggleSwitch.appendChild(toggleTrack);
+        toggleWrap.appendChild(toggleSwitch);
+        header.appendChild(toggleWrap);
+
+        el.appendChild(header);
+
+        /* ── Body ── */
+        const body = document.createElement('div');
+        body.className = 'pseudo-entry__body';
+
+        const fields = document.createElement('div');
+        fields.className = 'pseudo-entry__fields';
+
+        // Album name
+        const nameDiv = document.createElement('div');
+        const nameLbl = document.createElement('label');
+        nameLbl.textContent = 'Display name';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = entry.albumName || '';
+        nameInput.addEventListener('input', () => {
+          pseudoAlbums[index].albumName = nameInput.value;
+          nameStrong.textContent = nameInput.value || '(unnamed)';
+          // Refresh generated art if no custom artwork
+          if (!pseudoAlbums[index].albumArtworkUrl) {
+            const newSrc = generateGradientArt(nameInput.value, entry.pseudoType);
+            thumb.src = newSrc;
+          }
+        });
+        nameDiv.appendChild(nameLbl);
+        nameDiv.appendChild(nameInput);
+        fields.appendChild(nameDiv);
+
+        // Placement
+        const placementDiv = document.createElement('div');
+        const placementLbl = document.createElement('label');
+        placementLbl.textContent = 'Placement';
+        const placementSelect = document.createElement('select');
+        [['before', 'Before all releases'], ['after', 'After all releases']].forEach(([val, lbl]) => {
+          const opt = document.createElement('option');
+          opt.value = val; opt.textContent = lbl;
+          placementSelect.appendChild(opt);
+        });
+        placementSelect.value = entry.placement || 'before';
+        placementSelect.addEventListener('change', () => { pseudoAlbums[index].placement = placementSelect.value; });
+        placementDiv.appendChild(placementLbl);
+        placementDiv.appendChild(placementSelect);
+        fields.appendChild(placementDiv);
+
+        // Sort order
+        const orderDiv = document.createElement('div');
+        const orderLbl = document.createElement('label');
+        orderLbl.textContent = 'Order within group';
+        const orderInput = document.createElement('input');
+        orderInput.type = 'number';
+        orderInput.value = entry.sortOrder ?? index;
+        orderInput.min = '0';
+        orderInput.placeholder = '0, 1, 2…';
+        orderInput.addEventListener('input', () => { pseudoAlbums[index].sortOrder = Number(orderInput.value); });
+        orderDiv.appendChild(orderLbl);
+        orderDiv.appendChild(orderInput);
+        fields.appendChild(orderDiv);
+
+        // What's New limit
+        if (entry.pseudoType === 'whats-new') {
+          const limitDiv = document.createElement('div');
+          const limitLbl = document.createElement('label');
+          limitLbl.textContent = 'Track limit';
+          const limitInput = document.createElement('input');
+          limitInput.type = 'number';
+          limitInput.value = entry.limit ?? 30;
+          limitInput.min = '1';
+          limitInput.placeholder = '30';
+          limitInput.addEventListener('input', () => { pseudoAlbums[index].limit = Number(limitInput.value) || undefined; });
+          limitDiv.appendChild(limitLbl);
+          limitDiv.appendChild(limitInput);
+          fields.appendChild(limitDiv);
+        }
+
+        // Artwork
+        const artDiv = document.createElement('div');
+        artDiv.className = 'full';
+        const artLbl = document.createElement('label');
+        artLbl.textContent = 'Custom artwork URL';
+        const artNote = document.createElement('p');
+        artNote.className = 'meta';
+        artNote.style.marginBottom = '6px';
+        artNote.textContent = 'Leave blank to use the auto-generated gradient art.';
+
+        const artRow = document.createElement('div');
+        artRow.className = 'artwork-row';
+
+        const artInputWrap = document.createElement('div');
+        const artInput = document.createElement('input');
+        artInput.type = 'url';
+        artInput.placeholder = 'https://…';
+        artInput.value = entry.albumArtworkUrl || '';
+
+        const uploadRow = document.createElement('div');
+        uploadRow.className = 'inline-actions';
+        uploadRow.style.marginTop = '8px';
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.cssText = 'width:auto;flex:1;';
+        const uploadBtn = document.createElement('button');
+        uploadBtn.type = 'button';
+        uploadBtn.className = 'button-secondary button-sm';
+        uploadBtn.textContent = 'Upload';
+        const uploadStatus = document.createElement('small');
+        uploadStatus.className = 'meta';
+
+        uploadBtn.addEventListener('click', async () => {
+          const file = fileInput.files[0];
+          if (!file) { uploadStatus.textContent = 'Choose a file first.'; return; }
+          uploadBtn.disabled = true; uploadBtn.textContent = 'Uploading…';
+          try {
+            const url = await uploadArtwork(file);
+            artInput.value = url;
+            pseudoAlbums[index].albumArtworkUrl = url;
+            artPreview.src = url;
+            artPreview.classList.add('visible');
+            thumb.src = url;
+            delete thumb.dataset.generated;
+            uploadStatus.textContent = 'Uploaded.';
+          } catch (e) { uploadStatus.textContent = e.message; }
+          finally { uploadBtn.disabled = false; uploadBtn.textContent = 'Upload'; }
+        });
+
+        uploadRow.appendChild(fileInput);
+        uploadRow.appendChild(uploadBtn);
+        artInputWrap.appendChild(artInput);
+        artInputWrap.appendChild(uploadRow);
+        artInputWrap.appendChild(uploadStatus);
+
+        const artPreview = document.createElement('img');
+        artPreview.className = 'artwork-preview-sm';
+        artPreview.alt = 'Artwork preview';
+        if (entry.albumArtworkUrl) { artPreview.src = entry.albumArtworkUrl; artPreview.classList.add('visible'); }
+
+        artInput.addEventListener('input', () => {
+          const url = artInput.value.trim();
+          pseudoAlbums[index].albumArtworkUrl = url;
+          if (url) {
+            artPreview.src = url;
+            artPreview.classList.add('visible');
+            thumb.src = url;
+            delete thumb.dataset.generated;
+          } else {
+            artPreview.classList.remove('visible');
+            const genSrc = generateGradientArt(pseudoAlbums[index].albumName, entry.pseudoType);
+            thumb.src = genSrc;
+            thumb.dataset.generated = '1';
+          }
+        });
+
+        artRow.appendChild(artInputWrap);
+        artRow.appendChild(artPreview);
+        artDiv.appendChild(artLbl);
+        artDiv.appendChild(artNote);
+        artDiv.appendChild(artRow);
+        fields.appendChild(artDiv);
+
+        // Track picker for custom playlists
+        if (isCustom) {
+          const pickerDiv = document.createElement('div');
+          pickerDiv.className = 'full';
+          const pickerLbl = document.createElement('label');
+          pickerLbl.textContent = 'Tracks in this playlist';
+          pickerLbl.style.marginBottom = '8px';
+          pickerDiv.appendChild(pickerLbl);
+          pickerDiv.appendChild(buildTrackPicker(index, entry.trackIds || []));
+          fields.appendChild(pickerDiv);
+
+          // Delete button for custom playlists
+          const deleteRow = document.createElement('div');
+          deleteRow.className = 'full';
+          deleteRow.style.marginTop = '4px';
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'delete-pseudo-btn';
+          deleteBtn.textContent = '✕ Remove this playlist';
+          deleteBtn.addEventListener('click', () => {
+            if (!confirm(`Remove "${pseudoAlbums[index].albumName || 'this playlist'}"?`)) return;
+            pseudoAlbums.splice(index, 1);
+            renderList();
+          });
+          deleteRow.appendChild(deleteBtn);
+          fields.appendChild(deleteRow);
+        }
+
+        body.appendChild(fields);
+        el.appendChild(body);
+
+        /* ── Drag-and-drop target ── */
+        el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+        el.addEventListener('drop', e => {
+          e.preventDefault();
+          const targetIdx = Number(el.dataset.idx);
+          if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+          const moved = pseudoAlbums.splice(dragSrcIdx, 1)[0];
+          pseudoAlbums.splice(targetIdx, 0, moved);
+          // Reassign sortOrder to match visual order
+          pseudoAlbums.forEach((p, i) => { p.sortOrder = i; });
+          dragSrcIdx = null;
+          renderList();
+        });
+
+        return el;
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Track picker widget
+      ───────────────────────────────────────────────────────── */
+      function buildTrackPicker(entryIdx, selectedIds) {
+        const container = document.createElement('div');
+        container.className = 'track-picker';
+
+        const searchWrap = document.createElement('div');
+        searchWrap.className = 'track-picker__search';
+        const searchInput = document.createElement('input');
+        searchInput.placeholder = 'Search tracks…';
+        searchInput.type = 'search';
+        searchWrap.appendChild(searchInput);
+        container.appendChild(searchWrap);
+
+        const list = document.createElement('div');
+        list.className = 'track-picker__list';
+        container.appendChild(list);
+
+        const summary = document.createElement('div');
+        summary.className = 'selected-tracks-summary';
+        container.appendChild(summary);
+
+        const selected = new Set(selectedIds);
+
+        function updateSummary() {
+          const count = selected.size;
+          summary.textContent = count ? `${count} track${count === 1 ? '' : 's'} selected` : 'No tracks selected';
+          pseudoAlbums[entryIdx].trackIds = [...selected];
+        }
+
+        function renderTracks(filterText = '') {
+          list.innerHTML = '';
+          const q = filterText.toLowerCase();
+          const filtered = allTracks.filter(t =>
+            !q ||
+            (t.trackName || '').toLowerCase().includes(q) ||
+            (t.albumName || '').toLowerCase().includes(q) ||
+            (t.artistName || '').toLowerCase().includes(q)
+          );
+
+          filtered.forEach(t => {
+            const row = document.createElement('label');
+            row.className = 'track-picker__item';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = selected.has(t._id);
+            cb.addEventListener('change', () => {
+              if (cb.checked) selected.add(t._id);
+              else selected.delete(t._id);
+              updateSummary();
+            });
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'ti-name';
+            nameSpan.textContent = t.trackName || 'Untitled';
+
+            const albumSpan = document.createElement('span');
+            albumSpan.className = 'ti-album';
+            albumSpan.textContent = t.albumName || '';
+
+            row.appendChild(cb);
+            row.appendChild(nameSpan);
+            row.appendChild(albumSpan);
+            list.appendChild(row);
+          });
+
+          if (!filtered.length) {
+            const empty = document.createElement('p');
+            empty.style.cssText = 'padding:12px;color:#999;font-style:italic;font-size:0.85rem;';
+            empty.textContent = 'No tracks match.';
+            list.appendChild(empty);
+          }
+        }
+
+        searchInput.addEventListener('input', () => renderTracks(searchInput.value));
+        renderTracks();
+        updateSummary();
+
+        return container;
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Render the full list
+      ───────────────────────────────────────────────────────── */
+      function renderList() {
+        const listEl = document.getElementById('pseudoList');
+        listEl.innerHTML = '';
+        pseudoAlbums.forEach((entry, i) => {
+          listEl.appendChild(buildEntry(entry, i));
+        });
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Ensure all 3 built-in types are represented
+      ───────────────────────────────────────────────────────── */
+      function mergeBuiltIns(loaded) {
+        const result = loaded ? [...loaded] : [];
+        BUILT_IN_TYPES.forEach((bt, i) => {
+          const existing = result.find(e => e.pseudoType === bt.pseudoType);
+          if (!existing) {
+            result.push({
+              id: bt.pseudoType,
+              pseudoType: bt.pseudoType,
+              albumName: bt.label,
+              enabled: bt.pseudoType !== 'favorites',
+              sortOrder: i,
+              placement: 'before',
+              albumArtworkUrl: '',
+              ...(bt.pseudoType === 'whats-new' ? { limit: 30 } : {}),
+              ...(bt.pseudoType === 'all-tracks' ? { enableShuffle: true } : {}),
+            });
+          }
+        });
+        // Sort by existing sortOrder, then by built-in index for consistency
+        result.sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+        return result;
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         Add custom playlist
+      ───────────────────────────────────────────────────────── */
+      document.getElementById('addPlaylistBtn').addEventListener('click', () => {
+        const name = prompt('Playlist name:');
+        if (!name || !name.trim()) return;
+        pseudoAlbums.push({
+          id: 'custom-' + Date.now(),
+          pseudoType: 'custom-playlist',
+          albumName: name.trim(),
+          enabled: true,
+          sortOrder: pseudoAlbums.length,
+          placement: 'before',
+          albumArtworkUrl: '',
+          trackIds: [],
+        });
+        renderList();
+      });
+
+      /* ─────────────────────────────────────────────────────────
+         Save
+      ───────────────────────────────────────────────────────── */
+      document.getElementById('saveBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try {
+          const existing = await AdminDataStore.requestJson('/.netlify/functions/siteSettings');
+          await AdminDataStore.requestJson('/.netlify/functions/siteSettings', {
+            method: 'POST',
+            body: JSON.stringify({ ...existing, pseudoAlbums }),
+          });
+          AdminDataStore.invalidateCache(['site-settings']);
+          showStatus('Pseudo albums saved.');
+        } catch (e) {
+          showStatus('Could not save: ' + e.message, true);
+        } finally {
+          btn.disabled = false; btn.textContent = 'Save';
+        }
+      });
+
+      /* ─────────────────────────────────────────────────────────
+         Init
+      ───────────────────────────────────────────────────────── */
+      window.addEventListener('DOMContentLoaded', async () => {
+        AdminDataStore.mountHeader();
+        AdminDataStore.mountTabs();
+
+        try {
+          const [settings, tracks] = await Promise.all([
+            AdminDataStore.fetchJsonCached('/.netlify/functions/siteSettings', 'site-settings'),
+            AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=tracks', 'tracks', { bypassCache: true }),
+          ]);
+
+          allTracks = (tracks || []).sort((a, b) =>
+            (a.albumName || '').localeCompare(b.albumName || '') ||
+            (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0) ||
+            (a.trackName || '').localeCompare(b.trackName || '')
+          );
+
+          pseudoAlbums = mergeBuiltIns(settings.pseudoAlbums || null);
+          renderList();
+        } catch (e) {
+          showStatus('Could not load data: ' + e.message, true);
+        }
+      });
+    })();
+    </script>
+  </body>
+</html>
