@@ -6,6 +6,129 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/admin/common.js" defer></script>
     <script src="/site-settings.js"></script>
+    <style>
+      /* ── Colour editor two-column layout ─────────────────────── */
+      .colour-editor-layout {
+        display: grid;
+        grid-template-columns: 1fr 232px;
+        gap: 28px;
+        align-items: start;
+      }
+      @media (max-width: 860px) {
+        .colour-editor-layout { grid-template-columns: 1fr; }
+        .colour-preview-col { position: static; }
+      }
+      .colour-preview-col {
+        position: sticky;
+        top: 16px;
+      }
+      .colour-preview-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #888;
+        margin-bottom: 8px;
+      }
+
+      /* ── Mini player preview widget ──────────────────────────── */
+      .colour-preview {
+        --prev-bg: #0f0c14;
+        --prev-panel: #120f19;
+        --prev-nav: #120e18;
+        --prev-ctrl: #1e1824;
+        --prev-card: #17121f;
+        --prev-card2: #221b2a;
+        --prev-text: #f5f2fb;
+        --prev-muted: #bfb6d3;
+        --prev-accent: #9a6bff;
+        --prev-border: #2a2235;
+
+        background: var(--prev-bg);
+        border-radius: 16px;
+        overflow: hidden;
+        border: 2px solid var(--prev-border);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+        font-size: 11px;
+        user-select: none;
+      }
+      .cprev-nav {
+        background: var(--prev-nav);
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--prev-border);
+      }
+      .cprev-nav-brand {
+        font-size: 0.85em;
+        font-weight: 700;
+        color: var(--prev-text);
+        letter-spacing: -0.01em;
+      }
+      .cprev-nav-actions { display: flex; gap: 7px; }
+      .cprev-nav-dot {
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: var(--prev-ctrl);
+        border: 1px solid var(--prev-border);
+      }
+      .cprev-body {
+        padding: 10px;
+        background: var(--prev-panel);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+      }
+      .cprev-card {
+        background: linear-gradient(180deg, var(--prev-card), var(--prev-card2));
+        border: 1px solid var(--prev-border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .cprev-card-art {
+        aspect-ratio: 1;
+        background: var(--prev-ctrl);
+      }
+      .cprev-card-meta { padding: 7px; display: flex; flex-direction: column; gap: 4px; }
+      .cprev-line {
+        height: 5px; border-radius: 3px;
+        background: var(--prev-muted);
+        opacity: 0.45;
+      }
+      .cprev-line--short { width: 58%; }
+      .cprev-line--btn {
+        height: 18px; border-radius: 8px; margin-top: 3px;
+        background: var(--prev-accent);
+        opacity: 0.9;
+      }
+      .cprev-player {
+        background: var(--prev-panel);
+        border-top: 1px solid var(--prev-border);
+        padding: 9px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cprev-player-art {
+        width: 30px; height: 30px;
+        border-radius: 6px;
+        background: var(--prev-ctrl);
+        flex-shrink: 0;
+      }
+      .cprev-player-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+      .cprev-controls { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
+      .cprev-ctrl {
+        width: 20px; height: 20px; border-radius: 50%;
+        background: var(--prev-ctrl);
+        border: 1px solid var(--prev-border);
+      }
+      .cprev-ctrl--play {
+        width: 26px; height: 26px;
+        background: var(--prev-accent);
+        border-color: var(--prev-accent);
+      }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=Rubik:wght@400;500;700&family=Nunito:wght@400;600;700&family=Montserrat:wght@500;600;700&family=Lato:wght@400;700&family=Raleway:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&family=Karla:wght@400;700&family=Cabin:wght@500;600;700&family=Merriweather:wght@400;700&display=swap" />
@@ -88,57 +211,104 @@
           <!-- ── 3. Colours ──────────────────────────────── -->
           <div class="form-section">
             <p class="form-section__title">Colours</p>
-            <div class="form-grid">
-              <div>
-                <label for="themeBackground">Page background</label>
-                <input type="color" id="themeBackground" />
+            <div class="colour-editor-layout">
+              <div class="form-grid">
+                <div>
+                  <label for="themeBackground">Page background</label>
+                  <input type="color" id="themeBackground" />
+                </div>
+                <div>
+                  <label for="themePanelSurface">Library / player panel</label>
+                  <input type="color" id="themePanelSurface" />
+                </div>
+                <div>
+                  <label for="themeTopbarSurface">Top bar</label>
+                  <input type="color" id="themeTopbarSurface" />
+                </div>
+                <div>
+                  <label for="themeControlSurface">Control buttons</label>
+                  <input type="color" id="themeControlSurface" />
+                </div>
+                <div>
+                  <label for="themeCardSurface">Card base colour</label>
+                  <input type="color" id="themeCardSurface" />
+                </div>
+                <div>
+                  <label for="themeCardContrast">Card gradient second tone</label>
+                  <input type="color" id="themeCardContrast" />
+                </div>
+                <div>
+                  <label for="themeText">Main text</label>
+                  <input type="color" id="themeText" />
+                </div>
+                <div>
+                  <label for="themeMutedText">Secondary text</label>
+                  <input type="color" id="themeMutedText" />
+                </div>
+                <div>
+                  <label for="themeAccent">Accent (buttons / highlights)</label>
+                  <input type="color" id="themeAccent" />
+                </div>
+                <div>
+                  <label for="themeBorder">Borders / dividers</label>
+                  <input type="color" id="themeBorder" />
+                </div>
+                <div>
+                  <label for="palette">Palette preset <span class="meta" style="font-weight:400;">(overrides above)</span></label>
+                  <input type="text" id="palette" placeholder="default | dark | warm" />
+                </div>
+                <div>
+                  <label for="dynamicColorTheming">Dynamic artwork colour theming</label>
+                  <select id="dynamicColorTheming">
+                    <option value="true">Enabled (ColorThief)</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label for="themePanelSurface">Library / player panel</label>
-                <input type="color" id="themePanelSurface" />
-              </div>
-              <div>
-                <label for="themeTopbarSurface">Top bar</label>
-                <input type="color" id="themeTopbarSurface" />
-              </div>
-              <div>
-                <label for="themeControlSurface">Control buttons</label>
-                <input type="color" id="themeControlSurface" />
-              </div>
-              <div>
-                <label for="themeCardSurface">Card base colour</label>
-                <input type="color" id="themeCardSurface" />
-              </div>
-              <div>
-                <label for="themeCardContrast">Card gradient second tone</label>
-                <input type="color" id="themeCardContrast" />
-              </div>
-              <div>
-                <label for="themeText">Main text</label>
-                <input type="color" id="themeText" />
-              </div>
-              <div>
-                <label for="themeMutedText">Secondary text</label>
-                <input type="color" id="themeMutedText" />
-              </div>
-              <div>
-                <label for="themeAccent">Accent (buttons / highlights)</label>
-                <input type="color" id="themeAccent" />
-              </div>
-              <div>
-                <label for="themeBorder">Borders / dividers</label>
-                <input type="color" id="themeBorder" />
-              </div>
-              <div>
-                <label for="palette">Palette preset <span class="meta" style="font-weight:400;">(overrides above)</span></label>
-                <input type="text" id="palette" placeholder="default | dark | warm" />
-              </div>
-              <div>
-                <label for="dynamicColorTheming">Dynamic artwork colour theming</label>
-                <select id="dynamicColorTheming">
-                  <option value="true">Enabled (ColorThief)</option>
-                  <option value="false">Disabled</option>
-                </select>
+
+              <!-- Live preview -->
+              <div class="colour-preview-col">
+                <p class="colour-preview-label">Live preview</p>
+                <div class="colour-preview" id="colourPreview" aria-hidden="true">
+                  <div class="cprev-nav">
+                    <span class="cprev-nav-brand">My Site</span>
+                    <div class="cprev-nav-actions">
+                      <div class="cprev-nav-dot"></div>
+                      <div class="cprev-nav-dot"></div>
+                      <div class="cprev-nav-dot"></div>
+                    </div>
+                  </div>
+                  <div class="cprev-body">
+                    <div class="cprev-card">
+                      <div class="cprev-card-art"></div>
+                      <div class="cprev-card-meta">
+                        <div class="cprev-line"></div>
+                        <div class="cprev-line cprev-line--short"></div>
+                        <div class="cprev-line cprev-line--btn"></div>
+                      </div>
+                    </div>
+                    <div class="cprev-card">
+                      <div class="cprev-card-art"></div>
+                      <div class="cprev-card-meta">
+                        <div class="cprev-line"></div>
+                        <div class="cprev-line cprev-line--short"></div>
+                        <div class="cprev-line cprev-line--btn"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="cprev-player">
+                    <div class="cprev-player-art"></div>
+                    <div class="cprev-player-info">
+                      <div class="cprev-line"></div>
+                      <div class="cprev-line cprev-line--short"></div>
+                    </div>
+                    <div class="cprev-controls">
+                      <div class="cprev-ctrl"></div>
+                      <div class="cprev-ctrl cprev-ctrl--play"></div>
+                      <div class="cprev-ctrl"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -359,6 +529,33 @@
         showStatus('Upload complete. Save settings to persist.');
       }
 
+      // ── Live colour preview ───────────────────────────────────
+      const COLOUR_VAR_MAP = {
+        themeBackground:   '--prev-bg',
+        themePanelSurface: '--prev-panel',
+        themeTopbarSurface:'--prev-nav',
+        themeControlSurface:'--prev-ctrl',
+        themeCardSurface:  '--prev-card',
+        themeCardContrast: '--prev-card2',
+        themeText:         '--prev-text',
+        themeMutedText:    '--prev-muted',
+        themeAccent:       '--prev-accent',
+        themeBorder:       '--prev-border',
+      };
+
+      function updateColourPreview() {
+        const preview = document.getElementById('colourPreview');
+        if (!preview) return;
+        Object.entries(COLOUR_VAR_MAP).forEach(([fieldId, cssVar]) => {
+          const val = document.getElementById(fieldId)?.value;
+          if (val) preview.style.setProperty(cssVar, val);
+        });
+      }
+
+      Object.keys(COLOUR_VAR_MAP).forEach(fieldId => {
+        document.getElementById(fieldId)?.addEventListener('input', updateColourPreview);
+      });
+
       async function loadSettings() {
         const settings = await AdminDataStore.fetchJsonCached('/.netlify/functions/siteSettings', 'site-settings');
         fields.forEach((key) => {
@@ -368,6 +565,7 @@
         });
         fontPairSelect.value = settings.fontPair || fontPairDefault;
         renderFontPairPreview(fontPairSelect.value);
+        updateColourPreview();
       }
 
       document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
