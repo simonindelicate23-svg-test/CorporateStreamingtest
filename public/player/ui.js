@@ -291,6 +291,7 @@ async function applySiteSettings() {
     if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
     if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
     if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
+    if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
     if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
     if (settings.releaseOrder) RELEASE_ORDER = settings.releaseOrder;
     if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
@@ -1967,6 +1968,7 @@ export async function init() {
     renderAlbums();
     syncPlayModes();
     bindEvents();
+    initHeroCollapse();
     const params = new URLSearchParams(window.location.search);
     const routeParams = getPathRouteParams();
     const sharedTrackParam = params.get('track') || params.get('id') || routeParams.track;
@@ -1997,6 +1999,42 @@ export async function init() {
     showToast('Could not load library — please refresh', 'error');
     dom.albumGalleryGrid.innerHTML = '';
   }
+}
+
+// ── Collapsible featured release hero ────────────────────────────
+const HERO_COLLAPSED_KEY = 'tmc-hero-collapsed';
+
+function initHeroCollapse() {
+  const hero = dom.welcomeHero;
+  const toggleBtn = document.getElementById('heroToggleBtn');
+  const showBar = document.getElementById('heroShowBar');
+  if (!hero || !toggleBtn || !showBar) return;
+
+  const isCollapsed = localStorage.getItem(HERO_COLLAPSED_KEY) === 'true';
+  applyHeroCollapseState(isCollapsed, false);
+
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setHeroCollapsed(true);
+  });
+  showBar.addEventListener('click', () => setHeroCollapsed(false));
+}
+
+function applyHeroCollapseState(collapsed, animate = true) {
+  const hero = dom.welcomeHero;
+  const showBar = document.getElementById('heroShowBar');
+  if (!hero || !showBar) return;
+  if (!animate) {
+    hero.style.transition = 'none';
+    requestAnimationFrame(() => { hero.style.transition = ''; });
+  }
+  hero.classList.toggle('hero-collapsed', collapsed);
+  showBar.classList.toggle('hidden', !collapsed);
+}
+
+function setHeroCollapsed(collapsed) {
+  try { localStorage.setItem(HERO_COLLAPSED_KEY, String(collapsed)); } catch (_) {}
+  applyHeroCollapseState(collapsed);
 }
 
 init();

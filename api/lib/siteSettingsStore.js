@@ -53,6 +53,7 @@ const defaults = {
   themeMutedText: '#bfb6d3',
   themeAccent: '#9a6bff',
   themeBorder: '#2a2235',
+  themeHeroBackground: '#7b5a49',
   dynamicColorTheming: true,
   releaseOrder: 'alphabetical',
 };

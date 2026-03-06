@@ -43,14 +43,16 @@
         --prev-muted: #bfb6d3;
         --prev-accent: #9a6bff;
         --prev-border: #2a2235;
+        --prev-hero: #7b5a49;
 
-        background: var(--prev-bg);
         border-radius: 16px;
         overflow: hidden;
         border: 2px solid var(--prev-border);
         box-shadow: 0 8px 32px rgba(0,0,0,0.22);
         font-size: 11px;
         user-select: none;
+        display: flex;
+        flex-direction: column;
       }
       .cprev-nav {
         background: var(--prev-nav);
@@ -59,6 +61,7 @@
         align-items: center;
         justify-content: space-between;
         border-bottom: 1px solid var(--prev-border);
+        flex-shrink: 0;
       }
       .cprev-nav-brand {
         font-size: 0.85em;
@@ -73,24 +76,54 @@
         background: var(--prev-ctrl);
         border: 1px solid var(--prev-border);
       }
-      .cprev-body {
-        padding: 10px;
+      /* Page area: body bg visible around the library panel */
+      .cprev-page {
+        background: var(--prev-bg);
+        padding: 8px;
+        flex: 1;
+      }
+      .cprev-panel {
         background: var(--prev-panel);
+        border: 1px solid var(--prev-border);
+        border-radius: 10px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      /* Featured release strip */
+      .cprev-hero {
+        background: var(--prev-hero);
+        border-radius: 7px;
+        padding: 8px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .cprev-hero-art {
+        width: 38px; height: 38px;
+        border-radius: 5px;
+        background: rgba(255,255,255,0.22);
+        flex-shrink: 0;
+      }
+      .cprev-hero-text { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+      /* Album card grid */
+      .cprev-cards {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 7px;
+        gap: 6px;
       }
       .cprev-card {
         background: linear-gradient(180deg, var(--prev-card), var(--prev-card2));
         border: 1px solid var(--prev-border);
-        border-radius: 10px;
+        border-radius: 9px;
         overflow: hidden;
       }
       .cprev-card-art {
         aspect-ratio: 1;
         background: var(--prev-ctrl);
       }
-      .cprev-card-meta { padding: 7px; display: flex; flex-direction: column; gap: 4px; }
+      .cprev-card-meta { padding: 6px; display: flex; flex-direction: column; gap: 4px; }
       .cprev-line {
         height: 5px; border-radius: 3px;
         background: var(--prev-muted);
@@ -98,10 +131,11 @@
       }
       .cprev-line--short { width: 58%; }
       .cprev-line--btn {
-        height: 18px; border-radius: 8px; margin-top: 3px;
+        height: 17px; border-radius: 7px; margin-top: 3px;
         background: var(--prev-accent);
         opacity: 0.9;
       }
+      /* Player bar */
       .cprev-player {
         background: var(--prev-panel);
         border-top: 1px solid var(--prev-border);
@@ -109,6 +143,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-shrink: 0;
       }
       .cprev-player-art {
         width: 30px; height: 30px;
@@ -213,6 +248,16 @@
             <p class="form-section__title">Colours</p>
             <div class="colour-editor-layout">
               <div class="form-grid">
+                <div style="grid-column: 1 / -1;">
+                  <label for="palette">Theme preset</label>
+                  <select id="palette">
+                    <option value="midnight">Midnight — deep purple-indigo</option>
+                    <option value="studio">Studio — dark neutral charcoal</option>
+                    <option value="warm">Warm — dark amber &amp; coffee</option>
+                    <option value="chalk">Chalk — clean light paper</option>
+                    <option value="custom">Custom — use my colour choices below</option>
+                  </select>
+                </div>
                 <div>
                   <label for="themeBackground">Page background</label>
                   <input type="color" id="themeBackground" />
@@ -254,8 +299,8 @@
                   <input type="color" id="themeBorder" />
                 </div>
                 <div>
-                  <label for="palette">Palette preset <span class="meta" style="font-weight:400;">(overrides above)</span></label>
-                  <input type="text" id="palette" placeholder="default | dark | warm" />
+                  <label for="themeHeroBackground">Featured release background</label>
+                  <input type="color" id="themeHeroBackground" />
                 </div>
                 <div>
                   <label for="dynamicColorTheming">Dynamic artwork colour theming</label>
@@ -278,21 +323,32 @@
                       <div class="cprev-nav-dot"></div>
                     </div>
                   </div>
-                  <div class="cprev-body">
-                    <div class="cprev-card">
-                      <div class="cprev-card-art"></div>
-                      <div class="cprev-card-meta">
-                        <div class="cprev-line"></div>
-                        <div class="cprev-line cprev-line--short"></div>
-                        <div class="cprev-line cprev-line--btn"></div>
+                  <div class="cprev-page">
+                    <div class="cprev-panel">
+                      <div class="cprev-hero">
+                        <div class="cprev-hero-art"></div>
+                        <div class="cprev-hero-text">
+                          <div class="cprev-line" style="width:50%;opacity:0.7;"></div>
+                          <div class="cprev-line" style="width:80%;height:7px;opacity:0.55;"></div>
+                        </div>
                       </div>
-                    </div>
-                    <div class="cprev-card">
-                      <div class="cprev-card-art"></div>
-                      <div class="cprev-card-meta">
-                        <div class="cprev-line"></div>
-                        <div class="cprev-line cprev-line--short"></div>
-                        <div class="cprev-line cprev-line--btn"></div>
+                      <div class="cprev-cards">
+                        <div class="cprev-card">
+                          <div class="cprev-card-art"></div>
+                          <div class="cprev-card-meta">
+                            <div class="cprev-line"></div>
+                            <div class="cprev-line cprev-line--short"></div>
+                            <div class="cprev-line cprev-line--btn"></div>
+                          </div>
+                        </div>
+                        <div class="cprev-card">
+                          <div class="cprev-card-art"></div>
+                          <div class="cprev-card-meta">
+                            <div class="cprev-line"></div>
+                            <div class="cprev-line cprev-line--short"></div>
+                            <div class="cprev-line cprev-line--btn"></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -475,7 +531,7 @@
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','dynamicColorTheming',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
@@ -531,17 +587,55 @@
 
       // ── Live colour preview ───────────────────────────────────
       const COLOUR_VAR_MAP = {
-        themeBackground:   '--prev-bg',
-        themePanelSurface: '--prev-panel',
-        themeTopbarSurface:'--prev-nav',
+        themeBackground:    '--prev-bg',
+        themePanelSurface:  '--prev-panel',
+        themeTopbarSurface: '--prev-nav',
         themeControlSurface:'--prev-ctrl',
-        themeCardSurface:  '--prev-card',
-        themeCardContrast: '--prev-card2',
-        themeText:         '--prev-text',
-        themeMutedText:    '--prev-muted',
-        themeAccent:       '--prev-accent',
-        themeBorder:       '--prev-border',
+        themeCardSurface:   '--prev-card',
+        themeCardContrast:  '--prev-card2',
+        themeText:          '--prev-text',
+        themeMutedText:     '--prev-muted',
+        themeAccent:        '--prev-accent',
+        themeBorder:        '--prev-border',
+        themeHeroBackground:'--prev-hero',
       };
+
+      const THEME_PRESETS = {
+        midnight: {
+          themeBackground: '#0f0c14', themePanelSurface: '#120f19',
+          themeTopbarSurface: '#120e18', themeControlSurface: '#1e1824',
+          themeCardSurface: '#17121f', themeCardContrast: '#221b2a',
+          themeText: '#f5f2fb', themeMutedText: '#bfb6d3',
+          themeAccent: '#9a6bff', themeBorder: '#2a2235',
+          themeHeroBackground: '#2d1b55',
+        },
+        studio: {
+          themeBackground: '#111113', themePanelSurface: '#1c1c1e',
+          themeTopbarSurface: '#161618', themeControlSurface: '#272729',
+          themeCardSurface: '#222224', themeCardContrast: '#2d2d30',
+          themeText: '#ececec', themeMutedText: '#888892',
+          themeAccent: '#d4512f', themeBorder: '#303033',
+          themeHeroBackground: '#1f2838',
+        },
+        warm: {
+          themeBackground: '#16100a', themePanelSurface: '#1e1610',
+          themeTopbarSurface: '#1b1309', themeControlSurface: '#2c1f12',
+          themeCardSurface: '#231a0e', themeCardContrast: '#302518',
+          themeText: '#f5ede0', themeMutedText: '#c4a882',
+          themeAccent: '#e8833a', themeBorder: '#3a2b1a',
+          themeHeroBackground: '#2e1c0e',
+        },
+        chalk: {
+          themeBackground: '#f4f1ea', themePanelSurface: '#fdfcf9',
+          themeTopbarSurface: '#fdfcf9', themeControlSurface: '#eae6dc',
+          themeCardSurface: '#ffffff', themeCardContrast: '#f5f2ea',
+          themeText: '#1a1814', themeMutedText: '#7a706a',
+          themeAccent: '#c8432a', themeBorder: '#ddd9d0',
+          themeHeroBackground: '#e8d8c0',
+        },
+      };
+
+      let _settingsLoaded = false;
 
       function updateColourPreview() {
         const preview = document.getElementById('colourPreview');
@@ -552,8 +646,28 @@
         });
       }
 
+      function applyPreset(key) {
+        const preset = THEME_PRESETS[key];
+        if (!preset) return;
+        Object.entries(preset).forEach(([fieldId, val]) => {
+          const el = document.getElementById(fieldId);
+          if (el) el.value = val;
+        });
+        updateColourPreview();
+      }
+
+      const paletteSelect = document.getElementById('palette');
+      paletteSelect.addEventListener('change', () => {
+        const val = paletteSelect.value;
+        if (val !== 'custom') applyPreset(val);
+      });
+
+      // When any colour input is changed manually, switch the preset to "custom"
       Object.keys(COLOUR_VAR_MAP).forEach(fieldId => {
-        document.getElementById(fieldId)?.addEventListener('input', updateColourPreview);
+        document.getElementById(fieldId)?.addEventListener('input', () => {
+          if (_settingsLoaded) paletteSelect.value = 'custom';
+          updateColourPreview();
+        });
       });
 
       async function loadSettings() {
@@ -561,11 +675,19 @@
         fields.forEach((key) => {
           const input = document.getElementById(key);
           if (!input) return;
-          input.value = settings[key] ?? ((key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') ? 'true' : '');
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') {
+            input.value = settings[key] === false ? 'false' : 'true';
+          } else {
+            input.value = settings[key] ?? '';
+          }
         });
+        // Ensure palette select reflects stored value (preset key or 'custom')
+        const storedPalette = settings.palette || 'custom';
+        paletteSelect.value = THEME_PRESETS[storedPalette] ? storedPalette : 'custom';
         fontPairSelect.value = settings.fontPair || fontPairDefault;
         renderFontPairPreview(fontPairSelect.value);
         updateColourPreview();
+        _settingsLoaded = true;
       }
 
       document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
