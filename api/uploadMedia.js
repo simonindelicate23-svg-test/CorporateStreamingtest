@@ -3,6 +3,39 @@ const { Readable } = require('stream');
 const ftp = require('basic-ftp');
 const { isAdmin } = require('./lib/auth');
 
+// ---------- image helpers ----------
+
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
+const MAX_IMAGE_DIMENSION = 1000;
+
+function isImageFile(filename) {
+  const ext = path.extname(String(filename || '')).toLowerCase();
+  return IMAGE_EXTENSIONS.has(ext);
+}
+
+async function optimizeImage(buffer, filename) {
+  try {
+    const sharp = require('sharp');
+    const ext = path.extname(String(filename || '')).toLowerCase();
+    let pipeline = sharp(buffer).resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+    if (ext === '.png') {
+      pipeline = pipeline.png({ compressionLevel: 8 });
+    } else if (ext === '.webp') {
+      pipeline = pipeline.webp({ quality: 85 });
+    } else {
+      // Default to JPEG for everything else (incl. .jpg, .jpeg, unknown)
+      pipeline = pipeline.jpeg({ quality: 85, progressive: true });
+    }
+    return await pipeline.toBuffer();
+  } catch (_err) {
+    // If sharp fails for any reason (e.g. not an image despite extension), return original
+    return buffer;
+  }
+}
+
 // ---------- helpers ----------
 
 const normalizeSegment = (value) =>
@@ -127,8 +160,12 @@ exports.handler = async (event) => {
     if (!safeName || !contentBase64) {
       return json(400, { message: 'fileName and contentBase64 are required', requestId });
     }
-    const buffer = Buffer.from(contentBase64, 'base64');
+    let buffer = Buffer.from(contentBase64, 'base64');
     if (!buffer.length) return json(400, { message: 'Decoded file is empty', requestId });
+
+    if (isImageFile(safeName)) {
+      buffer = await optimizeImage(buffer, safeName);
+    }
 
     const stamp = Date.now();
     const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
@@ -184,7 +221,11 @@ exports.handler = async (event) => {
 
   // All chunks in — assemble and upload
   chunkStore.delete(uploadId);
-  const assembled = Buffer.concat(session.chunks);
+  let assembled = Buffer.concat(session.chunks);
+
+  if (isImageFile(safeName)) {
+    assembled = await optimizeImage(assembled, safeName);
+  }
 
   const stamp = Date.now();
   const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]

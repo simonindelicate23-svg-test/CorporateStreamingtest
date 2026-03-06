@@ -2,11 +2,18 @@ const { fetchTrackDurationSeconds } = require('./audioUtils');
 const { loadTracks, saveTracks, withTrackIds } = require('./lib/legacyTracksStore');
 const { isAdmin } = require('./lib/auth');
 
-const json = (statusCode, payload) => ({
+const json = (statusCode, payload, extraHeaders = {}) => ({
   statusCode,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', ...extraHeaders },
   body: JSON.stringify(payload),
 });
+
+// Public read responses: CDN caches for 30 s, serves stale for up to 5 min while
+// revalidating in the background. Writes clear the in-memory store so the next
+// cold request always reflects the latest data within 30 s.
+const READ_CACHE_HEADERS = {
+  'Cache-Control': 'public, max-age=30, stale-while-revalidate=300',
+};
 
 const numericTrackFields = new Set(['trackNumber', 'playCount', 'durationSeconds', 'duration', 'year']);
 const numericAlbumFields = new Set(['year']);
@@ -97,6 +104,7 @@ function getAlbumsFromTracks(tracks = []) {
         bgcolor: track.bgcolor,
         genre: track.genre,
         year: track.year,
+        albumSortOrder: track.albumSortOrder,
         published: track.published !== false,
         trackCount: 1,
       });
@@ -170,11 +178,11 @@ exports.handler = async (event) => {
         const requestedId = String(params.id || '').trim();
         const found = tracks.find((track) => normalizeTrackId(track) === requestedId);
         if (!found) return json(404, { message: 'Track not found' });
-        return json(200, found);
+        return json(200, found, READ_CACHE_HEADERS);
       }
-      if (resource === 'tracks') return json(200, tracks);
-      if (resource === 'albums') return json(200, getAlbumsFromTracks(tracks));
-      return json(200, { tracks, albums: getAlbumsFromTracks(tracks) });
+      if (resource === 'tracks') return json(200, tracks, READ_CACHE_HEADERS);
+      if (resource === 'albums') return json(200, getAlbumsFromTracks(tracks), READ_CACHE_HEADERS);
+      return json(200, { tracks, albums: getAlbumsFromTracks(tracks) }, READ_CACHE_HEADERS);
     }
 
     if (event.httpMethod !== 'POST') return json(405, { message: 'Method not allowed' });

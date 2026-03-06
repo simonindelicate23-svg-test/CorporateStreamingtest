@@ -98,6 +98,47 @@ const DEFAULT_ALBUM_HEADING = 'Albums';
 let WELCOME_ALBUM_TITLE = playerConfig?.welcomeAlbums?.title || DEFAULT_ALBUM_HEADING;
 let WELCOME_ALBUM_SUBTITLE = playerConfig?.welcomeAlbums?.subtitle || '';
 let ABOUT_LINK_LABEL = 'about this website';
+let RELEASE_ORDER = 'alphabetical';
+let SITE_RELEASE_ORDER = 'alphabetical'; // admin default, used to reset user pref
+const USER_ORDER_KEY = 'tmc-user-release-order';
+
+const ALBUMS_PAGE_SIZE = 20;
+let pendingAlbums = [];
+let albumSentinelObserver = null;
+
+// ── Toast ─────────────────────────────────────────────────────────
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = type === 'error' ? 'toast toast--error' : 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  // Remove after animation (2.4s delay + 0.28s fade = ~2.7s)
+  setTimeout(() => toast.remove(), 2750);
+}
+
+// ── Skeleton placeholder cards ────────────────────────────────────
+function showSkeletonCards(count = 8) {
+  dom.albumGalleryGrid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('article');
+    card.className = 'album-card skeleton';
+    const cover = document.createElement('div');
+    cover.className = 'album-card-cover';
+    const meta = document.createElement('div');
+    meta.className = 'album-card-meta';
+    const line1 = document.createElement('div');
+    line1.className = 'skeleton-line';
+    const line2 = document.createElement('div');
+    line2.className = 'skeleton-line skeleton-line--short';
+    const line3 = document.createElement('div');
+    line3.className = 'skeleton-line skeleton-line--btn';
+    meta.append(line1, line2, line3);
+    card.append(cover, meta);
+    dom.albumGalleryGrid.appendChild(card);
+  }
+}
 const TRACKS_FIRST_DESKTOP = playerConfig?.layout?.tracksFirstOnDesktop === true;
 const TIP_JAR_CONFIG = playerConfig?.tipJar || {};
 const THEME_STORAGE_KEY = 'tmc-player-theme';
@@ -252,7 +293,12 @@ async function applySiteSettings() {
     if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
     if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
     if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
+    if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
     if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+    if (settings.releaseOrder) {
+      SITE_RELEASE_ORDER = settings.releaseOrder;
+      RELEASE_ORDER = settings.releaseOrder;
+    }
     if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
@@ -1205,43 +1251,101 @@ function buildAlbumMeta(albumOrName) {
   };
 }
 
-function renderAlbums() {
-  dom.albumGalleryGrid.innerHTML = '';
-  state.albums
-    .filter(matchesFilters)
-    .forEach(album => {
-      const card = document.createElement('article');
-      card.className = 'album-card';
-      const cover = document.createElement('div');
-      cover.className = 'album-card-cover';
-      const artwork = albumCoverFor(album);
-      if (artwork) {
-        cover.style.backgroundImage = `url(${artwork})`;
-        cover.setAttribute('aria-label', `${album.albumName} cover`);
-        preloadArtwork(artwork);
-      }
-      card.appendChild(cover);
-      const meta = document.createElement('div');
-      meta.className = 'album-card-meta';
-      const title = document.createElement('h3');
-      title.textContent = album.albumName;
-      meta.appendChild(title);
-      const metaInfo = buildAlbumMeta(album);
-      const note = document.createElement('p');
-      note.textContent = metaInfo.summary;
-      meta.appendChild(note);
-      const view = document.createElement('button');
-      view.className = 'pill';
-      view.textContent = 'View album';
-      view.addEventListener('click', event => {
-        event.stopPropagation();
-        setAlbum(album);
-      });
-      meta.appendChild(view);
-      card.appendChild(meta);
-      card.addEventListener('click', () => setAlbum(album));
-      dom.albumGalleryGrid.appendChild(card);
+function sortedAlbumsForDisplay() {
+  const albums = [...state.albums];
+  if (RELEASE_ORDER === 'date-desc' || RELEASE_ORDER === 'date-asc') {
+    // Pseudo-albums (allTracks, pseudoType) stay pinned at the top
+    const pinned = albums.filter(a => a.allTracks || a.pseudoType);
+    const real = albums.filter(a => !a.allTracks && !a.pseudoType);
+    real.sort((a, b) => {
+      const aYear = a.year || 0;
+      const bYear = b.year || 0;
+      const yearDiff = RELEASE_ORDER === 'date-asc' ? aYear - bYear : bYear - aYear;
+      if (yearDiff !== 0) return yearDiff;
+      return (a.artistName || a.albumName || '').localeCompare(b.artistName || b.albumName || '') ||
+        (a.albumName || '').localeCompare(b.albumName || '');
     });
+    return [...pinned, ...real];
+  }
+  if (RELEASE_ORDER === 'custom') {
+    const pinned = albums.filter(a => a.allTracks || a.pseudoType);
+    const real = albums.filter(a => !a.allTracks && !a.pseudoType);
+    real.sort((a, b) => {
+      const aOrder = a.albumSortOrder != null ? Number(a.albumSortOrder) : Infinity;
+      const bOrder = b.albumSortOrder != null ? Number(b.albumSortOrder) : Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (a.albumName || '').localeCompare(b.albumName || '');
+    });
+    return [...pinned, ...real];
+  }
+  // Default: alphabetical (state.albums is already alphabetically sorted by api.js)
+  return albums;
+}
+
+function buildAlbumCard(album) {
+  const card = document.createElement('article');
+  card.className = 'album-card';
+  const cover = document.createElement('div');
+  cover.className = 'album-card-cover';
+  const artwork = albumCoverFor(album);
+  if (artwork) {
+    cover.style.backgroundImage = `url(${artwork})`;
+    cover.setAttribute('aria-label', `${album.albumName} cover`);
+    preloadArtwork(artwork);
+  }
+  if (album.year && !album.allTracks && !album.pseudoType) {
+    const yearChip = document.createElement('span');
+    yearChip.className = 'album-card-year';
+    yearChip.textContent = album.year;
+    cover.appendChild(yearChip);
+  }
+  card.appendChild(cover);
+  const meta = document.createElement('div');
+  meta.className = 'album-card-meta';
+  const title = document.createElement('h3');
+  title.textContent = album.albumName;
+  meta.appendChild(title);
+  const metaInfo = buildAlbumMeta(album);
+  const note = document.createElement('p');
+  note.textContent = metaInfo.summary;
+  meta.appendChild(note);
+  const view = document.createElement('button');
+  view.className = 'pill';
+  view.textContent = 'View album';
+  view.addEventListener('click', event => {
+    event.stopPropagation();
+    setAlbum(album);
+  });
+  meta.appendChild(view);
+  card.appendChild(meta);
+  card.addEventListener('click', () => setAlbum(album));
+  return card;
+}
+
+function attachAlbumSentinel() {
+  const sentinel = document.createElement('div');
+  sentinel.className = 'album-grid-sentinel';
+  dom.albumGalleryGrid.appendChild(sentinel);
+  albumSentinelObserver = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting) return;
+    albumSentinelObserver.disconnect();
+    albumSentinelObserver = null;
+    sentinel.remove();
+    const batch = pendingAlbums.splice(0, ALBUMS_PAGE_SIZE);
+    batch.forEach(album => dom.albumGalleryGrid.appendChild(buildAlbumCard(album)));
+    if (pendingAlbums.length > 0) attachAlbumSentinel();
+  }, { rootMargin: '300px' });
+  albumSentinelObserver.observe(sentinel);
+}
+
+function renderAlbums() {
+  if (albumSentinelObserver) { albumSentinelObserver.disconnect(); albumSentinelObserver = null; }
+  dom.albumGalleryGrid.innerHTML = '';
+  const filtered = sortedAlbumsForDisplay().filter(matchesFilters);
+  const firstBatch = filtered.slice(0, ALBUMS_PAGE_SIZE);
+  pendingAlbums = filtered.slice(ALBUMS_PAGE_SIZE);
+  firstBatch.forEach(album => dom.albumGalleryGrid.appendChild(buildAlbumCard(album)));
+  if (pendingAlbums.length > 0) attachAlbumSentinel();
 }
 
 function renderTracks(album) {
@@ -1448,18 +1552,13 @@ async function copyShareLink() {
   if (!shareUrl || !shareUrl.pathname) return;
   try {
     await navigator.clipboard.writeText(shareUrl.toString());
+    showToast('Link copied');
     if (dom.copyLinkButton) {
-      const original = dom.copyLinkButton.getAttribute('aria-label') || 'Share track';
-      dom.copyLinkButton.setAttribute('aria-label', 'Link copied');
-      dom.copyLinkButton.title = 'Link copied';
       dom.copyLinkButton.classList.add('copied');
-      setTimeout(() => {
-        dom.copyLinkButton?.setAttribute('aria-label', original);
-        if (dom.copyLinkButton) dom.copyLinkButton.title = original;
-        dom.copyLinkButton?.classList.remove('copied');
-      }, 2000);
+      setTimeout(() => dom.copyLinkButton?.classList.remove('copied'), 2000);
     }
   } catch (err) {
+    showToast('Could not copy link', 'error');
     console.warn('Clipboard unavailable', err);
   }
 }
@@ -1783,6 +1882,20 @@ function bindEvents() {
     state.filters.search = e.target.value;
     renderAlbums();
   });
+  const sortOrderSelect = document.getElementById('sortOrderSelect');
+  if (sortOrderSelect) {
+    sortOrderSelect.addEventListener('change', () => {
+      const val = sortOrderSelect.value;
+      if (val) {
+        RELEASE_ORDER = val;
+        localStorage.setItem(USER_ORDER_KEY, val);
+      } else {
+        RELEASE_ORDER = SITE_RELEASE_ORDER;
+        localStorage.removeItem(USER_ORDER_KEY);
+      }
+      renderAlbums();
+    });
+  }
   dom.npPlay?.addEventListener('click', togglePlay);
   dom.npNext?.addEventListener('click', () => changeTrack(1));
   dom.npPrev?.addEventListener('click', () => changeTrack(-1));
@@ -1848,6 +1961,11 @@ function bindEvents() {
 export async function init() {
   initTheme();
   await applySiteSettings();
+  // Override with user's stored preference (applied after site default is set)
+  const storedOrder = localStorage.getItem(USER_ORDER_KEY);
+  if (storedOrder) RELEASE_ORDER = storedOrder;
+  const sortSelect = document.getElementById('sortOrderSelect');
+  if (sortSelect) sortSelect.value = storedOrder || '';
   applyBranding();
   applyTipJarConfig();
   applyDesktopLayoutPreference();
@@ -1868,6 +1986,7 @@ export async function init() {
     artworkEventsBound = true;
   }
   try {
+    showSkeletonCards();
     const heroPromise = loadWelcomeHero();
     await loadLibrary();
     await heroPromise;
@@ -1875,6 +1994,7 @@ export async function init() {
     renderAlbums();
     syncPlayModes();
     bindEvents();
+    initHeroCollapse();
     const params = new URLSearchParams(window.location.search);
     const routeParams = getPathRouteParams();
     const sharedTrackParam = params.get('track') || params.get('id') || routeParams.track;
@@ -1902,7 +2022,45 @@ export async function init() {
     refreshDocumentMetadata();
   } catch (err) {
     console.error('Failed to load library', err);
+    showToast('Could not load library — please refresh', 'error');
+    dom.albumGalleryGrid.innerHTML = '';
   }
+}
+
+// ── Collapsible featured release hero ────────────────────────────
+const HERO_COLLAPSED_KEY = 'tmc-hero-collapsed';
+
+function initHeroCollapse() {
+  const hero = dom.welcomeHero;
+  const toggleBtn = document.getElementById('heroToggleBtn');
+  const showBar = document.getElementById('heroShowBar');
+  if (!hero || !toggleBtn || !showBar) return;
+
+  const isCollapsed = localStorage.getItem(HERO_COLLAPSED_KEY) === 'true';
+  applyHeroCollapseState(isCollapsed, false);
+
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setHeroCollapsed(true);
+  });
+  showBar.addEventListener('click', () => setHeroCollapsed(false));
+}
+
+function applyHeroCollapseState(collapsed, animate = true) {
+  const hero = dom.welcomeHero;
+  const showBar = document.getElementById('heroShowBar');
+  if (!hero || !showBar) return;
+  if (!animate) {
+    hero.style.transition = 'none';
+    requestAnimationFrame(() => { hero.style.transition = ''; });
+  }
+  hero.classList.toggle('hero-collapsed', collapsed);
+  showBar.classList.toggle('hidden', !collapsed);
+}
+
+function setHeroCollapsed(collapsed) {
+  try { localStorage.setItem(HERO_COLLAPSED_KEY, String(collapsed)); } catch (_) {}
+  applyHeroCollapseState(collapsed);
 }
 
 init();

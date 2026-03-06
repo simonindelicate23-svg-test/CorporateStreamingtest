@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tmc-pwa-cache-v3';
+const CACHE_NAME = 'tmc-pwa-cache-v4';
 const OFFLINE_URL = '/player.html';
 const PRECACHE_ASSETS = [
   '/',
@@ -60,14 +60,22 @@ self.addEventListener('fetch', (event) => {
 
   const isNavigation = event.request.mode === 'navigate';
   if (isNavigation || isStaticAsset(pathname)) {
+    // Stale-while-revalidate: serve cached version immediately (fast), then
+    // fetch and cache the latest version in the background for next time.
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-          return response;
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          const networkFetch = fetch(event.request)
+            .then((response) => {
+              if (response.ok) cache.put(event.request, response.clone());
+              return response;
+            })
+            .catch(() => cached || caches.match(OFFLINE_URL));
+
+          // Return cached immediately if available, otherwise wait for network.
+          return cached || networkFetch;
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match(OFFLINE_URL)))
+      )
     );
     return;
   }

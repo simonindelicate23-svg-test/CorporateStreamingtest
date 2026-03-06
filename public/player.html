@@ -15,6 +15,11 @@
       <meta name="twitter:image" content="/img/og_image.jpg" />
       <link rel="manifest" href="/manifest.webmanifest" />
       <link rel="apple-touch-icon" href="/sigil.png" />
+      <!-- Preload critical scripts so the browser fetches them in parallel with HTML parsing -->
+      <link rel="preload" href="/player/ui.js" as="script" />
+      <link rel="preload" href="/player/api.js" as="script" />
+      <link rel="preload" href="/player/state.js" as="script" />
+      <link rel="preload" href="/styles/style.css" as="style" />
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
       <link rel="stylesheet" href="/styles/style.css" />
     </head>
@@ -73,6 +78,12 @@
             About this site
           </a>
           <input id="filter-search" class="filter-search" type="search" placeholder="Search albums or tracks" aria-label="Search library" />
+          <select id="sortOrderSelect" class="sort-order-select" aria-label="Sort order">
+            <option value="">Default order</option>
+            <option value="alphabetical">A–Z</option>
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+          </select>
           <!--
           <label class="sr-only" for="filter-artist">Filter by artist</label>
           <select id="filter-artist" aria-label="Filter albums by artist"></select>
@@ -83,6 +94,9 @@
           -->
         </div>
         <section id="welcomeHero" class="welcome-hero hidden" aria-live="polite">
+          <button id="heroToggleBtn" class="hero-toggle-btn" aria-label="Hide featured release" title="Hide featured release">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
           <div class="welcome-hero__media">
             <img id="welcomeHeroCover" class="welcome-hero__cover" src="" alt="Featured release cover art" />
           </div>
@@ -97,6 +111,10 @@
             </div>
           </div>
         </section>
+        <button id="heroShowBar" class="hero-show-bar hidden" aria-label="Show featured release">
+          <i class="fa-solid fa-star" aria-hidden="true"></i>
+          Show featured release
+        </button>
         <div id="albumGalleryGrid" class="album-gallery-grid"></div>
       </section>
 
@@ -305,6 +323,8 @@
         </div>
       </div>
     </div>
+
+    <div id="toast-container" role="status" aria-live="assertive" aria-atomic="false"></div>
 
     <script src="/site-settings.js"></script>
     <script src="/vendor/color-thief.min.js"></script>

@@ -26,8 +26,22 @@
         <div id="fillDurationsResults" style="display:none;margin-top:12px;"></div>
         <div id="status" class="status" style="display:none;"></div>
       </div>
+      <div id="bulkBar" style="display:none; background:var(--accent-subtle,#eef4ff); border:1px solid var(--border,#d0d7de); border-radius:8px; padding:10px 16px; margin-bottom:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span id="bulkCount" style="font-weight:600; font-size:0.9rem; flex:1;"></span>
+        <button id="bulkPublishBtn" class="button-link button-secondary" style="font-size:0.85rem;">Publish selected</button>
+        <button id="bulkUnpublishBtn" class="button-link button-secondary" style="font-size:0.85rem;">Unpublish selected</button>
+        <button id="bulkClearBtn" class="button-link" style="font-size:0.85rem; color:#666;">Clear selection</button>
+      </div>
       <div class="card">
-        <table class="table" id="tracksTable"><thead><tr><th>Track</th><th>Album</th><th>Order</th><th>Published</th><th>Actions</th></tr></thead><tbody></tbody></table>
+        <table class="table" id="tracksTable">
+          <thead>
+            <tr>
+              <th style="width:36px;"><input type="checkbox" id="selectAll" title="Select all visible" /></th>
+              <th>Track</th><th>Album</th><th>Order</th><th>Published</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
 
@@ -35,7 +49,11 @@
       const tableBody = document.querySelector('#tracksTable tbody');
       const searchInput = document.getElementById('search');
       const status = document.getElementById('status');
+      const bulkBar = document.getElementById('bulkBar');
+      const bulkCount = document.getElementById('bulkCount');
+      const selectAllCb = document.getElementById('selectAll');
       let tracks = [];
+      let checkedIds = new Set();
 
       function showStatus(message, isError = false) {
         status.textContent = message;
@@ -77,12 +95,36 @@
         }
       }
 
+      function updateBulkBar() {
+        const n = checkedIds.size;
+        bulkBar.style.display = n > 0 ? 'flex' : 'none';
+        bulkCount.textContent = `${n} track${n !== 1 ? 's' : ''} selected`;
+        // Sync select-all checkbox state
+        const visibleIds = Array.from(tableBody.querySelectorAll('input[type=checkbox]')).map(cb => cb.dataset.id);
+        selectAllCb.checked = visibleIds.length > 0 && visibleIds.every(id => checkedIds.has(id));
+        selectAllCb.indeterminate = !selectAllCb.checked && visibleIds.some(id => checkedIds.has(id));
+      }
+
       function renderRows() {
         const filter = searchInput.value.toLowerCase();
         tableBody.innerHTML = '';
         tracks.filter((t) => `${t.trackName} ${t.albumName} ${t.artistName}`.toLowerCase().includes(filter)).forEach((track) => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td><strong>${track.trackName || ''}</strong><br><span class="meta">${track.artistName || ''}</span></td><td>${track.albumName || ''}</td><td>${track.trackNumber || ''}</td>`;
+
+          // Checkbox cell
+          const cbCell = document.createElement('td');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.dataset.id = track._id;
+          cb.checked = checkedIds.has(track._id);
+          cb.addEventListener('change', () => {
+            if (cb.checked) checkedIds.add(track._id); else checkedIds.delete(track._id);
+            updateBulkBar();
+          });
+          cbCell.appendChild(cb);
+          tr.appendChild(cbCell);
+
+          tr.insertAdjacentHTML('beforeend', `<td><strong>${track.trackName || ''}</strong><br><span class="meta">${track.artistName || ''}</span></td><td>${track.albumName || ''}</td><td>${track.trackNumber || ''}</td>`);
 
           const publish = document.createElement('td');
           const badge = document.createElement('span');
@@ -108,6 +150,35 @@
           tr.appendChild(actions);
           tableBody.appendChild(tr);
         });
+        updateBulkBar();
+      }
+
+      async function bulkSetPublish(published) {
+        const ids = [...checkedIds];
+        if (!ids.length) return;
+        const label = published ? 'Publishing' : 'Unpublishing';
+        showStatus(`${label} ${ids.length} track${ids.length !== 1 ? 's' : ''}…`);
+        let done = 0;
+        const failures = [];
+        for (const id of ids) {
+          const track = tracks.find(t => t._id === id);
+          if (!track) continue;
+          try {
+            await updateTrack(id, { published });
+            track.published = published;
+            done++;
+          } catch (_e) {
+            failures.push(track.trackName || id);
+          }
+        }
+        checkedIds.clear();
+        renderRows();
+        if (failures.length) {
+          showStatus(`Done (${done} updated, ${failures.length} failed: ${failures.join(', ')})`, true);
+        } else {
+          showStatus(`${done} track${done !== 1 ? 's' : ''} ${published ? 'published' : 'unpublished'}.`);
+        }
+        AdminDataStore.invalidateCache(['tracks']);
       }
 
       document.getElementById('fillDurationsBtn').addEventListener('click', async () => {
@@ -173,7 +244,23 @@
         }
       });
 
-      searchInput.addEventListener('input', renderRows);
+      selectAllCb.addEventListener('change', () => {
+        const visibleCbs = Array.from(tableBody.querySelectorAll('input[type=checkbox]'));
+        if (selectAllCb.checked) {
+          visibleCbs.forEach(cb => { checkedIds.add(cb.dataset.id); cb.checked = true; });
+        } else {
+          visibleCbs.forEach(cb => { checkedIds.delete(cb.dataset.id); cb.checked = false; });
+        }
+        updateBulkBar();
+      });
+      document.getElementById('bulkPublishBtn').addEventListener('click', () => bulkSetPublish(true));
+      document.getElementById('bulkUnpublishBtn').addEventListener('click', () => bulkSetPublish(false));
+      document.getElementById('bulkClearBtn').addEventListener('click', () => {
+        checkedIds.clear();
+        renderRows();
+      });
+
+      searchInput.addEventListener('input', () => { checkedIds.clear(); renderRows(); });
       window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();

@@ -22,7 +22,10 @@ function buildAlbums(tracks) {
         albumName: track.albumName,
         albumArtworkUrl: track.albumArtworkUrl,
         artworkUrl: track.artworkUrl,
-        albumId: track.albumId || slugifyAlbumName(track.albumName)
+        albumId: track.albumId || slugifyAlbumName(track.albumName),
+        artistName: track.artistName,
+        year: track.year,
+        albumSortOrder: track.albumSortOrder,
       };
     }
     return acc;
