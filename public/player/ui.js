@@ -99,6 +99,8 @@ let WELCOME_ALBUM_TITLE = playerConfig?.welcomeAlbums?.title || DEFAULT_ALBUM_HE
 let WELCOME_ALBUM_SUBTITLE = playerConfig?.welcomeAlbums?.subtitle || '';
 let ABOUT_LINK_LABEL = 'about this website';
 let RELEASE_ORDER = 'alphabetical';
+let SITE_RELEASE_ORDER = 'alphabetical'; // admin default, used to reset user pref
+const USER_ORDER_KEY = 'tmc-user-release-order';
 
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
@@ -293,7 +295,10 @@ async function applySiteSettings() {
     if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
     if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
     if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
-    if (settings.releaseOrder) RELEASE_ORDER = settings.releaseOrder;
+    if (settings.releaseOrder) {
+      SITE_RELEASE_ORDER = settings.releaseOrder;
+      RELEASE_ORDER = settings.releaseOrder;
+    }
     if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
     WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
     WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
@@ -1248,12 +1253,14 @@ function buildAlbumMeta(albumOrName) {
 
 function sortedAlbumsForDisplay() {
   const albums = [...state.albums];
-  if (RELEASE_ORDER === 'date-desc') {
+  if (RELEASE_ORDER === 'date-desc' || RELEASE_ORDER === 'date-asc') {
     // Pseudo-albums (allTracks, pseudoType) stay pinned at the top
     const pinned = albums.filter(a => a.allTracks || a.pseudoType);
     const real = albums.filter(a => !a.allTracks && !a.pseudoType);
     real.sort((a, b) => {
-      const yearDiff = (b.year || 0) - (a.year || 0);
+      const aYear = a.year || 0;
+      const bYear = b.year || 0;
+      const yearDiff = RELEASE_ORDER === 'date-asc' ? aYear - bYear : bYear - aYear;
       if (yearDiff !== 0) return yearDiff;
       return (a.artistName || a.albumName || '').localeCompare(b.artistName || b.albumName || '') ||
         (a.albumName || '').localeCompare(b.albumName || '');
@@ -1875,6 +1882,20 @@ function bindEvents() {
     state.filters.search = e.target.value;
     renderAlbums();
   });
+  const sortOrderSelect = document.getElementById('sortOrderSelect');
+  if (sortOrderSelect) {
+    sortOrderSelect.addEventListener('change', () => {
+      const val = sortOrderSelect.value;
+      if (val) {
+        RELEASE_ORDER = val;
+        localStorage.setItem(USER_ORDER_KEY, val);
+      } else {
+        RELEASE_ORDER = SITE_RELEASE_ORDER;
+        localStorage.removeItem(USER_ORDER_KEY);
+      }
+      renderAlbums();
+    });
+  }
   dom.npPlay?.addEventListener('click', togglePlay);
   dom.npNext?.addEventListener('click', () => changeTrack(1));
   dom.npPrev?.addEventListener('click', () => changeTrack(-1));
@@ -1940,6 +1961,11 @@ function bindEvents() {
 export async function init() {
   initTheme();
   await applySiteSettings();
+  // Override with user's stored preference (applied after site default is set)
+  const storedOrder = localStorage.getItem(USER_ORDER_KEY);
+  if (storedOrder) RELEASE_ORDER = storedOrder;
+  const sortSelect = document.getElementById('sortOrderSelect');
+  if (sortSelect) sortSelect.value = storedOrder || '';
   applyBranding();
   applyTipJarConfig();
   applyDesktopLayoutPreference();
