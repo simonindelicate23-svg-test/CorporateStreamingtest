@@ -1501,9 +1501,15 @@ function hideOverlay() {
   dom.trackOverlay.setAttribute('aria-hidden', 'true');
 }
 
+function currentPseudoAlbum() {
+  const album = findAlbum(state.currentAlbumId || state.currentAlbum);
+  return (album?.pseudoType || album?.allTracks) ? album : null;
+}
+
 function openNowPlayingOverlay() {
   if (!state.currentTrack) return;
-  if (state.currentTrack?.albumName) {
+  // If we're already inside a pseudo album, stay there — don't switch to the track's real album.
+  if (!currentPseudoAlbum() && state.currentTrack?.albumName) {
     // Snapshot queue before setAlbum() resets it
     const prevItems = state.queue?.items?.slice() ?? [];
     const prevShuffle = state.queue?.shuffleEnabled ?? false;
@@ -1518,15 +1524,20 @@ function openNowPlayingOverlay() {
       state.queue.currentId = prevCurrentId;
       syncPlayModes();
     }
-    highlightActiveTrack();
   }
+  highlightActiveTrack();
   showOverlay();
 }
 
 function updatePlayerMeta(track) {
+  const pseudoCtx = currentPseudoAlbum();
   dom.trackTitle.textContent = track.trackName || 'Untitled';
   dom.trackArtist.textContent = track.artistName || '';
-  dom.trackAlbum.textContent = track.albumName || '';
+  // When playing from a pseudo album, show the pseudo album name as context;
+  // show the track's real album in parentheses so it remains visible.
+  dom.trackAlbum.textContent = pseudoCtx
+    ? `${pseudoCtx.albumName}${track.albumName && track.albumName !== pseudoCtx.albumName ? ' · ' + track.albumName : ''}`
+    : (track.albumName || '');
   const trackText = getTrackText(track);
   const hasVerseContent = Boolean(trackText) || Boolean(track?.medium);
   if (dom.verseText) {
@@ -1557,7 +1568,9 @@ function updatePlayerMeta(track) {
   }
 
   if (dom.npArt) dom.npArt.style.backgroundImage = layers || '';
-  if (dom.albumDetailCover) dom.albumDetailCover.style.backgroundImage = layers || '';
+  // When in a pseudo album, keep its own artwork in the album detail cover rather
+  // than replacing it with the individual track's artwork on every track change.
+  if (dom.albumDetailCover && !pseudoCtx) dom.albumDetailCover.style.backgroundImage = layers || '';
   if (playerStage) {
     const gradient = isDarkMode()
       ? 'linear-gradient(rgba(24, 20, 32, 0.92), rgba(16, 12, 24, 0.86))'
@@ -1569,7 +1582,9 @@ function updatePlayerMeta(track) {
   if (dom.npArtist) dom.npArtist.textContent = track.artistName || '';
   if (dom.overlayTitle) dom.overlayTitle.textContent = track.trackName || '';
   if (dom.overlayArtist) dom.overlayArtist.textContent = track.artistName || '';
-  if (dom.overlayAlbum) dom.overlayAlbum.textContent = track.albumName || '';
+  if (dom.overlayAlbum) dom.overlayAlbum.textContent = pseudoCtx
+    ? `${pseudoCtx.albumName}${track.albumName && track.albumName !== pseudoCtx.albumName ? ' · ' + track.albumName : ''}`
+    : (track.albumName || '');
   refreshNowPlayingMarquee();
   dom.nowPlayingBar?.classList.remove('inactive');
 
