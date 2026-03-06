@@ -19,19 +19,19 @@
       <div class="login-logo">
         <div class="admin-badge">Admin</div>
         <h1>Music Admin</h1>
-        <p>Enter your admin token to continue.</p>
+        <p>Enter your admin password to continue.</p>
       </div>
 
       <form id="loginForm">
         <div style="margin-bottom:14px;">
-          <label for="tokenInput">Admin token</label>
+          <label for="tokenInput">Admin password</label>
           <input
             type="password"
             id="tokenInput"
             name="token"
             autocomplete="current-password"
             autofocus
-            placeholder="Paste your ADMIN_API_TOKEN here"
+            placeholder="Enter your admin password"
           />
         </div>
         <button type="submit" style="width:100%;">Sign in</button>
@@ -39,8 +39,7 @@
       </form>
 
       <p style="margin-top:20px; font-size:0.83rem; color:#888; text-align:center;">
-        Set <code>ADMIN_API_TOKEN</code> in your Netlify environment variables.
-        If no token is set, any value will be accepted.
+        To change your password, go to Netlify &rarr; Site configuration &rarr; Environment variables and update <code>ADMIN_API_TOKEN</code>.
       </p>
     </div>
 
@@ -66,7 +65,7 @@
         const token = document.getElementById('tokenInput').value.trim();
 
         if (!token) {
-          status.textContent = 'Please enter a token.';
+          status.textContent = 'Please enter your password.';
           status.style.display = 'block';
           status.className = 'status error';
           return;
@@ -86,7 +85,7 @@
           });
 
           if (res.status === 401) {
-            status.textContent = 'Invalid token. Check your ADMIN_API_TOKEN environment variable.';
+            status.textContent = 'Incorrect password.';
             status.style.display = 'block';
             status.className = 'status error';
             submitBtn.disabled = false;
