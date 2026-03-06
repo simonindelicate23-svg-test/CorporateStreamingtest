@@ -98,7 +98,10 @@
               </div>
               <div>
                 <label for="bgcolor">Card background colour <span class="meta" style="font-weight:400;">(optional)</span></label>
-                <input type="color" id="bgcolor" name="bgcolor" value="#ffffff" />
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="color" id="bgcolor" name="bgcolor" value="#ffffff" data-cleared="true" disabled style="opacity:0.35" />
+                  <button type="button" id="bgcolorClear" class="button-secondary button-sm">Set colour</button>
+                </div>
               </div>
             </div>
           </div>
@@ -161,6 +164,19 @@
       }
 
       document.getElementById('artworkUrl').addEventListener('input', (e) => updateArtworkPreview(e.target.value.trim()));
+
+      /* ── Card background colour ───────────────────────────────── */
+      (function () {
+        const picker = document.getElementById('bgcolor');
+        const btn = document.getElementById('bgcolorClear');
+        function setCleared(cleared) {
+          picker.disabled = cleared;
+          picker.style.opacity = cleared ? '0.35' : '';
+          picker.dataset.cleared = cleared ? 'true' : '';
+          btn.textContent = cleared ? 'Set colour' : 'Clear';
+        }
+        btn.addEventListener('click', () => setCleared(picker.dataset.cleared !== 'true'));
+      })();
 
       /* ── Upload helpers ───────────────────────────────────────── */
       const CHUNK_SIZE = 3 * 1024 * 1024;
@@ -408,7 +424,7 @@
           albumId: document.getElementById('albumId').value,
           genre: document.getElementById('genre').value,
           year: document.getElementById('year').value,
-          bgcolor: document.getElementById('bgcolor').value,
+          bgcolor: document.getElementById('bgcolor').dataset.cleared === 'true' ? undefined : document.getElementById('bgcolor').value,
           published: document.getElementById('publishRelease').checked,
         };
 

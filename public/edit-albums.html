@@ -78,7 +78,10 @@
             </div>
             <div>
               <label for="bgcolor">Card background colour</label>
-              <input type="color" id="bgcolor" />
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="color" id="bgcolor" />
+                <button type="button" id="bgcolorClear" class="button-secondary button-sm">Clear</button>
+              </div>
             </div>
             <div class="artwork-col">
               <label for="artworkUrl">Artwork URL</label>
@@ -177,6 +180,16 @@
 
       fields.artworkUrl.addEventListener('input', (e) => updateArtworkPreview(e.target.value.trim()));
 
+      /* ── Card background colour ───────────────────────────────── */
+      function setBgcolorCleared(cleared) {
+        fields.bgcolor.disabled = cleared;
+        fields.bgcolor.style.opacity = cleared ? '0.35' : '';
+        fields.bgcolor.dataset.cleared = cleared ? 'true' : '';
+        document.getElementById('bgcolorClear').textContent = cleared ? 'Set colour' : 'Clear';
+      }
+      document.getElementById('bgcolorClear').addEventListener('click', () => setBgcolorCleared(fields.bgcolor.dataset.cleared !== 'true'));
+      fields.bgcolor.addEventListener('input', () => { if (fields.bgcolor.dataset.cleared === 'true') setBgcolorCleared(false); });
+
       /* ── Artwork upload ───────────────────────────────────────── */
       document.getElementById('uploadArtworkButton').addEventListener('click', async () => {
         const file = document.getElementById('artworkFile').files[0];
@@ -250,6 +263,7 @@
         fields.artworkUrl.value      = album.artworkUrl || '';
         fields.albumArtworkUrl.value = album.albumArtworkUrl || '';
         fields.bgcolor.value         = album.bgcolor || '#ffffff';
+        setBgcolorCleared(!album.bgcolor);
         fields.genre.value           = album.genre || '';
         fields.year.value            = album.year || '';
         fields.albumSortOrder.value  = album.albumSortOrder != null ? album.albumSortOrder : '';
@@ -291,8 +305,12 @@
         ['albumName','albumId','artistName','artworkUrl','albumArtworkUrl','genre','year','albumSortOrder'].forEach((key) => {
           if (String(activeAlbum[key] ?? '') !== String(fields[key].value ?? '')) updates[key] = fields[key].value === '' ? undefined : fields[key].value;
         });
-        const bgcolorOriginal = activeAlbum.bgcolor || '#ffffff';
-        if (fields.bgcolor.value !== bgcolorOriginal) updates.bgcolor = fields.bgcolor.value;
+        const bgcolorOriginal = activeAlbum.bgcolor || null;
+        if (fields.bgcolor.dataset.cleared === 'true') {
+          if (bgcolorOriginal) updates.bgcolor = undefined;
+        } else if (fields.bgcolor.value !== (bgcolorOriginal || '#ffffff')) {
+          updates.bgcolor = fields.bgcolor.value;
+        }
         if ((activeAlbum.published !== false) !== fields.published.checked) updates.published = fields.published.checked;
         if (!Object.keys(updates).length) return showStatus('No changes to save.');
         try {
