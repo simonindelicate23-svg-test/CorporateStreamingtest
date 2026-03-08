@@ -268,14 +268,23 @@ exports.handler = async (event) => {
         if (track.albumName !== albumName) return;
         matched += 1;
         let effectiveUpdates = updates;
-        // When the album is being renamed and albumId wasn't explicitly changed,
-        // auto-derive a new albumId from the new name — but only if the existing
-        // albumId looks auto-derived (matches the slug of the old name) or is
-        // absent. Custom albumIds set by the user are left untouched.
+        // When renaming, auto-derive albumId from the new name if the existing
+        // albumId was auto-derived from the old name (or absent). Custom albumIds
+        // set by the user are left untouched.
         if (newAlbumName && !updates.albumId) {
           const trackAlbumId = track.albumId || '';
           if (!trackAlbumId || trackAlbumId === derivedOldSlug) {
-            effectiveUpdates = { ...updates, albumId: slugify(newAlbumName) };
+            effectiveUpdates = { ...effectiveUpdates, albumId: slugify(newAlbumName) };
+          }
+        }
+        // When artworkUrl is being updated without an explicit albumArtworkUrl,
+        // keep albumArtworkUrl in sync if it was tracking artworkUrl (same value
+        // or absent). This fixes cases where a previous save only updated one of
+        // the two fields, leaving the player showing the original artwork.
+        if (updates.artworkUrl && !updates.albumArtworkUrl) {
+          const cur = track.albumArtworkUrl || '';
+          if (!cur || cur === (track.artworkUrl || '')) {
+            effectiveUpdates = { ...effectiveUpdates, albumArtworkUrl: updates.artworkUrl };
           }
         }
         tracks[idx] = applyAlbumUpdates(track, effectiveUpdates);
