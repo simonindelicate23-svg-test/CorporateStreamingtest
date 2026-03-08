@@ -99,9 +99,11 @@ const writeToFile = async (tracks) => {
 
 const preferredStore = () => String(process.env.LEGACY_TRACK_STORE || 'auto').toLowerCase();
 
-// Default 5 min in-memory TTL. Writes always clear the cache, so this only
-// affects repeated reads on warm function instances (no stale-data risk).
-const cacheTtlMs = Number(process.env.LEGACY_TRACK_CACHE_TTL_MS || 300000);
+// Default 30 s in-memory TTL. Writes always clear the local cache immediately,
+// but other warm instances won't see the change until their own TTL expires.
+// Keep this at or below the CDN max-age so a stale instance can't cause the
+// CDN to perpetually refresh its cache from stale data.
+const cacheTtlMs = Number(process.env.LEGACY_TRACK_CACHE_TTL_MS || 30000);
 let trackCache = { tracks: null, store: null, loadedAt: 0 };
 
 const getCachedTracks = () => {

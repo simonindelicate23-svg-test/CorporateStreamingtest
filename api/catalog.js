@@ -8,11 +8,12 @@ const json = (statusCode, payload, extraHeaders = {}) => ({
   body: JSON.stringify(payload),
 });
 
-// Public read responses: CDN caches for 30 s, serves stale for up to 5 min while
-// revalidating in the background. Writes clear the in-memory store so the next
-// cold request always reflects the latest data within 30 s.
+// Public read responses: CDN/browser may cache for 30 s.
+// stale-while-revalidate is intentionally omitted: serving stale data while
+// revalidating from a warm instance that still holds an old in-memory cache
+// would cause the CDN to keep refreshing its stale copy indefinitely.
 const READ_CACHE_HEADERS = {
-  'Cache-Control': 'public, max-age=30, stale-while-revalidate=300',
+  'Cache-Control': 'public, max-age=30',
 };
 
 const toPublicTrack = ({ mp3Url, ...rest }) => rest;
