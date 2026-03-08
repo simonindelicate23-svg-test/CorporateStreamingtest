@@ -189,7 +189,7 @@ exports.handler = async (event) => {
         if (isAdmin(event)) return json(200, found);
         return json(200, toPublicTrack(found), READ_CACHE_HEADERS);
       }
-      if (resource === 'tracks') return json(200, tracks.map(toPublicTrack), READ_CACHE_HEADERS);
+      if (resource === 'tracks') return json(200, tracks.map(toPublicTrack), isAdmin(event) ? {} : READ_CACHE_HEADERS);
       if (resource === 'albums') {
         // Admins see all albums (including fully-unpublished ones) so the
         // edit-albums dropdown doesn't hide releases after a bulk-unpublish.

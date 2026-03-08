@@ -208,8 +208,13 @@
             body: JSON.stringify({ fileName: file.name, contentBase64: b64, folder: 'artwork' }),
           }).then((r) => r.json());
           if (!result?.url) throw new Error(result?.message || 'No URL returned');
+          const prevArtworkUrl = fields.artworkUrl.value.trim();
           fields.artworkUrl.value = result.url;
-          if (!fields.albumArtworkUrl.value) fields.albumArtworkUrl.value = result.url;
+          // Keep albumArtworkUrl in sync if it was empty or matched the old artworkUrl.
+          // If the user had intentionally set a different player artwork URL, leave it alone.
+          if (!fields.albumArtworkUrl.value.trim() || fields.albumArtworkUrl.value.trim() === prevArtworkUrl) {
+            fields.albumArtworkUrl.value = result.url;
+          }
           updateArtworkPreview(result.url);
           artworkUploadStatus.textContent = 'Uploaded.';
         } catch (e) { artworkUploadStatus.textContent = e.message; }

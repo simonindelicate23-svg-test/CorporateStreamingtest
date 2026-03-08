@@ -190,10 +190,13 @@
         try {
           const uploadedUrl = await uploadFileToMediaHost(file, isArtwork ? 'artwork' : 'audio');
           if (isArtwork) {
+            const prevArtworkUrl = document.getElementById('artworkUrl').value.trim();
             document.getElementById('artworkUrl').value = uploadedUrl;
             updateArtworkPreview(uploadedUrl);
-            if (!document.getElementById('albumArtworkUrl').value.trim()) {
-              document.getElementById('albumArtworkUrl').value = uploadedUrl;
+            const albumArtworkField = document.getElementById('albumArtworkUrl');
+            // Keep albumArtworkUrl in sync if it was empty or matched the old artworkUrl.
+            if (!albumArtworkField.value.trim() || albumArtworkField.value.trim() === prevArtworkUrl) {
+              albumArtworkField.value = uploadedUrl;
             }
           } else {
             document.getElementById('mp3Url').value = uploadedUrl;
