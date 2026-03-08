@@ -123,7 +123,11 @@
 
     const token = getToken();
     const headers = token ? { 'X-Admin-Token': token } : {};
-    const response = await fetch(url, { headers, ...(options.fetchOptions || {}) });
+    const response = await fetch(url, {
+      headers,
+      ...(options.bypassCache ? { cache: 'reload' } : {}),
+      ...(options.fetchOptions || {}),
+    });
 
     if (response.status === 401) {
       redirectToLogin();
