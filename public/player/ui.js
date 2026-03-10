@@ -101,6 +101,7 @@ let ABOUT_LINK_LABEL = 'about this website';
 let RELEASE_ORDER = 'alphabetical';
 let SITE_RELEASE_ORDER = 'alphabetical'; // admin default, used to reset user pref
 const USER_ORDER_KEY = 'tmc-user-release-order';
+const SETTINGS_CACHE_KEY = 'tmc-site-settings-cache';
 
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
@@ -274,49 +275,66 @@ function refreshThemeForCurrentTrack() {
 }
 
 
+function applySettingsData(settings) {
+  SITE_TITLE = settings.siteTitle || SITE_TITLE;
+  BRAND_NAME = settings.brandName || BRAND_NAME;
+  DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
+  BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
+  const faviconHref = settings.faviconUrl || '/favicon.ico';
+  const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
+  faviconEl.href = faviconHref;
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
+  themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
+  const rootStyle = document.documentElement.style;
+  if (settings.themeBackground) {
+    SITE_BACKGROUND_COLOR = settings.themeBackground;
+    rootStyle.setProperty('--paper', settings.themeBackground);
+  }
+  if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
+  if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
+  if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
+  if (settings.themeCardSurface || settings.themeSurface) rootStyle.setProperty('--card', settings.themeCardSurface || settings.themeSurface);
+  if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);
+  if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
+  if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
+  if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
+  if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
+  if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
+  if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+  if (settings.releaseOrder) {
+    SITE_RELEASE_ORDER = settings.releaseOrder;
+    RELEASE_ORDER = settings.releaseOrder;
+  }
+  if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
+  WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
+  WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
+  ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
+  if (dom.aboutSiteLink) dom.aboutSiteLink.textContent = ABOUT_LINK_LABEL;
+  const footerSummary = document.querySelector('.footer-disclosure summary');
+  if (footerSummary && settings.footerSummary) footerSummary.innerHTML = settings.footerSummary;
+  const footerContent = document.querySelector('.default-footer');
+  if (footerContent && settings.footerContent) footerContent.innerHTML = settings.footerContent;
+}
+
+// Apply any previously-cached settings synchronously so branding is visible
+// before the network responds — eliminates the "Independent Artist" flash.
+function applyCachedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+    if (!raw) return;
+    const settings = JSON.parse(raw);
+    applySettingsData(settings);
+    applyBranding();
+  } catch (_) {}
+}
+
 async function applySiteSettings() {
   try {
     const response = await fetch('/.netlify/functions/siteSettings', { cache: 'no-cache' });
     if (!response.ok) return;
     const settings = await response.json();
-    SITE_TITLE = settings.siteTitle || SITE_TITLE;
-    BRAND_NAME = settings.brandName || BRAND_NAME;
-    DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
-    BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
-    const faviconHref = settings.faviconUrl || '/favicon.ico';
-    const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
-    faviconEl.href = faviconHref;
-    const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
-    themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
-    const rootStyle = document.documentElement.style;
-    if (settings.themeBackground) {
-      SITE_BACKGROUND_COLOR = settings.themeBackground;
-      rootStyle.setProperty('--paper', settings.themeBackground);
-    }
-    if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
-    if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
-    if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
-    if (settings.themeCardSurface || settings.themeSurface) rootStyle.setProperty('--card', settings.themeCardSurface || settings.themeSurface);
-    if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);
-    if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
-    if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
-    if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
-    if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
-    if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
-    if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
-    if (settings.releaseOrder) {
-      SITE_RELEASE_ORDER = settings.releaseOrder;
-      RELEASE_ORDER = settings.releaseOrder;
-    }
-    if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
-    WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
-    WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
-    ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
-    if (dom.aboutSiteLink) dom.aboutSiteLink.textContent = ABOUT_LINK_LABEL;
-    const footerSummary = document.querySelector('.footer-disclosure summary');
-    if (footerSummary && settings.footerSummary) footerSummary.innerHTML = settings.footerSummary;
-    const footerContent = document.querySelector('.default-footer');
-    if (footerContent && settings.footerContent) footerContent.innerHTML = settings.footerContent;
+    applySettingsData(settings);
+    try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings)); } catch (_) {}
   } catch (_error) {}
 }
 
@@ -2060,6 +2078,9 @@ function bindEvents() {
 
 export async function init() {
   initTheme();
+  // Instantly apply last-known settings from localStorage — eliminates the
+  // "Independent Artist" flash on every load after the first visit.
+  applyCachedSettings();
   // Show skeleton immediately so the user sees structure right away
   showSkeletonCards();
   // Kick off all network requests in parallel — library and hero can start
