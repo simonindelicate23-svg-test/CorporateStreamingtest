@@ -101,10 +101,20 @@ let ABOUT_LINK_LABEL = 'about this website';
 let RELEASE_ORDER = 'alphabetical';
 let SITE_RELEASE_ORDER = 'alphabetical'; // admin default, used to reset user pref
 const USER_ORDER_KEY = 'tmc-user-release-order';
+const SETTINGS_CACHE_KEY = 'tmc-site-settings-cache';
 
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
 let albumSentinelObserver = null;
+
+// ── Utility ───────────────────────────────────────────────────────
+function debounce(fn, delay) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
 
 // ── Toast ─────────────────────────────────────────────────────────
 function showToast(message, type = 'success') {
@@ -265,49 +275,66 @@ function refreshThemeForCurrentTrack() {
 }
 
 
+function applySettingsData(settings) {
+  SITE_TITLE = settings.siteTitle || SITE_TITLE;
+  BRAND_NAME = settings.brandName || BRAND_NAME;
+  DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
+  BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
+  const faviconHref = settings.faviconUrl || '/favicon.ico';
+  const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
+  faviconEl.href = faviconHref;
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
+  themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
+  const rootStyle = document.documentElement.style;
+  if (settings.themeBackground) {
+    SITE_BACKGROUND_COLOR = settings.themeBackground;
+    rootStyle.setProperty('--paper', settings.themeBackground);
+  }
+  if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
+  if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
+  if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
+  if (settings.themeCardSurface || settings.themeSurface) rootStyle.setProperty('--card', settings.themeCardSurface || settings.themeSurface);
+  if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);
+  if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
+  if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
+  if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
+  if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
+  if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
+  if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+  if (settings.releaseOrder) {
+    SITE_RELEASE_ORDER = settings.releaseOrder;
+    RELEASE_ORDER = settings.releaseOrder;
+  }
+  if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
+  WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
+  WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
+  ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
+  if (dom.aboutSiteLink) dom.aboutSiteLink.textContent = ABOUT_LINK_LABEL;
+  const footerSummary = document.querySelector('.footer-disclosure summary');
+  if (footerSummary && settings.footerSummary) footerSummary.innerHTML = settings.footerSummary;
+  const footerContent = document.querySelector('.default-footer');
+  if (footerContent && settings.footerContent) footerContent.innerHTML = settings.footerContent;
+}
+
+// Apply any previously-cached settings synchronously so branding is visible
+// before the network responds — eliminates the "Independent Artist" flash.
+function applyCachedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+    if (!raw) return;
+    const settings = JSON.parse(raw);
+    applySettingsData(settings);
+    applyBranding();
+  } catch (_) {}
+}
+
 async function applySiteSettings() {
   try {
     const response = await fetch('/.netlify/functions/siteSettings', { cache: 'no-cache' });
     if (!response.ok) return;
     const settings = await response.json();
-    SITE_TITLE = settings.siteTitle || SITE_TITLE;
-    BRAND_NAME = settings.brandName || BRAND_NAME;
-    DEFAULT_META_DESCRIPTION = settings.metaDescription || DEFAULT_META_DESCRIPTION;
-    BRAND_LOGO_URL = settings.logoUrl || BRAND_LOGO_URL;
-    const faviconHref = settings.faviconUrl || '/favicon.ico';
-    const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
-    faviconEl.href = faviconHref;
-    const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
-    themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
-    const rootStyle = document.documentElement.style;
-    if (settings.themeBackground) {
-      SITE_BACKGROUND_COLOR = settings.themeBackground;
-      rootStyle.setProperty('--paper', settings.themeBackground);
-    }
-    if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
-    if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
-    if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
-    if (settings.themeCardSurface || settings.themeSurface) rootStyle.setProperty('--card', settings.themeCardSurface || settings.themeSurface);
-    if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);
-    if (settings.themeText) rootStyle.setProperty('--ink', settings.themeText);
-    if (settings.themeMutedText) rootStyle.setProperty('--muted', settings.themeMutedText);
-    if (settings.themeAccent) rootStyle.setProperty('--accent', settings.themeAccent);
-    if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
-    if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
-    if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
-    if (settings.releaseOrder) {
-      SITE_RELEASE_ORDER = settings.releaseOrder;
-      RELEASE_ORDER = settings.releaseOrder;
-    }
-    if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
-    WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
-    WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
-    ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
-    if (dom.aboutSiteLink) dom.aboutSiteLink.textContent = ABOUT_LINK_LABEL;
-    const footerSummary = document.querySelector('.footer-disclosure summary');
-    if (footerSummary && settings.footerSummary) footerSummary.innerHTML = settings.footerSummary;
-    const footerContent = document.querySelector('.default-footer');
-    if (footerContent && settings.footerContent) footerContent.innerHTML = settings.footerContent;
+    applySettingsData(settings);
+    try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings)); } catch (_) {}
   } catch (_error) {}
 }
 
@@ -1342,9 +1369,25 @@ function buildAlbumCard(album) {
   cover.className = 'album-card-cover';
   const artwork = albumCoverFor(album);
   if (artwork) {
-    cover.style.backgroundImage = `url("${artwork}")`;
     cover.setAttribute('aria-label', `${album.albumName} cover`);
-    if (!artwork.startsWith('data:')) preloadArtwork(artwork);
+    if (artwork.startsWith('data:')) {
+      // Inline SVG for generated pseudo-album art — no network load needed
+      cover.style.backgroundImage = `url("${artwork}")`;
+    } else {
+      // Real image — use native lazy loading with a fade-in reveal
+      const img = document.createElement('img');
+      img.className = 'cover-img';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.src = artwork;
+      img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+      img.addEventListener('error', () => {
+        img.src = DEFAULT_ART_PLACEHOLDER;
+        img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+      }, { once: true });
+      cover.appendChild(img);
+    }
   }
   if (album.year && !album.allTracks && !album.pseudoType) {
     const yearChip = document.createElement('span');
@@ -1471,7 +1514,7 @@ function setAlbum(albumIdentifier) {
     currentId = startingTrack?._id ?? null;
   }
   state.queue.setItems(albumTracks, currentId);
-  warmTrackAssets(albumTracks, 5);
+  warmTrackAssets(albumTracks, 3);
   if (album.allTracks && album.enableShuffle) {
     state.queue.shuffleEnabled = true;
   }
@@ -1563,11 +1606,15 @@ function updatePlayerMeta(track) {
 
   if (dom.artwork) {
     dom.artwork.crossOrigin = 'anonymous';
+    dom.artwork.classList.add('artwork-loading');
     dom.artwork.src = safeArtwork || DEFAULT_ART_PLACEHOLDER;
   }
   if (dom.overlayArt) {
     dom.overlayArt.crossOrigin = 'anonymous';
+    dom.overlayArt.classList.add('artwork-loading');
     dom.overlayArt.src = safeArtwork || DEFAULT_ART_PLACEHOLDER;
+    dom.overlayArt.addEventListener('load', () => dom.overlayArt.classList.remove('artwork-loading'), { once: true });
+    dom.overlayArt.addEventListener('error', () => dom.overlayArt.classList.remove('artwork-loading'), { once: true });
   }
 
   if (dom.npArt) dom.npArt.style.backgroundImage = layers || '';
@@ -1742,6 +1789,12 @@ function togglePlay() {
   }
 }
 
+function setBufferingState(buffering) {
+  [dom.playButton, dom.npPlay, dom.overlayPlay].forEach(btn => {
+    btn?.classList.toggle('buffering', buffering);
+  });
+}
+
 function syncPlayState() {
   const isPlaying = Boolean(state.audio && !state.audio.paused && !state.audio.ended);
   const targets = [dom.playButton, dom.npPlay, dom.overlayPlay];
@@ -1803,33 +1856,38 @@ function changeTrack(direction) {
 }
 
 async function refreshLibrary() {
+  dom.refreshButton?.classList.add('loading');
   const previousAlbum = state.currentAlbum;
   const previousAlbumId = state.currentAlbumId;
   const previousTrackId = state.currentTrack?._id;
   const previousShuffle = state.queue?.shuffleEnabled;
   const previousRepeat = state.queue?.repeatEnabled;
-  await loadLibrary();
-  if (state.queue) {
-    state.queue.shuffleEnabled = previousShuffle;
-    state.queue.repeatEnabled = previousRepeat;
-  }
-  updateFilters();
-  renderAlbums();
-  const existingAlbum = previousAlbumId ? findAlbum(previousAlbumId) : findAlbum(previousAlbum);
-  if (existingAlbum) {
-    setAlbum(existingAlbum);
-    if (previousTrackId) {
-      const matchingTrack = state.tracks.find(track => track._id === previousTrackId);
-      if (matchingTrack) {
-        state.currentTrack = matchingTrack;
-        ensureQueueForTrack(matchingTrack);
-        updatePlayerMeta(matchingTrack);
-        highlightActiveTrack();
+  try {
+    await loadLibrary();
+    if (state.queue) {
+      state.queue.shuffleEnabled = previousShuffle;
+      state.queue.repeatEnabled = previousRepeat;
+    }
+    updateFilters();
+    renderAlbums();
+    const existingAlbum = previousAlbumId ? findAlbum(previousAlbumId) : findAlbum(previousAlbum);
+    if (existingAlbum) {
+      setAlbum(existingAlbum);
+      if (previousTrackId) {
+        const matchingTrack = state.tracks.find(track => track._id === previousTrackId);
+        if (matchingTrack) {
+          state.currentTrack = matchingTrack;
+          ensureQueueForTrack(matchingTrack);
+          updatePlayerMeta(matchingTrack);
+          highlightActiveTrack();
+        }
       }
     }
+    syncPlayModes();
+    syncPlayState();
+  } finally {
+    dom.refreshButton?.classList.remove('loading');
   }
-  syncPlayModes();
-  syncPlayState();
 }
 
 function onKeyboard(event) {
@@ -1938,10 +1996,10 @@ function bindEvents() {
     state.filters.genre = e.target.value;
     renderAlbums();
   });
-  dom.filterSearch?.addEventListener('input', e => {
+  dom.filterSearch?.addEventListener('input', debounce(e => {
     state.filters.search = e.target.value;
     renderAlbums();
-  });
+  }, 180));
   const sortOrderSelect = document.getElementById('sortOrderSelect');
   if (sortOrderSelect) {
     sortOrderSelect.addEventListener('change', () => {
@@ -2003,9 +2061,9 @@ function bindEvents() {
     changeTrack(1);
   });
   state.audio.addEventListener('play', syncPlayState);
-  state.audio.addEventListener('playing', syncPlayState);
-  state.audio.addEventListener('waiting', syncPlayState);
-  state.audio.addEventListener('pause', syncPlayState);
+  state.audio.addEventListener('playing', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('waiting', () => { setBufferingState(true); syncPlayState(); });
+  state.audio.addEventListener('pause', () => { setBufferingState(false); syncPlayState(); });
 
   // Paywall modal dismiss
   const paywallModal = document.getElementById('paywall-modal');
@@ -2020,6 +2078,15 @@ function bindEvents() {
 
 export async function init() {
   initTheme();
+  // Instantly apply last-known settings from localStorage — eliminates the
+  // "Independent Artist" flash on every load after the first visit.
+  applyCachedSettings();
+  // Show skeleton immediately so the user sees structure right away
+  showSkeletonCards();
+  // Kick off all network requests in parallel — library and hero can start
+  // fetching while we wait for site settings to apply CSS/branding.
+  const libraryPromise = loadLibrary();
+  const heroPromise = loadWelcomeHero();
   await applySiteSettings();
   // Override with user's stored preference (applied after site default is set)
   const storedOrder = localStorage.getItem(USER_ORDER_KEY);
@@ -2038,17 +2105,18 @@ export async function init() {
   ensureMediaSessionHandlers();
   if (!artworkEventsBound && dom.artwork) {
     dom.artwork.addEventListener('load', () => {
+      dom.artwork.classList.remove('artwork-loading');
       if (state.currentTrack) applyColorPalette(state.currentTrack, dom.artwork.src);
     });
     dom.artwork.addEventListener('error', () => {
+      dom.artwork.classList.remove('artwork-loading');
       if (state.currentTrack) applyNeutralTheme(state.currentTrack);
     });
     artworkEventsBound = true;
   }
   try {
-    showSkeletonCards();
-    const heroPromise = loadWelcomeHero();
-    await loadLibrary();
+    // By now the library fetch has had a head start — await may resolve instantly
+    await libraryPromise;
     await heroPromise;
     updateFilters();
     renderAlbums();
