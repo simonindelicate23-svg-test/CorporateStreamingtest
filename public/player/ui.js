@@ -292,6 +292,7 @@ function applySettingsData(settings) {
   }
   if (settings.themePanelSurface) rootStyle.setProperty('--panel-surface', settings.themePanelSurface);
   if (settings.themeTopbarSurface) rootStyle.setProperty('--nav-surface', settings.themeTopbarSurface);
+  if (settings.themeTopbarText) rootStyle.setProperty('--nav-text', settings.themeTopbarText);
   if (settings.themeControlSurface) rootStyle.setProperty('--control-surface', settings.themeControlSurface);
   if (settings.themeCardSurface || settings.themeSurface) rootStyle.setProperty('--card', settings.themeCardSurface || settings.themeSurface);
   if (settings.themeCardContrast) rootStyle.setProperty('--card-contrast', settings.themeCardContrast);

@@ -36,6 +36,7 @@
         --prev-bg: #0f0c14;
         --prev-panel: #120f19;
         --prev-nav: #120e18;
+        --prev-nav-text: #f5f2fb;
         --prev-ctrl: #1e1824;
         --prev-card: #17121f;
         --prev-card2: #221b2a;
@@ -66,7 +67,7 @@
       .cprev-nav-brand {
         font-size: 0.85em;
         font-weight: 700;
-        color: var(--prev-text);
+        color: var(--prev-nav-text);
         letter-spacing: -0.01em;
       }
       .cprev-nav-actions { display: flex; gap: 7px; }
@@ -269,6 +270,10 @@
                 <div>
                   <label for="themeTopbarSurface">Top bar</label>
                   <input type="color" id="themeTopbarSurface" />
+                </div>
+                <div>
+                  <label for="themeTopbarText">Top bar text / branding</label>
+                  <input type="color" id="themeTopbarText" />
                 </div>
                 <div>
                   <label for="themeControlSurface">Control buttons</label>
@@ -531,7 +536,7 @@
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
@@ -589,6 +594,7 @@
         themeBackground:    '--prev-bg',
         themePanelSurface:  '--prev-panel',
         themeTopbarSurface: '--prev-nav',
+        themeTopbarText:    '--prev-nav-text',
         themeControlSurface:'--prev-ctrl',
         themeCardSurface:   '--prev-card',
         themeCardContrast:  '--prev-card2',
@@ -602,7 +608,8 @@
       const THEME_PRESETS = {
         midnight: {
           themeBackground: '#0f0c14', themePanelSurface: '#120f19',
-          themeTopbarSurface: '#120e18', themeControlSurface: '#1e1824',
+          themeTopbarSurface: '#120e18', themeTopbarText: '#f5f2fb',
+          themeControlSurface: '#1e1824',
           themeCardSurface: '#17121f', themeCardContrast: '#221b2a',
           themeText: '#f5f2fb', themeMutedText: '#bfb6d3',
           themeAccent: '#9a6bff', themeBorder: '#2a2235',
@@ -610,7 +617,8 @@
         },
         studio: {
           themeBackground: '#111113', themePanelSurface: '#1c1c1e',
-          themeTopbarSurface: '#161618', themeControlSurface: '#272729',
+          themeTopbarSurface: '#161618', themeTopbarText: '#ececec',
+          themeControlSurface: '#272729',
           themeCardSurface: '#222224', themeCardContrast: '#2d2d30',
           themeText: '#ececec', themeMutedText: '#888892',
           themeAccent: '#d4512f', themeBorder: '#303033',
@@ -618,7 +626,8 @@
         },
         warm: {
           themeBackground: '#16100a', themePanelSurface: '#1e1610',
-          themeTopbarSurface: '#1b1309', themeControlSurface: '#2c1f12',
+          themeTopbarSurface: '#1b1309', themeTopbarText: '#f5ede0',
+          themeControlSurface: '#2c1f12',
           themeCardSurface: '#231a0e', themeCardContrast: '#302518',
           themeText: '#f5ede0', themeMutedText: '#c4a882',
           themeAccent: '#e8833a', themeBorder: '#3a2b1a',
@@ -626,7 +635,8 @@
         },
         chalk: {
           themeBackground: '#f4f1ea', themePanelSurface: '#fdfcf9',
-          themeTopbarSurface: '#fdfcf9', themeControlSurface: '#eae6dc',
+          themeTopbarSurface: '#fdfcf9', themeTopbarText: '#1a1814',
+          themeControlSurface: '#eae6dc',
           themeCardSurface: '#ffffff', themeCardContrast: '#f5f2ea',
           themeText: '#1a1814', themeMutedText: '#7a706a',
           themeAccent: '#c8432a', themeBorder: '#ddd9d0',
@@ -634,16 +644,20 @@
         },
         candy: {
           // Brasher: vivid acid-yellow background, electric orange accent
+          // Dark topbar needs white text — contrast fix
           themeBackground: '#f5ff00', themePanelSurface: '#ffffaa',
-          themeTopbarSurface: '#111111', themeControlSurface: '#ffdd00',
+          themeTopbarSurface: '#111111', themeTopbarText: '#ffffff',
+          themeControlSurface: '#ffdd00',
           themeCardSurface: '#ffffff', themeCardContrast: '#fff9cc',
           themeText: '#0a0a00', themeMutedText: '#555500',
           themeAccent: '#ff4400', themeBorder: '#cccc00',
           themeHeroBackground: '#ff9900',
         },
         geocities: {
+          // Navy topbar needs white text — contrast fix
           themeBackground: '#c0c0c0', themePanelSurface: '#d4d0c8',
-          themeTopbarSurface: '#000080', themeControlSurface: '#c0c0c0',
+          themeTopbarSurface: '#000080', themeTopbarText: '#ffffff',
+          themeControlSurface: '#c0c0c0',
           themeCardSurface: '#ffffff', themeCardContrast: '#ececec',
           themeText: '#000000', themeMutedText: '#444444',
           themeAccent: '#ff00ff', themeBorder: '#808080',
@@ -651,7 +665,8 @@
         },
         petal: {
           themeBackground: '#fdf6f9', themePanelSurface: '#fef9fb',
-          themeTopbarSurface: '#fef9fb', themeControlSurface: '#f5e6ef',
+          themeTopbarSurface: '#fef9fb', themeTopbarText: '#2a1420',
+          themeControlSurface: '#f5e6ef',
           themeCardSurface: '#ffffff', themeCardContrast: '#fceef5',
           themeText: '#2a1420', themeMutedText: '#8c5a70',
           themeAccent: '#c0457a', themeBorder: '#ead5e3',
@@ -661,7 +676,8 @@
           // Tasteful rainbow: each surface carries a subtly different hue,
           // giving a gentle iridescent feel without shouting.
           themeBackground: '#f8f7ff', themePanelSurface: '#f2fbf7',
-          themeTopbarSurface: '#fff7f2', themeControlSurface: '#f5f2ff',
+          themeTopbarSurface: '#fff7f2', themeTopbarText: '#1a1826',
+          themeControlSurface: '#f5f2ff',
           themeCardSurface: '#ffffff', themeCardContrast: '#f0f8ff',
           themeText: '#1a1826', themeMutedText: '#6b6882',
           themeAccent: '#6a35d4', themeBorder: '#ddd8f0',

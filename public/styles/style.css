@@ -20,6 +20,7 @@
   --hero-copy: #3c2f2a;
   --nav-surface: rgba(247, 245, 240, 0.75);
   --nav-border: rgba(0, 0, 0, 0.06);
+  --nav-text: var(--ink);
   --control-surface: rgba(255, 255, 255, 0.88);
   --ghost-surface: rgba(255, 255, 255, 0.92);
   --panel-surface: rgba(255, 255, 255, 0.9);
@@ -62,6 +63,7 @@ body.dark-mode {
   --bg-opacity: 0.08;
   --nav-surface: rgba(18, 14, 24, 0.9);
   --nav-border: rgba(255, 255, 255, 0.05);
+  --nav-text: var(--ink);
   --control-surface: rgba(30, 24, 36, 0.92);
   --ghost-surface: rgba(28, 22, 34, 0.9);
   --panel-surface: rgba(18, 15, 25, 0.92);
@@ -165,14 +167,14 @@ h3 {
   gap: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: inherit;
+  color: var(--nav-text);
   text-decoration: none;
   cursor: pointer;
   font-family: var(--font-heading);
 }
 
 .nav-brand:hover {
-  color: inherit;
+  color: var(--nav-text);
 }
 
 .brand-mark {
