@@ -19,7 +19,7 @@ const READ_CACHE_HEADERS = {
 const toPublicTrack = ({ mp3Url, ...rest }) => rest;
 
 const numericTrackFields = new Set(['trackNumber', 'playCount', 'durationSeconds', 'duration', 'year']);
-const numericAlbumFields = new Set(['year']);
+const numericAlbumFields = new Set(['year', 'albumSortOrder']);
 
 const generateTrackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 

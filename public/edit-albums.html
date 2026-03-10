@@ -15,6 +15,41 @@
       .track-list li { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 8px; background: #faf8f4; border: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
       .track-list li .track-num { color: #999; font-size: 0.8rem; text-align: center; }
       .track-list li .track-dur { color: #999; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+      /* ── Drag-and-drop release ordering ───────────────────────── */
+      .release-order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+      .release-order-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; border-radius: 9px;
+        background: #faf8f4; border: 1px solid rgba(0,0,0,0.07);
+        font-size: 0.9rem; cursor: default;
+        transition: box-shadow 0.15s, background 0.15s;
+        user-select: none;
+      }
+      .release-order-item.dragging {
+        opacity: 0.45; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      }
+      .release-order-item.drag-over {
+        background: #eef3ff; border-color: #aac0f8;
+        box-shadow: 0 0 0 2px #aac0f8;
+      }
+      .release-order-handle {
+        cursor: grab; color: #bbb; font-size: 1.1rem;
+        padding: 0 4px; flex-shrink: 0;
+      }
+      .release-order-handle:active { cursor: grabbing; }
+      .release-order-num {
+        width: 24px; text-align: right; font-size: 0.78rem;
+        color: #aaa; font-variant-numeric: tabular-nums; flex-shrink: 0;
+      }
+      .release-order-art {
+        width: 36px; height: 36px; border-radius: 5px; object-fit: cover;
+        background: #e8e4de; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.07);
+        display: block;
+      }
+      .release-order-info { flex: 1; min-width: 0; }
+      .release-order-info strong { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .release-order-info span { font-size: 0.78rem; color: #888; }
     </style>
   </head>
   <body>
@@ -22,11 +57,24 @@
     <div class="admin-shell">
       <div data-admin-tabs></div>
 
+      <!-- ── Release order ───────────────────────────────────────── -->
+      <div class="card" id="releaseOrderCard">
+        <div class="panel-title">
+          <div>
+            <h1 style="margin-bottom:4px;">Release order</h1>
+            <p class="meta">Drag releases into the order you want them to appear. Save to apply custom ordering.</p>
+          </div>
+          <button type="button" id="saveOrderButton">Save order</button>
+        </div>
+        <div id="orderStatus" class="status" style="display:none; margin-top:12px;"></div>
+        <ul class="release-order-list" id="releaseOrderList" style="margin-top:14px;"></ul>
+      </div>
+
       <!-- ── Release picker ──────────────────────────────────────── -->
       <div class="card">
         <div class="panel-title">
           <div>
-            <h1 style="margin-bottom:4px;">Edit releases</h1>
+            <h2 style="margin-bottom:4px;">Edit release metadata</h2>
             <p class="meta">Select a release to view tracks and edit metadata.</p>
           </div>
           <a class="button-link" href="insert.html">+ New release</a>
@@ -619,11 +667,128 @@
         } catch (_e) { showFeaturedStatus('Could not set featured release.', true); }
       });
 
+      /* ── Release ordering drag-and-drop ───────────────────────── */
+      const releaseOrderList = document.getElementById('releaseOrderList');
+      const orderStatusEl    = document.getElementById('orderStatus');
+      let orderAlbums = []; // local copy for drag state
+      let dragSrcIdx = null;
+
+      function showOrderStatus(msg, isError = false) {
+        orderStatusEl.textContent = msg;
+        orderStatusEl.style.display = 'block';
+        orderStatusEl.className = isError ? 'status error' : 'status';
+      }
+
+      function renderOrderList() {
+        releaseOrderList.innerHTML = '';
+        orderAlbums.forEach((album, index) => {
+          const li = document.createElement('li');
+          li.className = 'release-order-item';
+          li.draggable = true;
+          li.dataset.idx = index;
+
+          const handle = document.createElement('span');
+          handle.className = 'release-order-handle';
+          handle.title = 'Drag to reorder';
+          handle.textContent = '⠿';
+
+          const num = document.createElement('span');
+          num.className = 'release-order-num';
+          num.textContent = index + 1;
+
+          const art = document.createElement('img');
+          art.className = 'release-order-art';
+          art.alt = '';
+          art.src = album.artworkUrl || album.albumArtworkUrl || '';
+          art.onerror = () => { art.style.display = 'none'; };
+          if (!art.src) art.style.display = 'none';
+
+          const info = document.createElement('div');
+          info.className = 'release-order-info';
+          info.innerHTML = `<strong>${album.albumName || '(no title)'}</strong><span>${album.artistName || ''}</span>`;
+
+          li.appendChild(handle);
+          li.appendChild(num);
+          li.appendChild(art);
+          li.appendChild(info);
+
+          li.addEventListener('dragstart', (e) => {
+            dragSrcIdx = index;
+            e.dataTransfer.effectAllowed = 'move';
+            requestAnimationFrame(() => li.classList.add('dragging'));
+          });
+          li.addEventListener('dragend', () => {
+            li.classList.remove('dragging');
+            releaseOrderList.querySelectorAll('.release-order-item').forEach(el => el.classList.remove('drag-over'));
+          });
+          li.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            releaseOrderList.querySelectorAll('.release-order-item').forEach(el => el.classList.remove('drag-over'));
+            li.classList.add('drag-over');
+          });
+          li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+          li.addEventListener('drop', (e) => {
+            e.preventDefault();
+            li.classList.remove('drag-over');
+            const targetIdx = Number(li.dataset.idx);
+            if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+            const moved = orderAlbums.splice(dragSrcIdx, 1)[0];
+            orderAlbums.splice(targetIdx, 0, moved);
+            dragSrcIdx = null;
+            renderOrderList();
+          });
+
+          releaseOrderList.appendChild(li);
+        });
+      }
+
+      document.getElementById('saveOrderButton').addEventListener('click', async () => {
+        if (!orderAlbums.length) return;
+        const btn = document.getElementById('saveOrderButton');
+        btn.disabled = true;
+        try {
+          // Sequential requests — the FTP JSON store can't handle parallel writes
+          // (each request reads→modifies→writes the full file; parallel calls race).
+          for (let i = 0; i < orderAlbums.length; i++) {
+            showOrderStatus(`Saving… ${i + 1} / ${orderAlbums.length}`);
+            await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+              method: 'POST',
+              body: JSON.stringify({
+                action: 'updateAlbum',
+                albumName: orderAlbums[i].albumName,
+                updates: { albumSortOrder: i + 1 },
+              }),
+            });
+          }
+          AdminDataStore.invalidateCache(['albums', 'tracks']);
+          showOrderStatus('Release order saved. Set "Release ordering" to Custom in Site Settings to use it.');
+          // Reload albums to reflect new sort orders
+          const freshAlbums = await AdminDataStore.fetchJsonCached('/.netlify/functions/catalog?resource=albums', 'albums', { bypassCache: true });
+          albums = freshAlbums;
+          renderAlbumOptions();
+        } catch (_e) {
+          showOrderStatus('Could not save order.', true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
       /* ── Init ─────────────────────────────────────────────────── */
       window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
-        try { await loadAlbums(); } catch (_e) { showStatus('Could not load releases.', true); }
+        try {
+          await loadAlbums();
+          // Populate drag-and-drop order list
+          orderAlbums = [...albums].sort((a, b) => {
+            const sa = a.albumSortOrder != null ? Number(a.albumSortOrder) : Infinity;
+            const sb = b.albumSortOrder != null ? Number(b.albumSortOrder) : Infinity;
+            if (sa !== sb) return sa - sb;
+            return (a.albumName || '').localeCompare(b.albumName || '');
+          });
+          renderOrderList();
+        } catch (_e) { showStatus('Could not load releases.', true); }
       });
     </script>
   </body>

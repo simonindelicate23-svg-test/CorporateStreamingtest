@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Artwork Manager — Admin</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
+    <style>
+      /* ── Artwork grid ─────────────────────────────────────────── */
+      .artwork-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .art-card {
+        border: 2px solid rgba(0,0,0,0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        transition: border-color 0.15s;
+      }
+      .art-card.selected {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 2px rgba(79,70,229,0.18);
+      }
+      .art-card.oversized { border-color: #e8833a; }
+      .art-card.oversized.selected { border-color: #4f46e5; }
+      .art-card.done { border-color: #22a052; }
+
+      .art-card__img-wrap {
+        position: relative;
+        aspect-ratio: 1;
+        background: #f0ede8;
+        cursor: pointer;
+      }
+      .art-card__img-wrap img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .art-card__check {
+        position: absolute;
+        top: 8px; right: 8px;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.9);
+        border: 2px solid rgba(0,0,0,0.18);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.75rem;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .art-card.selected .art-card__check {
+        background: #4f46e5;
+        border-color: #4f46e5;
+        color: #fff;
+      }
+      .art-card__check::after { content: '✓'; display: none; }
+      .art-card.selected .art-card__check::after { display: block; }
+
+      .art-card__badge {
+        position: absolute;
+        bottom: 6px; left: 6px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        line-height: 1.4;
+      }
+      .art-card__badge--oversized { background: #e8833a; color: #fff; }
+      .art-card__badge--ok { background: rgba(0,0,0,0.45); color: #fff; }
+      .art-card__badge--loading { background: rgba(0,0,0,0.3); color: #fff; }
+      .art-card__badge--done { background: #22a052; color: #fff; }
+      .art-card__badge--error { background: #c0392b; color: #fff; }
+
+      .art-card__meta {
+        padding: 8px 10px;
+        font-size: 0.78rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .art-card__meta strong {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 600;
+        font-size: 0.82rem;
+      }
+      .art-card__meta span { color: #888; }
+
+      /* ── Toolbar ──────────────────────────────────────────────── */
+      .artwork-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 14px;
+        padding: 12px 16px;
+        background: #faf8f4;
+        border: 1px solid rgba(0,0,0,0.07);
+        border-radius: 9px;
+      }
+      .artwork-toolbar label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+        margin: 0;
+      }
+      .artwork-toolbar select,
+      .artwork-toolbar input[type="number"] {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        border: 1px solid rgba(0,0,0,0.15);
+        background: #fff;
+        width: auto;
+      }
+      .artwork-toolbar input[type="number"] { width: 80px; }
+      .spacer { flex: 1; }
+
+      /* ── Progress log ─────────────────────────────────────────── */
+      .resize-log {
+        margin-top: 14px;
+        padding: 12px 14px;
+        background: #f8f7f2;
+        border: 1px solid rgba(0,0,0,0.07);
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 0.8rem;
+        max-height: 280px;
+        overflow-y: auto;
+        display: none;
+      }
+      .resize-log p { margin: 3px 0; }
+      .resize-log p.ok { color: #22a052; }
+      .resize-log p.err { color: #c0392b; }
+      .resize-log p.skip { color: #888; }
+
+      /* ── Update tracks section ────────────────────────────────── */
+      #updateSection { margin-top: 14px; display: none; }
+    </style>
+  </head>
+  <body>
+    <div data-admin-header></div>
+    <div class="admin-shell">
+      <div data-admin-tabs></div>
+
+      <div class="card">
+        <div class="panel-title">
+          <div>
+            <h1 style="margin-bottom:4px;">Artwork Manager</h1>
+            <p class="meta">Scan your catalog artwork, identify oversized images, and bulk-resize them on the FTP server.</p>
+          </div>
+          <button type="button" id="scanBtn">Scan catalog</button>
+        </div>
+        <div id="scanStatus" class="status" style="display:none; margin-top:12px;"></div>
+
+        <!-- Toolbar -->
+        <div class="artwork-toolbar" id="toolbar" style="display:none;">
+          <label>Max dimension</label>
+          <input type="number" id="maxDimension" value="1000" min="100" max="4000" step="50" title="Resize images wider or taller than this (px)" />
+          <span style="font-size:0.82rem;color:#888;">px</span>
+
+          <label style="margin-left:8px;">Show</label>
+          <select id="filterSelect">
+            <option value="all">All artwork</option>
+            <option value="oversized">Oversized only</option>
+            <option value="selected">Selected only</option>
+          </select>
+
+          <span class="spacer"></span>
+
+          <button type="button" class="button-secondary button-sm" id="selectAllOversized">Select all oversized</button>
+          <button type="button" class="button-secondary button-sm" id="selectNone">Deselect all</button>
+          <button type="button" id="resizeBtn" disabled>Resize selected</button>
+        </div>
+
+        <div id="selectedCount" style="margin-top:8px; font-size:0.83rem; color:#666; display:none;"></div>
+
+        <div class="artwork-grid" id="artworkGrid"></div>
+
+        <div class="resize-log" id="resizeLog"></div>
+
+        <div id="updateSection">
+          <p class="meta" style="margin-bottom:10px;">
+            Resized artwork has been uploaded to new URLs. Click below to update all matching track records with the new URLs.
+          </p>
+          <button type="button" id="updateTracksBtn">Update track records</button>
+          <div id="updateStatus" class="status" style="display:none; margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function () {
+      const scanBtn          = document.getElementById('scanBtn');
+      const resizeBtn        = document.getElementById('resizeBtn');
+      const scanStatusEl     = document.getElementById('scanStatus');
+      const toolbar          = document.getElementById('toolbar');
+      const artworkGrid      = document.getElementById('artworkGrid');
+      const resizeLog        = document.getElementById('resizeLog');
+      const selectedCountEl  = document.getElementById('selectedCount');
+      const filterSelect     = document.getElementById('filterSelect');
+      const updateSection    = document.getElementById('updateSection');
+      const updateTracksBtn  = document.getElementById('updateTracksBtn');
+      const updateStatusEl   = document.getElementById('updateStatus');
+
+      // artworkUrl -> { tracks: Track[], card: HTMLElement, status, width, height, newUrl }
+      const artworkMap = new Map();
+      let allTracks = [];
+      // Map of oldUrl -> newUrl for completed resizes
+      const urlReplacements = new Map();
+
+      function showScanStatus(msg, isError = false) {
+        scanStatusEl.textContent = msg;
+        scanStatusEl.style.display = 'block';
+        scanStatusEl.className = isError ? 'status error' : 'status';
+      }
+
+      function logLine(msg, type = '') {
+        resizeLog.style.display = 'block';
+        const p = document.createElement('p');
+        p.className = type;
+        p.textContent = msg;
+        resizeLog.appendChild(p);
+        resizeLog.scrollTop = resizeLog.scrollHeight;
+      }
+
+      function updateSelectedCount() {
+        let n = 0;
+        artworkMap.forEach(entry => { if (entry.selected) n++; });
+        if (n > 0) {
+          selectedCountEl.textContent = `${n} image${n !== 1 ? 's' : ''} selected`;
+          selectedCountEl.style.display = 'block';
+        } else {
+          selectedCountEl.style.display = 'none';
+        }
+        resizeBtn.disabled = n === 0;
+      }
+
+      function applyFilter() {
+        const filter = filterSelect.value;
+        artworkMap.forEach((entry) => {
+          const card = entry.card;
+          if (!card) return;
+          let visible = true;
+          if (filter === 'oversized') visible = entry.oversized === true;
+          if (filter === 'selected') visible = entry.selected === true;
+          card.style.display = visible ? '' : 'none';
+        });
+      }
+
+      filterSelect.addEventListener('change', applyFilter);
+
+      // Detect image dimensions via a temporary Image element
+      function detectDimensions(url) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight, loaded: true });
+          img.onerror = () => resolve({ width: 0, height: 0, loaded: false });
+          img.src = url;
+        });
+      }
+
+      function buildCard(artworkUrl, tracks) {
+        const card = document.createElement('div');
+        card.className = 'art-card';
+
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'art-card__img-wrap';
+
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.alt = '';
+        img.src = artworkUrl;
+        imgWrap.appendChild(img);
+
+        const checkEl = document.createElement('div');
+        checkEl.className = 'art-card__check';
+        imgWrap.appendChild(checkEl);
+
+        const badge = document.createElement('span');
+        badge.className = 'art-card__badge art-card__badge--loading';
+        badge.textContent = '…';
+        imgWrap.appendChild(badge);
+
+        const meta = document.createElement('div');
+        meta.className = 'art-card__meta';
+        const title = tracks[0]?.albumName || tracks[0]?.trackName || '—';
+        meta.innerHTML = `<strong title="${artworkUrl}">${title}</strong><span>${tracks.length} track${tracks.length !== 1 ? 's' : ''}</span><span class="dim-label" style="color:#aaa;">detecting…</span>`;
+
+        card.appendChild(imgWrap);
+        card.appendChild(meta);
+
+        const entry = { artworkUrl, tracks, card, selected: false, oversized: null, width: 0, height: 0, newUrl: null, status: 'idle' };
+        artworkMap.set(artworkUrl, entry);
+
+        // Toggle selection on click
+        imgWrap.addEventListener('click', () => {
+          entry.selected = !entry.selected;
+          card.classList.toggle('selected', entry.selected);
+          updateSelectedCount();
+        });
+
+        // Detect dimensions async
+        detectDimensions(artworkUrl).then(({ width, height, loaded }) => {
+          entry.width = width;
+          entry.height = height;
+          const maxDim = Number(document.getElementById('maxDimension').value) || 1000;
+          entry.oversized = loaded && (width > maxDim || height > maxDim);
+
+          const dimLabel = card.querySelector('.dim-label');
+          if (loaded) {
+            dimLabel.textContent = `${width} × ${height} px`;
+          } else {
+            dimLabel.textContent = 'Could not load';
+          }
+
+          if (entry.oversized) {
+            card.classList.add('oversized');
+            badge.className = 'art-card__badge art-card__badge--oversized';
+            badge.textContent = `${width}×${height}`;
+          } else if (loaded) {
+            badge.className = 'art-card__badge art-card__badge--ok';
+            badge.textContent = `${width}×${height}`;
+          } else {
+            badge.className = 'art-card__badge art-card__badge--error';
+            badge.textContent = 'error';
+          }
+        });
+
+        return card;
+      }
+
+      /* ── Scan ─────────────────────────────────────────────────── */
+      scanBtn.addEventListener('click', async () => {
+        scanBtn.disabled = true;
+        artworkMap.clear();
+        urlReplacements.clear();
+        artworkGrid.innerHTML = '';
+        resizeLog.style.display = 'none';
+        resizeLog.innerHTML = '';
+        updateSection.style.display = 'none';
+        toolbar.style.display = 'none';
+        selectedCountEl.style.display = 'none';
+
+        showScanStatus('Loading catalog…');
+        try {
+          allTracks = await AdminDataStore.fetchJsonCached(
+            '/.netlify/functions/catalog?resource=tracks', 'tracks', { bypassCache: true }
+          );
+        } catch (_e) {
+          showScanStatus('Could not load catalog.', true);
+          scanBtn.disabled = false;
+          return;
+        }
+
+        // Collect unique artwork URLs
+        const urlToTracks = new Map();
+        allTracks.forEach((track) => {
+          const urls = [track.albumArtworkUrl, track.artworkUrl].filter(Boolean);
+          urls.forEach((url) => {
+            if (!urlToTracks.has(url)) urlToTracks.set(url, []);
+            if (!urlToTracks.get(url).find(t => t._id === track._id)) {
+              urlToTracks.get(url).push(track);
+            }
+          });
+        });
+
+        if (!urlToTracks.size) {
+          showScanStatus('No artwork URLs found in catalog.');
+          scanBtn.disabled = false;
+          return;
+        }
+
+        showScanStatus(`Found ${urlToTracks.size} unique artwork image${urlToTracks.size !== 1 ? 's' : ''}. Detecting dimensions…`);
+        toolbar.style.display = 'flex';
+
+        urlToTracks.forEach((tracks, artworkUrl) => {
+          const card = buildCard(artworkUrl, tracks);
+          artworkGrid.appendChild(card);
+        });
+
+        scanBtn.disabled = false;
+        updateSelectedCount();
+      });
+
+      /* ── Select helpers ────────────────────────────────────────── */
+      document.getElementById('selectAllOversized').addEventListener('click', () => {
+        artworkMap.forEach((entry) => {
+          const wasSelected = entry.selected;
+          entry.selected = entry.oversized === true && entry.status === 'idle';
+          if (entry.selected !== wasSelected) {
+            entry.card.classList.toggle('selected', entry.selected);
+          }
+        });
+        updateSelectedCount();
+      });
+
+      document.getElementById('selectNone').addEventListener('click', () => {
+        artworkMap.forEach((entry) => {
+          entry.selected = false;
+          entry.card.classList.remove('selected');
+        });
+        updateSelectedCount();
+      });
+
+      // Re-evaluate oversized status when maxDimension changes
+      document.getElementById('maxDimension').addEventListener('change', () => {
+        const maxDim = Number(document.getElementById('maxDimension').value) || 1000;
+        artworkMap.forEach((entry) => {
+          if (entry.width > 0) {
+            entry.oversized = entry.width > maxDim || entry.height > maxDim;
+            entry.card.classList.toggle('oversized', entry.oversized && entry.status === 'idle');
+          }
+        });
+      });
+
+      /* ── Resize ────────────────────────────────────────────────── */
+      resizeBtn.addEventListener('click', async () => {
+        const maxDimension = Number(document.getElementById('maxDimension').value) || 1000;
+        const selected = [];
+        artworkMap.forEach((entry) => {
+          if (entry.selected && entry.status === 'idle') selected.push(entry);
+        });
+        if (!selected.length) return;
+
+        resizeBtn.disabled = true;
+        scanBtn.disabled = true;
+        resizeLog.style.display = 'block';
+        resizeLog.innerHTML = '';
+        logLine(`Starting resize of ${selected.length} image(s) at max ${maxDimension}px…`);
+
+        for (const entry of selected) {
+          const { artworkUrl } = entry;
+          const badge = entry.card.querySelector('.art-card__badge');
+          badge.className = 'art-card__badge art-card__badge--loading';
+          badge.textContent = 'resizing…';
+          entry.status = 'working';
+
+          try {
+            const result = await AdminDataStore.requestJson('/.netlify/functions/resizeArtwork', {
+              method: 'POST',
+              body: JSON.stringify({ artworkUrl, maxDimension }),
+            });
+
+            if (result.skipped) {
+              logLine(`SKIP ${artworkUrl} — already within ${maxDimension}px (${result.width}×${result.height})`, 'skip');
+              badge.className = 'art-card__badge art-card__badge--ok';
+              badge.textContent = `${result.width}×${result.height}`;
+              entry.status = 'idle';
+              entry.selected = false;
+              entry.card.classList.remove('selected');
+            } else {
+              const saving = Math.round((1 - result.newBytes / result.originalBytes) * 100);
+              logLine(`OK  ${artworkUrl} → ${result.width}×${result.height} (${saving}% smaller)`, 'ok');
+              badge.className = 'art-card__badge art-card__badge--done';
+              badge.textContent = `${result.width}×${result.height}`;
+              entry.status = 'done';
+              entry.newUrl = result.url;
+              entry.card.classList.remove('oversized', 'selected');
+              entry.card.classList.add('done');
+              urlReplacements.set(artworkUrl, result.url);
+            }
+          } catch (err) {
+            logLine(`ERR ${artworkUrl} — ${err.message}`, 'err');
+            badge.className = 'art-card__badge art-card__badge--error';
+            badge.textContent = 'error';
+            entry.status = 'idle';
+          }
+        }
+
+        logLine('Done.');
+        resizeBtn.disabled = false;
+        scanBtn.disabled = false;
+        updateSelectedCount();
+
+        if (urlReplacements.size > 0) {
+          updateSection.style.display = 'block';
+        }
+      });
+
+      /* ── Update track records ─────────────────────────────────── */
+      updateTracksBtn.addEventListener('click', async () => {
+        if (!urlReplacements.size) return;
+        updateTracksBtn.disabled = true;
+        updateStatusEl.style.display = 'none';
+
+        // Find all tracks that reference any old URL
+        const toUpdate = [];
+        allTracks.forEach((track) => {
+          const updates = {};
+          if (urlReplacements.has(track.albumArtworkUrl)) updates.albumArtworkUrl = urlReplacements.get(track.albumArtworkUrl);
+          if (urlReplacements.has(track.artworkUrl)) updates.artworkUrl = urlReplacements.get(track.artworkUrl);
+          if (Object.keys(updates).length) toUpdate.push({ track, updates });
+        });
+
+        if (!toUpdate.length) {
+          updateStatusEl.textContent = 'No track records needed updating.';
+          updateStatusEl.style.display = 'block';
+          updateStatusEl.className = 'status';
+          updateTracksBtn.disabled = false;
+          return;
+        }
+
+        try {
+          // Sequential — FTP JSON store reads→modifies→writes the full file per
+          // request, so parallel calls would race and only the last write survives.
+          for (const { track, updates } of toUpdate) {
+            await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'updateTrack', id: track._id, updates }),
+            });
+          }
+          AdminDataStore.invalidateCache(['tracks', 'albums']);
+          updateStatusEl.textContent = `Updated ${toUpdate.length} track record${toUpdate.length !== 1 ? 's' : ''} with new artwork URLs.`;
+          updateStatusEl.className = 'status';
+          updateSection.style.display = 'none';
+          urlReplacements.clear();
+        } catch (_e) {
+          updateStatusEl.textContent = 'Could not update some track records.';
+          updateStatusEl.className = 'status error';
+        }
+
+        updateStatusEl.style.display = 'block';
+        updateTracksBtn.disabled = false;
+      });
+
+      /* ── Init ─────────────────────────────────────────────────── */
+      window.addEventListener('DOMContentLoaded', () => {
+        AdminDataStore.mountHeader();
+        AdminDataStore.mountTabs();
+      });
+    })();
+    </script>
+  </body>
+</html>

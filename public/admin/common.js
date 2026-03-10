@@ -9,7 +9,8 @@
     { href: 'insert.html', label: 'Add Tracks' },
     { href: 'edit.html', label: 'Track Directory' },
     { href: 'edit-albums.html', label: 'Edit Releases' },
-    { href: 'admin-pseudo-albums.html', label: 'Pseudo Albums' }
+    { href: 'admin-pseudo-albums.html', label: 'Pseudo Albums' },
+    { href: 'admin-artwork.html', label: 'Artwork Manager' }
   ];
 
   function normalizePage(pathname) {

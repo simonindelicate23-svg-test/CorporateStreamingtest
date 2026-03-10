@@ -2,6 +2,13 @@
   publish = "public"
   functions = "api"
 
+[functions]
+  # zisi copies node_modules wholesale; esbuild (the default) strips .node binaries.
+  node_bundler = "zisi"
+  # Tell zisi not to bundle sharp — copy the whole directory so the
+  # platform-specific @img/sharp-linux-x64 native binding is preserved.
+  external_node_modules = ["sharp"]
+
 [[redirects]]
   from = "/"
   to = "/player.html"
