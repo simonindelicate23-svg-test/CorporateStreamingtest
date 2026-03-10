@@ -510,12 +510,14 @@
         }
 
         try {
-          await Promise.all(toUpdate.map(({ track, updates }) =>
-            AdminDataStore.requestJson('/.netlify/functions/catalog', {
+          // Sequential — FTP JSON store reads→modifies→writes the full file per
+          // request, so parallel calls would race and only the last write survives.
+          for (const { track, updates } of toUpdate) {
+            await AdminDataStore.requestJson('/.netlify/functions/catalog', {
               method: 'POST',
-              body: JSON.stringify({ action: 'updateTrack', trackId: track._id, updates }),
-            })
-          ));
+              body: JSON.stringify({ action: 'updateTrack', id: track._id, updates }),
+            });
+          }
           AdminDataStore.invalidateCache(['tracks', 'albums']);
           updateStatusEl.textContent = `Updated ${toUpdate.length} track record${toUpdate.length !== 1 ? 's' : ''} with new artwork URLs.`;
           updateStatusEl.className = 'status';
