@@ -441,29 +441,54 @@
             </div>
           </div>
 
-          <!-- ── 7. Payment gating ──────────────────────── -->
+          <!-- ── 7. Subscriptions & payment gating ──────── -->
           <div class="form-section">
-            <p class="form-section__title">Payment gating</p>
+            <p class="form-section__title">Subscriptions &amp; payment gating</p>
             <p class="meta" style="margin-bottom:16px;">
-              Gate individual tracks behind a PayPal payment. Buyers verify once and get access stored in their browser — no database required.
+              Subscribers pay once a month and unlock all gated tracks. No database required — access is verified directly with PayPal and stored as a signed token in the listener's browser.
             </p>
-            <div style="background:var(--surface,#f5f5f0);border:1px solid var(--border,#ddd);border-radius:10px;padding:16px 20px;font-size:0.88rem;line-height:1.75;color:var(--text-secondary,#555);">
+
+            <div class="form-grid">
+              <div style="grid-column: 1 / -1;">
+                <label for="paymentsEnabled">Subscriptions enabled</label>
+                <select id="paymentsEnabled">
+                  <option value="false">Off — all tracks stream freely, no paywall shown</option>
+                  <option value="true">On — gated tracks show the subscription paywall</option>
+                </select>
+                <p class="meta" style="margin-top:4px;">When off, lock icons and paywall modals are hidden even if tracks are marked as paid.</p>
+              </div>
+
+              <div>
+                <label for="paypalPlanId">PayPal Subscription Plan ID</label>
+                <input type="text" id="paypalPlanId" placeholder="P-XXXXXXXXXXXXXXXXXXXXXXXX" autocomplete="off" spellcheck="false" />
+                <p class="meta" style="margin-top:4px;">Create a billing plan in your <a href="https://developer.paypal.com/dashboard/products" target="_blank" rel="noopener">PayPal Developer dashboard</a> → Products &amp; Plans. Copy the Plan ID here.</p>
+              </div>
+
+              <div>
+                <label for="paypalSubscriptionPrice">Price display (shown to listeners)</label>
+                <input type="text" id="paypalSubscriptionPrice" placeholder="e.g. £5/month" />
+                <p class="meta" style="margin-top:4px;">Display-only — shown in the paywall modal. Must match your PayPal plan price.</p>
+              </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label for="paypalSubscriptionLabel">Subscribe button label</label>
+                <input type="text" id="paypalSubscriptionLabel" placeholder="e.g. Subscribe to unlock everything" />
+              </div>
+            </div>
+
+            <div style="background:var(--surface,#f5f5f0);border:1px solid var(--border,#ddd);border-radius:10px;padding:16px 20px;font-size:0.88rem;line-height:1.75;color:var(--text-secondary,#555);margin-top:16px;">
               <strong style="color:var(--text-primary,#1a1a1a);display:block;margin-bottom:8px;">Required Netlify environment variables</strong>
               <code style="display:block;margin-bottom:4px;">PAYMENT_SECRET</code>
               <span>Any random string — run <code>node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"</code> to generate one.</span>
               <br><br>
-              <code style="display:block;margin-bottom:4px;">PAYPAL_CLIENT_ID &nbsp; PAYPAL_CLIENT_SECRET</code>
-              <span>From your PayPal Developer app (<a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener">developer.paypal.com</a> → Apps &amp; Credentials → Create App).</span>
+              <code style="display:block;margin-bottom:4px;">PAYPAL_CLIENT_ID &nbsp;&nbsp; PAYPAL_CLIENT_SECRET</code>
+              <span>From your PayPal Developer app (<a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener">developer.paypal.com</a> → Apps &amp; Credentials → Create App). Choose <strong>Merchant</strong> type.</span>
               <br><br>
               <code style="display:block;margin-bottom:4px;">PAYPAL_API_BASE</code>
               <span><code>https://api-m.sandbox.paypal.com</code> for testing &nbsp;|&nbsp; <code>https://api-m.paypal.com</code> for live.</span>
               <br><br>
-              <strong style="color:var(--text-primary,#1a1a1a);display:block;margin-bottom:6px;">PayPal return URL</strong>
-              Set the <strong>return/success URL</strong> on your PayPal button or checkout page to:<br>
-              <code id="paymentReturnUrl" style="word-break:break-all;">https://your-site.netlify.app/support.html</code>
-              <br><br>
               <strong style="color:var(--text-primary,#1a1a1a);display:block;margin-bottom:6px;">Gating tracks</strong>
-              Go to <a href="/edit.html">Track directory</a> and toggle the <strong>Paid 🔒</strong> column on any tracks you want to gate. You can gate/ungate individually or in bulk.
+              Go to <a href="/edit.html">Track directory</a> and toggle the <strong>Paid 🔒</strong> column on any tracks you want to gate.
             </div>
           </div>
 
@@ -559,17 +584,14 @@
     </div>
 
     <script>
-      // Show the correct PayPal return URL based on actual site origin
-      const returnUrlEl = document.getElementById('paymentReturnUrl');
-      if (returnUrlEl) returnUrlEl.textContent = `${location.origin}/support.html`;
-
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
-        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
+        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent',
+        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice'
       ];
 
       const fontPairs = window.SiteSettings?.FONT_PAIRS || {};
@@ -755,8 +777,8 @@
         fields.forEach((key) => {
           const input = document.getElementById(key);
           if (!input) return;
-          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') {
-            input.value = settings[key] === false ? 'false' : 'true';
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'paymentsEnabled') {
+            input.value = settings[key] === true ? 'true' : 'false';
           } else {
             input.value = settings[key] ?? '';
           }
@@ -781,7 +803,7 @@
 
         const patch = fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
-          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') acc[key] = raw !== 'false';
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'paymentsEnabled') acc[key] = raw === 'true';
           else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
           return acc;
         }, {});

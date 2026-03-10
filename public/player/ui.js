@@ -177,6 +177,12 @@ async function refreshSubscriptionToken() {
   }
 })();
 
+// ── Payment runtime state ──────────────────────────────────────────
+// Loaded async by initPayments(); null until the fetch completes.
+let paymentConfig = null;
+// Track that was blocked by the paywall — replayed after subscription completes.
+let pendingTrack = null;
+
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
 let albumSentinelObserver = null;
@@ -1537,7 +1543,7 @@ function renderTracks(album) {
     li.className = isPaid ? 'track-item paid' : 'track-item';
     li.dataset.id = track._id;
     const prefix = resolvedAlbum?.allTracks || resolvedAlbum?.pseudoType ? `${index + 1}.` : track.trackNumber ? `${track.trackNumber}.` : '';
-    const lockIcon = isPaid ? '<span class="track-lock" aria-label="Members only">&#128274;</span>' : '';
+    const lockIcon = (isPaid && paymentConfig?.paymentsEnabled !== false) ? '<span class="track-lock" aria-label="Members only">&#128274;</span>' : '';
     li.innerHTML = `<div>${prefix}${lockIcon}</div><div>${track.trackName}</div>`;
     li.addEventListener('click', () => playTrack(track));
     dom.tracksList.appendChild(li);
@@ -1816,14 +1822,16 @@ function primeAdjacentTracks(track) {
 function showPaywallModal(track) {
   const modal = document.getElementById('paywall-modal');
   if (!modal) return;
+  pendingTrack = track;
   const body = document.getElementById('paywall-body');
-  if (body) body.textContent = `"${track.trackName}" is available to supporters. Join to unlock the full catalogue.`;
+  if (body) body.textContent = `"${track.trackName}" is only available to subscribers. Subscribe once to unlock the full catalogue.`;
   modal.hidden = false;
-  document.getElementById('paywall-dismiss')?.focus();
+  // Focus the PayPal button if rendered, otherwise the dismiss button
+  (document.querySelector('#paywall-paypal-btn iframe') ?? document.getElementById('paywall-dismiss'))?.focus();
 }
 
 function playTrack(track, { autoplay = true } = {}) {
-  if (track.paid === true && !getAccessToken()) {
+  if (track.paid === true && paymentConfig?.paymentsEnabled !== false && !getAccessToken()) {
     showPaywallModal(track);
     return;
   }
@@ -2167,10 +2175,107 @@ function bindEvents() {
   const paywallModal = document.getElementById('paywall-modal');
   const paywallDismiss = document.getElementById('paywall-dismiss');
   if (paywallModal && paywallDismiss) {
-    paywallDismiss.addEventListener('click', () => { paywallModal.hidden = true; });
-    paywallModal.addEventListener('click', (event) => {
-      if (event.target === paywallModal) paywallModal.hidden = true;
+    const closePaywall = () => { paywallModal.hidden = true; pendingTrack = null; };
+    paywallDismiss.addEventListener('click', closePaywall);
+    paywallModal.addEventListener('click', (event) => { if (event.target === paywallModal) closePaywall(); });
+  }
+}
+
+// ── Payment / subscription flow ───────────────────────────────────
+
+function loadPayPalSDK(clientId) {
+  return new Promise((resolve, reject) => {
+    if (window.paypal) { resolve(); return; }
+    const script = document.createElement('script');
+    // vault=true + intent=subscription required for subscription buttons
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription&disable-funding=credit,card`;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('PayPal SDK failed to load'));
+    document.head.appendChild(script);
+  });
+}
+
+function initPaywallButtons(config) {
+  const modal = document.getElementById('paywall-modal');
+  if (!modal) return;
+
+  const priceEl = document.getElementById('paywall-price');
+  if (priceEl && config.subscriptionPrice) {
+    priceEl.textContent = config.subscriptionPrice;
+    priceEl.hidden = false;
+  }
+
+  if (config.planId && window.paypal) {
+    window.paypal.Buttons({
+      style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+      createSubscription: (data, actions) => actions.subscriptions.create({ plan_id: config.planId }),
+      onApprove: async (data) => {
+        const errorEl = document.getElementById('paywall-error');
+        try {
+          const res = await fetch('/.netlify/functions/verifyPayment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'subscription', id: data.subscriptionID }),
+          });
+          if (!res.ok) throw new Error((await res.json()).message || 'Verification failed');
+          const { token } = await res.json();
+          setAccessToken(token);
+          modal.hidden = true;
+          if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
+        } catch (err) {
+          if (errorEl) { errorEl.textContent = `Payment verified but access could not be confirmed: ${err.message}`; errorEl.hidden = false; }
+        }
+      },
+      onError: (err) => {
+        console.error('PayPal button error', err);
+        const errorEl = document.getElementById('paywall-error');
+        if (errorEl) { errorEl.textContent = 'Something went wrong with PayPal. Please try again or use the restore form below.'; errorEl.hidden = false; }
+      },
+    }).render('#paywall-paypal-btn').catch((err) => {
+      console.warn('PayPal button render failed', err);
     });
+  }
+
+  // Restore access: subscriber pastes their Subscription ID to recover a cleared token
+  document.getElementById('paywall-restore-submit')?.addEventListener('click', async () => {
+    const id = (document.getElementById('paywall-restore-id')?.value || '').trim();
+    const msgEl = document.getElementById('paywall-restore-msg');
+    if (!id || !msgEl) return;
+    msgEl.textContent = 'Verifying…';
+    msgEl.hidden = false;
+    const type = id.startsWith('I-') ? 'subscription' : 'order';
+    try {
+      const res = await fetch('/.netlify/functions/verifyPayment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, id }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Not found');
+      const { token } = await res.json();
+      setAccessToken(token);
+      modal.hidden = true;
+      msgEl.hidden = true;
+      if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
+    } catch (err) {
+      msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments → Subscriptions.`;
+    }
+  });
+}
+
+async function initPayments() {
+  try {
+    const res = await fetch('/.netlify/functions/paymentConfig');
+    if (!res.ok) return;
+    paymentConfig = await res.json();
+    if (!paymentConfig.paymentsEnabled) return;
+    if (!paymentConfig.clientId) return; // env var not set — leave modal empty
+    const loadingEl = document.getElementById('paywall-loading');
+    if (loadingEl) loadingEl.hidden = false;
+    await loadPayPalSDK(paymentConfig.clientId);
+    if (loadingEl) loadingEl.hidden = true;
+    initPaywallButtons(paymentConfig);
+  } catch (err) {
+    console.warn('Payment init failed', err);
   }
 }
 
@@ -2220,6 +2325,7 @@ export async function init() {
     renderAlbums();
     syncPlayModes();
     bindEvents();
+    initPayments(); // non-blocking — fetches config, loads PayPal SDK, wires up paywall
     initHeroCollapse();
     const params = new URLSearchParams(window.location.search);
     const routeParams = getPathRouteParams();
