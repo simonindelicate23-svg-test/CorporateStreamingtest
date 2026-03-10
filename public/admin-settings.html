@@ -441,7 +441,33 @@
             </div>
           </div>
 
-          <!-- ── 7. Support page ─────────────────────────── -->
+          <!-- ── 7. Payment gating ──────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Payment gating</p>
+            <p class="meta" style="margin-bottom:16px;">
+              Gate individual tracks behind a PayPal payment. Buyers verify once and get access stored in their browser — no database required.
+            </p>
+            <div style="background:var(--surface,#f5f5f0);border:1px solid var(--border,#ddd);border-radius:10px;padding:16px 20px;font-size:0.88rem;line-height:1.75;color:var(--text-secondary,#555);">
+              <strong style="color:var(--text-primary,#1a1a1a);display:block;margin-bottom:8px;">Required Netlify environment variables</strong>
+              <code style="display:block;margin-bottom:4px;">PAYMENT_SECRET</code>
+              <span>Any random string — run <code>node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"</code> to generate one.</span>
+              <br><br>
+              <code style="display:block;margin-bottom:4px;">PAYPAL_CLIENT_ID &nbsp; PAYPAL_CLIENT_SECRET</code>
+              <span>From your PayPal Developer app (<a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener">developer.paypal.com</a> → Apps &amp; Credentials → Create App).</span>
+              <br><br>
+              <code style="display:block;margin-bottom:4px;">PAYPAL_API_BASE</code>
+              <span><code>https://api-m.sandbox.paypal.com</code> for testing &nbsp;|&nbsp; <code>https://api-m.paypal.com</code> for live.</span>
+              <br><br>
+              <strong style="color:var(--text-primary,#1a1a1a);display:block;margin-bottom:6px;">PayPal return URL</strong>
+              Set the <strong>return/success URL</strong> on your PayPal button or checkout page to:<br>
+              <code id="paymentReturnUrl" style="word-break:break-all;">https://your-site.netlify.app/support.html</code>
+              <br><br>
+              <strong style="color:var(--text-primary,#1a1a1a);display:block;margin-bottom:6px;">Gating tracks</strong>
+              Go to <a href="/edit.html">Track directory</a> and toggle the <strong>Paid 🔒</strong> column on any tracks you want to gate. You can gate/ungate individually or in bulk.
+            </div>
+          </div>
+
+          <!-- ── 8. Support page ─────────────────────────── -->
           <div class="form-section">
             <p class="form-section__title">Support page</p>
             <div class="form-grid">
@@ -533,6 +559,10 @@
     </div>
 
     <script>
+      // Show the correct PayPal return URL based on actual site origin
+      const returnUrlEl = document.getElementById('paymentReturnUrl');
+      if (returnUrlEl) returnUrlEl.textContent = `${location.origin}/support.html`;
+
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',

@@ -30,6 +30,8 @@
         <span id="bulkCount" style="font-weight:600; font-size:0.9rem; flex:1;"></span>
         <button id="bulkPublishBtn" class="button-link button-secondary" style="font-size:0.85rem;">Publish selected</button>
         <button id="bulkUnpublishBtn" class="button-link button-secondary" style="font-size:0.85rem;">Unpublish selected</button>
+        <button id="bulkGateBtn" class="button-link button-secondary" style="font-size:0.85rem;">&#128274; Gate selected</button>
+        <button id="bulkUngateBtn" class="button-link button-secondary" style="font-size:0.85rem;">&#128275; Ungate selected</button>
         <button id="bulkClearBtn" class="button-link" style="font-size:0.85rem; color:#666;">Clear selection</button>
       </div>
       <div class="card">
@@ -37,7 +39,7 @@
           <thead>
             <tr>
               <th style="width:36px;"><input type="checkbox" id="selectAll" title="Select all visible" /></th>
-              <th>Track</th><th>Album</th><th>Order</th><th>Published</th><th>Actions</th>
+              <th>Track</th><th>Album</th><th>Order</th><th>Published</th><th>Paid &#128274;</th><th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -81,6 +83,18 @@
           showStatus('Track deleted');
         } catch (error) {
           showStatus('Could not delete track', true);
+        }
+      }
+
+      async function togglePaid(track) {
+        try {
+          const newPaid = !(track.paid === true);
+          await updateTrack(track._id, { paid: newPaid });
+          track.paid = newPaid;
+          renderRows();
+          showStatus(newPaid ? 'Track gated (paid only).' : 'Track ungated (free).');
+        } catch (_error) {
+          showStatus('Unable to update paid state', true);
         }
       }
 
@@ -132,6 +146,15 @@
           badge.textContent = track.published === false ? 'Unpublished' : 'Published';
           publish.appendChild(badge);
 
+          const paidCell = document.createElement('td');
+          const paidBadge = document.createElement('span');
+          paidBadge.className = `badge ${track.paid === true ? 'warning' : ''}`;
+          paidBadge.style.cursor = 'pointer';
+          paidBadge.title = track.paid === true ? 'Click to ungate (make free)' : 'Click to gate (paid only)';
+          paidBadge.textContent = track.paid === true ? '🔒 Paid' : 'Free';
+          paidBadge.onclick = () => togglePaid(track);
+          paidCell.appendChild(paidBadge);
+
           const actions = document.createElement('td');
           actions.className = 'inline-actions';
           actions.innerHTML = `<a class="button-link button-secondary" href="fiddle.html?id=${track._id}">Edit</a>`;
@@ -147,6 +170,7 @@
           actions.appendChild(deleteBtn);
 
           tr.appendChild(publish);
+          tr.appendChild(paidCell);
           tr.appendChild(actions);
           tableBody.appendChild(tr);
         });
@@ -253,8 +277,26 @@
         }
         updateBulkBar();
       });
+      async function bulkSetPaid(paid) {
+        const ids = [...checkedIds];
+        if (!ids.length) return;
+        showStatus(`${paid ? 'Gating' : 'Ungating'} ${ids.length} track${ids.length !== 1 ? 's' : ''}…`);
+        let done = 0;
+        for (const id of ids) {
+          const track = tracks.find(t => t._id === id);
+          if (!track) continue;
+          try { await updateTrack(id, { paid }); track.paid = paid; done++; } catch (_) {}
+        }
+        checkedIds.clear();
+        renderRows();
+        showStatus(`${done} track${done !== 1 ? 's' : ''} ${paid ? 'gated (paid only)' : 'ungated (free)'}.`);
+        AdminDataStore.invalidateCache(['tracks']);
+      }
+
       document.getElementById('bulkPublishBtn').addEventListener('click', () => bulkSetPublish(true));
       document.getElementById('bulkUnpublishBtn').addEventListener('click', () => bulkSetPublish(false));
+      document.getElementById('bulkGateBtn').addEventListener('click', () => bulkSetPaid(true));
+      document.getElementById('bulkUngateBtn').addEventListener('click', () => bulkSetPaid(false));
       document.getElementById('bulkClearBtn').addEventListener('click', () => {
         checkedIds.clear();
         renderRows();
