@@ -1,6 +1,9 @@
 [build]
   publish = "public"
   functions = "api"
+  # Force-install the linux-x64 sharp binary so it's available in the Lambda
+  # runtime even if npm install was previously run on macOS or Windows.
+  command = "npm install --os=linux --cpu=x64 sharp"
 
 [functions]
   # zisi bundles native modules (like sharp) correctly for the Lambda runtime.
