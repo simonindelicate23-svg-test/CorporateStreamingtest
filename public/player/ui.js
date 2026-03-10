@@ -106,19 +106,41 @@ const ACCESS_TOKEN_LS_KEY = 'tmc-access-token';
 const ACCESS_TOKEN_COOKIE = 'tmc_access_token';
 
 // ── Access token (localStorage + cookie fallback) ──────────────────
-function getAccessToken() {
+function parseTokenPayload(token) {
+  if (!token) return null;
+  try {
+    const data = token.split('.')[0];
+    // base64url → base64
+    const b64 = data.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+  } catch (_) { return null; }
+}
+
+function isTokenExpired(token) {
+  const payload = parseTokenPayload(token);
+  if (!payload) return true;
+  if (!payload.exp) return false; // no expiry = permanent (order purchase)
+  return Math.floor(Date.now() / 1000) >= payload.exp;
+}
+
+function getRawToken() {
   try {
     const ls = localStorage.getItem(ACCESS_TOKEN_LS_KEY);
     if (ls) return ls;
   } catch (_) {}
-  // Fall back to cookie (survives localStorage clears)
   const match = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(ACCESS_TOKEN_COOKIE + '='));
   return match ? decodeURIComponent(match.slice(ACCESS_TOKEN_COOKIE.length + 1)) : null;
 }
 
+function getAccessToken() {
+  const token = getRawToken();
+  if (!token) return null;
+  if (isTokenExpired(token)) return null; // treat expired as absent; refresh happens separately
+  return token;
+}
+
 function setAccessToken(token) {
   try { localStorage.setItem(ACCESS_TOKEN_LS_KEY, token); } catch (_) {}
-  // 1-year cookie (permanent purchases last forever; subscriptions refresh before expiry)
   const maxAge = 60 * 60 * 24 * 365;
   document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Strict`;
 }
@@ -127,6 +149,33 @@ function clearAccessToken() {
   try { localStorage.removeItem(ACCESS_TOKEN_LS_KEY); } catch (_) {}
   document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Strict`;
 }
+
+// Silently refresh a subscription token. Resolves to new token or null.
+async function refreshSubscriptionToken() {
+  const raw = getRawToken();
+  const payload = parseTokenPayload(raw);
+  if (!payload || payload.type !== 'subscription' || !payload.refId) return null;
+  try {
+    const res = await fetch('/.netlify/functions/verifyPayment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'subscription', id: payload.refId }),
+    });
+    if (!res.ok) return null;
+    const { token } = await res.json();
+    setAccessToken(token);
+    return token;
+  } catch (_) { return null; }
+}
+
+// On page load: if we have an expired subscription token, try a silent background refresh.
+(async () => {
+  const raw = getRawToken();
+  if (raw && isTokenExpired(raw)) {
+    await refreshSubscriptionToken();
+    // If refresh fails the token stays expired; playTrack will show the paywall when needed.
+  }
+})();
 
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
@@ -2097,6 +2146,22 @@ function bindEvents() {
   state.audio.addEventListener('playing', () => { setBufferingState(false); syncPlayState(); });
   state.audio.addEventListener('waiting', () => { setBufferingState(true); syncPlayState(); });
   state.audio.addEventListener('pause', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('error', async () => {
+    setBufferingState(false);
+    syncPlayState();
+    const track = state.currentTrack;
+    if (!track?.paid) return; // non-paid error, nothing special to do
+    // Paid track failed — token may have expired. Try a silent refresh once.
+    const newToken = await refreshSubscriptionToken();
+    if (newToken) {
+      // Re-try playback with fresh token
+      state.audio.src = resolveTrackUrl(track);
+      state.audio.play().catch(() => {});
+    } else {
+      clearAccessToken();
+      showPaywallModal(track);
+    }
+  });
 
   // Paywall modal dismiss
   const paywallModal = document.getElementById('paywall-modal');
