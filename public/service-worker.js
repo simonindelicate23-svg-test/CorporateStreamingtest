@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tmc-pwa-cache-v4';
+const CACHE_NAME = 'tmc-pwa-cache-v5';
 const OFFLINE_URL = '/player.html';
 const PRECACHE_ASSETS = [
   '/',
@@ -9,10 +9,10 @@ const PRECACHE_ASSETS = [
   '/player/state.js',
   '/player/config.js',
   '/vendor/color-thief.min.js',
-  '/manifest.webmanifest',
   '/sigil.png',
   '/title.png',
   '/favicon.ico'
+  // manifest.webmanifest is served dynamically — never precache it
 ];
 
 function isStaticAsset(pathname) {
@@ -55,6 +55,13 @@ self.addEventListener('fetch', (event) => {
   if (isApiRequest) {
     // API responses must be fresh; do not persist stale copies across deploys.
     event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
+
+  // The manifest is dynamic (served via a Netlify function redirect) — always
+  // fetch it fresh so PWA name/colours reflect admin changes immediately.
+  if (pathname === '/manifest.webmanifest') {
+    event.respondWith(fetch(event.request));
     return;
   }
 

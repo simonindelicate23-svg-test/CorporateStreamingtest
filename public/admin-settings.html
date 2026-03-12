@@ -506,7 +506,50 @@
             </div>
           </div>
 
-          <!-- ── 8. Footer ───────────────────────────────── -->
+          <!-- ── 8. PWA / App ────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">PWA &amp; Install</p>
+            <p class="meta" style="margin-bottom:14px;">Controls how the site appears when installed as an app on Android, iOS, and desktop. The manifest is served dynamically so changes here take effect without a redeploy.</p>
+            <div class="form-grid">
+              <div>
+                <label for="pwaName">App name <span class="meta" style="font-weight:400;">(defaults to Brand name)</span></label>
+                <input type="text" id="pwaName" placeholder="e.g. The Mechanical Child" />
+              </div>
+              <div>
+                <label for="pwaShortName">Short name <span class="meta" style="font-weight:400;">(shown under the icon, ≤12 chars)</span></label>
+                <input type="text" id="pwaShortName" placeholder="e.g. TMC" maxlength="20" />
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="pwaDescription">App description</label>
+                <input type="text" id="pwaDescription" placeholder="e.g. Stream the full discography of…" />
+              </div>
+              <div>
+                <label for="pwaThemeColor">Toolbar / status-bar colour <span class="meta" style="font-weight:400;">(defaults to Top bar colour)</span></label>
+                <input type="color" id="pwaThemeColor" />
+              </div>
+              <div>
+                <label for="pwaBackgroundColor">Splash-screen background <span class="meta" style="font-weight:400;">(defaults to Page background)</span></label>
+                <input type="color" id="pwaBackgroundColor" />
+              </div>
+            </div>
+
+            <div style="margin-top:18px;">
+              <p class="form-section__title" style="margin-bottom:6px;font-size:0.8rem;">Screenshots <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — Chrome uses these for its richer install dialog, which avoids the generic install warning)</span></p>
+              <div class="form-grid">
+                <div>
+                  <label for="pwaScreenshot1">Portrait screenshot URL <span class="meta" style="font-weight:400;">(~1080×1920)</span></label>
+                  <input type="text" id="pwaScreenshot1" placeholder="/img/screenshot-mobile.png" />
+                </div>
+                <div>
+                  <label for="pwaScreenshot2">Landscape screenshot URL <span class="meta" style="font-weight:400;">(~1280×800)</span></label>
+                  <input type="text" id="pwaScreenshot2" placeholder="/img/screenshot-desktop.png" />
+                </div>
+              </div>
+              <p class="meta" style="margin-top:8px;">Upload PNGs to your media host, paste the URLs above, and save. On Android Chrome 116+ this unlocks the "Enhanced Install UI" with a preview of the app — without it Chrome shows only a minimal install banner.</p>
+            </div>
+          </div>
+
+          <!-- ── 9. Footer ───────────────────────────────── -->
           <div class="form-section">
             <p class="form-section__title">Footer</p>
             <div class="form-grid">
@@ -539,7 +582,9 @@
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
-        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent'
+        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
+        'pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaScreenshot1','pwaScreenshot2',
+        'copyrightNotice','footerSummary','footerContent'
       ];
 
       const fontPairs = window.SiteSettings?.FONT_PAIRS || {};
@@ -731,6 +776,11 @@
             input.value = settings[key] ?? '';
           }
         });
+        // PWA colour fields fall back to the matching theme colours when not set.
+        const pwaThemeEl = document.getElementById('pwaThemeColor');
+        if (pwaThemeEl && !settings.pwaThemeColor) pwaThemeEl.value = settings.themeTopbarSurface || settings.themeBackground || '#0f0c14';
+        const pwaBgEl = document.getElementById('pwaBackgroundColor');
+        if (pwaBgEl && !settings.pwaBackgroundColor) pwaBgEl.value = settings.themeBackground || '#0f0c14';
         // Ensure palette select reflects stored value (preset key or 'custom')
         const storedPalette = settings.palette || 'custom';
         paletteSelect.value = THEME_PRESETS[storedPalette] ? storedPalette : 'custom';

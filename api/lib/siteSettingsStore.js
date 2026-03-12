@@ -56,6 +56,13 @@ const defaults = {
   themeHeroBackground: '#7b5a49',
   dynamicColorTheming: true,
   releaseOrder: 'alphabetical',
+  pwaName: '',
+  pwaShortName: '',
+  pwaDescription: '',
+  pwaThemeColor: '',
+  pwaBackgroundColor: '',
+  pwaScreenshot1: '',
+  pwaScreenshot2: '',
 };
 
 async function readFtp() {
