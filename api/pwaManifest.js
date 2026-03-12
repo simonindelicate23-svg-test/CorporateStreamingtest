@@ -19,8 +19,22 @@ exports.handler = async (event) => {
     const absoluteId = origin ? `${origin}/` : '/';
 
     // Prefer admin-uploaded icons; fall back to the shipped defaults.
-    const icon192 = s.pwaIcon192 || '/icon_192.png';
-    const icon512 = s.pwaIcon512 || '/icon_512.png';
+    const icon192Raw = s.pwaIcon192 || '/icon_192.png';
+    const icon512Raw = s.pwaIcon512 || '/icon_512.png';
+
+    // Append a cache-buster derived from the URL itself so that when the admin
+    // uploads a new icon Chrome fetches the fresh version immediately rather
+    // than serving a stale copy from its internal PWA icon cache.
+    const bust = (url) => {
+      const sep = url.includes('?') ? '&' : '?';
+      // Use a hash of the URL string as the buster — stable per URL, changes
+      // whenever the admin saves a different icon URL.
+      let h = 0;
+      for (let i = 0; i < url.length; i++) { h = ((h << 5) - h + url.charCodeAt(i)) | 0; }
+      return `${url}${sep}_cb=${(h >>> 0).toString(36)}`;
+    };
+    const icon192 = bust(icon192Raw);
+    const icon512 = bust(icon512Raw);
 
     const icons = [
       { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any' },

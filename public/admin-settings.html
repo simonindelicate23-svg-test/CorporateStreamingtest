@@ -511,6 +511,13 @@
             <p class="form-section__title">PWA &amp; Install</p>
             <p class="meta" style="margin-bottom:14px;">Controls how the site appears when installed as an app on Android, iOS, and desktop. The manifest is served dynamically so changes here take effect without a redeploy.</p>
             <div class="form-grid">
+              <div style="grid-column: 1 / -1;">
+                <label for="pwaInstallPrompt">Show install prompt banner</label>
+                <select id="pwaInstallPrompt">
+                  <option value="true">Enabled — shows install guidance for Chrome, Samsung Browser &amp; iOS</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
               <div>
                 <label for="pwaName">App name <span class="meta" style="font-weight:400;">(defaults to Brand name)</span></label>
                 <input type="text" id="pwaName" placeholder="e.g. The Mechanical Child" />
@@ -543,6 +550,9 @@
                   <div class="inline-actions" style="margin-top:8px;">
                     <input type="file" id="pwaIcon192File" accept="image/png,image/jpeg,image/webp" style="width:auto;flex:1;" />
                     <button type="button" id="uploadPwaIcon192Button" class="button-secondary button-sm">Upload 192px icon</button>
+                  </div>
+                  <div id="pwaIcon192Preview" style="margin-top:10px;display:none;">
+                    <img id="pwaIcon192Img" src="" alt="192px icon preview" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid rgba(128,128,128,0.3);" />
                   </div>
                 </div>
                 <div>
@@ -609,7 +619,7 @@
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
         'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
-        'pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
+        'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
         'copyrightNotice','footerSummary','footerContent'
       ];
 
@@ -796,7 +806,7 @@
         fields.forEach((key) => {
           const input = document.getElementById(key);
           if (!input) return;
-          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') {
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') {
             input.value = settings[key] === false ? 'false' : 'true';
           } else {
             input.value = settings[key] ?? '';
@@ -820,26 +830,27 @@
       document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
       document.getElementById('uploadFaviconButton').addEventListener('click', () => uploadAsset('faviconFile', 'faviconUrl').catch(() => showStatus('Favicon upload failed.', true)));
 
-      // PWA icon uploads — show a live preview of the 512px icon
+      // PWA icon previews
       function refreshPwaIconPreview() {
-        const url = document.getElementById('pwaIcon512').value.trim();
-        const preview = document.getElementById('pwaIcon512Preview');
-        const img = document.getElementById('pwaIconImg');
-        if (url && preview && img) {
-          img.src = url;
-          preview.style.display = 'block';
-        } else if (preview) {
-          preview.style.display = 'none';
-        }
+        const url192 = document.getElementById('pwaIcon192').value.trim();
+        const prev192 = document.getElementById('pwaIcon192Preview');
+        const img192 = document.getElementById('pwaIcon192Img');
+        if (url192 && prev192 && img192) { img192.src = url192; prev192.style.display = 'block'; }
+        else if (prev192) { prev192.style.display = 'none'; }
+
+        const url512 = document.getElementById('pwaIcon512').value.trim();
+        const prev512 = document.getElementById('pwaIcon512Preview');
+        const img512 = document.getElementById('pwaIconImg');
+        if (url512 && prev512 && img512) { img512.src = url512; prev512.style.display = 'block'; }
+        else if (prev512) { prev512.style.display = 'none'; }
       }
+      document.getElementById('pwaIcon192').addEventListener('input', refreshPwaIconPreview);
       document.getElementById('pwaIcon512').addEventListener('input', refreshPwaIconPreview);
       document.getElementById('uploadPwaIcon192Button').addEventListener('click', () =>
-        uploadAsset('pwaIcon192File', 'pwaIcon192').catch(() => showStatus('Icon upload failed.', true))
+        uploadAsset('pwaIcon192File', 'pwaIcon192').then(refreshPwaIconPreview).catch(() => showStatus('Icon upload failed.', true))
       );
       document.getElementById('uploadPwaIcon512Button').addEventListener('click', () =>
-        uploadAsset('pwaIcon512File', 'pwaIcon512')
-          .then(refreshPwaIconPreview)
-          .catch(() => showStatus('Icon upload failed.', true))
+        uploadAsset('pwaIcon512File', 'pwaIcon512').then(refreshPwaIconPreview).catch(() => showStatus('Icon upload failed.', true))
       );
 
       document.getElementById('settingsForm').addEventListener('submit', async (event) => {
@@ -850,7 +861,7 @@
 
         const patch = fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
-          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming') acc[key] = raw !== 'false';
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') acc[key] = raw !== 'false';
           else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
           return acc;
         }, {});

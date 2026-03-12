@@ -290,8 +290,13 @@ function applySettingsData(settings) {
   const faviconHref = settings.faviconUrl || '/favicon.ico';
   const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
   faviconEl.href = faviconHref;
+  // Keep apple-touch-icon in sync with the admin-uploaded PWA icon so Chrome
+  // uses the right artwork for both home-screen shortcuts and install prompts.
+  const touchIconHref = settings.pwaIcon192 || settings.pwaIcon512 || '/sigil.png';
+  const touchIconEl = document.querySelector('link[rel="apple-touch-icon"]') || (() => { const el = document.createElement('link'); el.rel = 'apple-touch-icon'; document.head.appendChild(el); return el; })();
+  touchIconEl.href = touchIconHref;
   const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
-  themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
+  themeColorMeta.content = settings.pwaThemeColor || settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
   const rootStyle = document.documentElement.style;
   if (settings.themeBackground) {
     SITE_BACKGROUND_COLOR = settings.themeBackground;

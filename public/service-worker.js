@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tmc-pwa-cache-v5';
+const CACHE_NAME = 'tmc-pwa-cache-v6';
 const OFFLINE_URL = '/player.html';
 const PRECACHE_ASSETS = [
   '/',
@@ -9,6 +9,7 @@ const PRECACHE_ASSETS = [
   '/player/state.js',
   '/player/config.js',
   '/vendor/color-thief.min.js',
+  '/pwa-install.js',
   '/sigil.png',
   '/title.png',
   '/favicon.ico'

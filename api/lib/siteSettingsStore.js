@@ -65,6 +65,7 @@ const defaults = {
   pwaIcon512: '',
   pwaScreenshot1: '',
   pwaScreenshot2: '',
+  pwaInstallPrompt: true,
 };
 
 async function readFtp() {
