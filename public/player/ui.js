@@ -84,6 +84,13 @@ let artworkEventsBound = false;
 const paletteCache = new Map();
 const artworkPreloadCache = new Map();
 const audioPreloadCache = new Map();
+// Cache the resolved (post-redirect) MP3 URL for each stream URL so that
+// subsequent plays bypass the Netlify function redirect round-trip entirely.
+const resolvedUrlCache = new Map();
+// Dedicated Audio element kept hot with the next track so the transition is
+// near-instant even when the page is backgrounded (screen off, tab hidden).
+let nextTrackAudio = null;
+let nextTrackAudioUrl = null;
 const INITIAL_BACKGROUND = playerConfig?.initialBackgroundColor || '#f7f5f0';
 let SITE_BACKGROUND_COLOR = INITIAL_BACKGROUND;
 const INITIAL_OVERLAY_TONE = playerConfig?.initialOverlayTone || 'rgba(12, 12, 18, 0.92)';
@@ -363,8 +370,13 @@ function applySettingsData(settings) {
   const faviconHref = settings.faviconUrl || '/favicon.ico';
   const faviconEl = document.querySelector('link[rel="icon"]') || (() => { const el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); return el; })();
   faviconEl.href = faviconHref;
+  // Keep apple-touch-icon in sync with the admin-uploaded PWA icon so Chrome
+  // uses the right artwork for both home-screen shortcuts and install prompts.
+  const touchIconHref = settings.pwaIcon192 || settings.pwaIcon512 || '/sigil.png';
+  const touchIconEl = document.querySelector('link[rel="apple-touch-icon"]') || (() => { const el = document.createElement('link'); el.rel = 'apple-touch-icon'; document.head.appendChild(el); return el; })();
+  touchIconEl.href = touchIconHref;
   const themeColorMeta = document.querySelector('meta[name="theme-color"]') || (() => { const el = document.createElement('meta'); el.name = 'theme-color'; document.head.appendChild(el); return el; })();
-  themeColorMeta.content = settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
+  themeColorMeta.content = settings.pwaThemeColor || settings.themePanelSurface || settings.themeBackground || getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#0f0c14';
   const rootStyle = document.documentElement.style;
   if (settings.themeBackground) {
     SITE_BACKGROUND_COLOR = settings.themeBackground;
@@ -803,13 +815,48 @@ function preloadAudio(url) {
   audio.src = url;
 
   const loadPromise = new Promise(resolve => {
-    const finalize = () => resolve(url);
+    const finalize = () => {
+      // currentSrc is the post-redirect URL — cache it so playTrack can use it
+      // directly, skipping the Netlify function redirect on every subsequent play.
+      const resolved = audio.currentSrc;
+      if (resolved && resolved !== url) resolvedUrlCache.set(url, resolved);
+      resolve(url);
+    };
     audio.addEventListener('canplaythrough', finalize, { once: true });
     audio.addEventListener('error', finalize, { once: true });
   });
 
   audioPreloadCache.set(url, loadPromise);
   return loadPromise;
+}
+
+// Returns the direct MP3 URL if a prior preload already resolved the redirect,
+// otherwise returns the stream URL as-is. This eliminates the API round-trip
+// for the most common case (next track was preloaded while current track played).
+function getEffectiveAudioUrl(streamUrl) {
+  return resolvedUrlCache.get(streamUrl) || streamUrl;
+}
+
+// Keep a dedicated next-track Audio element fully buffered.  Called whenever
+// the adjacent-track prime list changes, or ~30 s before the current track ends.
+function primeNextTrackAudio(track) {
+  if (!track) return;
+  const url = resolveTrackUrl(track);
+  if (!url || url === nextTrackAudioUrl) return; // already primed
+
+  nextTrackAudioUrl = url;
+  if (!nextTrackAudio) {
+    nextTrackAudio = new Audio();
+    nextTrackAudio.preload = 'auto';
+  }
+  // Capture resolved URL when it becomes available
+  const onCanPlay = () => {
+    const resolved = nextTrackAudio.currentSrc;
+    if (resolved && resolved !== url) resolvedUrlCache.set(url, resolved);
+  };
+  nextTrackAudio.removeEventListener('canplaythrough', onCanPlay);
+  nextTrackAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
+  nextTrackAudio.src = url;
 }
 
 function buildArtworkLayers(primary, fallback) {
@@ -1721,7 +1768,15 @@ function updatePlayerMeta(track) {
 
   applyNeutralTheme(track);
   updateThemeBackground(currentBackgroundLayers);
-  applyColorPalette(track, currentArtworkSrc);
+  // Defer expensive ColorThief analysis until the browser is idle so it doesn't
+  // add latency to the audio start or cause a janky frame drop on track change.
+  const _paletteTrack = track;
+  const _paletteArtSrc = currentArtworkSrc;
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => applyColorPalette(_paletteTrack, _paletteArtSrc), { timeout: 3000 });
+  } else {
+    setTimeout(() => applyColorPalette(_paletteTrack, _paletteArtSrc), 150);
+  }
   updateMediaSessionMetadata(track);
 }
 
@@ -1814,9 +1869,12 @@ function primeAdjacentTracks(track) {
   }
 
   const nearby = [track];
-  if (currentIndex + 1 < items.length) nearby.push(items[currentIndex + 1]);
+  const nextTrack = currentIndex + 1 < items.length ? items[currentIndex + 1] : null;
+  if (nextTrack) nearby.push(nextTrack);
   if (currentIndex > 0) nearby.push(items[currentIndex - 1]);
   warmTrackAssets(nearby, 3);
+  // Keep the dedicated next-track buffer hot so the transition is instant.
+  if (nextTrack) primeNextTrackAudio(nextTrack);
 }
 
 function showPaywallModal(track) {
@@ -1842,21 +1900,33 @@ function playTrack(track, { autoplay = true } = {}) {
   }
   state.currentTrack = track;
   ensureQueueForTrack(track);
-  const src = resolveTrackUrl(track);
-  if (!src) {
+  const streamUrl = resolveTrackUrl(track);
+  if (!streamUrl) {
     console.warn('No playable source for track', track);
     return;
   }
+
+  // Use the cached direct URL to skip the redirect round-trip when possible.
+  const src = getEffectiveAudioUrl(streamUrl);
   state.audio.src = src;
-  state.audio.currentTime = 0;
+
   updatePlayerMeta(track);
-  primeAdjacentTracks(track);
   highlightActiveTrack();
-  const shareUrl = buildShareUrl(track, track.albumId || state.currentAlbumId || slugifyAlbumName(track.albumName));
-  if (shareUrl?.pathname) {
-    history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
-  }
-  refreshDocumentMetadata({ track });
+
+  // Defer non-critical work so the audio element can start loading immediately.
+  const scheduleIdle = typeof requestIdleCallback === 'function'
+    ? cb => requestIdleCallback(cb, { timeout: 2000 })
+    : cb => setTimeout(cb, 0);
+
+  scheduleIdle(() => {
+    primeAdjacentTracks(track);
+    if (document.visibilityState !== 'hidden') {
+      const shareUrl = buildShareUrl(track, track.albumId || state.currentAlbumId || slugifyAlbumName(track.albumName));
+      if (shareUrl?.pathname) history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
+      refreshDocumentMetadata({ track });
+    }
+  });
+
   if (autoplay) {
     const playPromise = state.audio.play();
     if (playPromise?.catch) {
@@ -2144,7 +2214,23 @@ function bindEvents() {
   dom.expandTrack?.addEventListener('click', openNowPlayingOverlay);
   window.addEventListener('resize', refreshNowPlayingMarquee);
   document.addEventListener('keydown', onKeyboard);
-  state.audio.addEventListener('timeupdate', updateTime);
+  state.audio.addEventListener('timeupdate', () => {
+    updateTime();
+    // ~30 s before the end, ensure the next track's audio is pre-buffered so
+    // the transition is near-instant even with the screen off / page hidden.
+    const dur = state.audio.duration;
+    const remaining = dur - state.audio.currentTime;
+    if (remaining > 0 && remaining < 30 && state.queue) {
+      const nextTrack = state.queue.next(state.currentTrack?._id);
+      // Peek without advancing — re-resolve from items directly.
+      if (nextTrack) {
+        const items = state.queue.items;
+        const idx = state.queue.currentIndexFor(state.currentTrack?._id);
+        const peekNext = !state.queue.shuffleEnabled && idx !== -1 ? items[idx + 1] : null;
+        if (peekNext) primeNextTrackAudio(peekNext);
+      }
+    }
+  });
   state.audio.addEventListener('loadedmetadata', updateTime);
   state.audio.addEventListener('ended', () => {
     if (state.queue?.repeatEnabled) {
@@ -2173,6 +2259,18 @@ function bindEvents() {
     } else {
       clearAccessToken();
       showPaywallModal(track);
+    }
+  });
+
+  // When the page comes back to the foreground after being hidden (screen on,
+  // tab re-focused), sync the URL bar and document meta which were skipped
+  // while hidden to avoid broken history entries.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.currentTrack) {
+      const shareUrl = buildShareUrl(state.currentTrack, state.currentTrack.albumId || state.currentAlbumId || slugifyAlbumName(state.currentTrack.albumName));
+      if (shareUrl?.pathname) history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
+      refreshDocumentMetadata({ track: state.currentTrack });
+      syncPlayState();
     }
   });
 

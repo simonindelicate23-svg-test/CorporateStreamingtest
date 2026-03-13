@@ -14,7 +14,8 @@
       <meta name="twitter:description" content="Listen to tracks and albums." />
       <meta name="twitter:image" content="/img/og_image.jpg" />
       <link rel="manifest" href="/manifest.webmanifest" />
-      <link rel="apple-touch-icon" href="/sigil.png" />
+      <!-- Falls back to /sigil.png; applySettingsData() replaces href with pwaIcon192 once settings load -->
+      <link rel="apple-touch-icon" id="apple-touch-icon-link" href="/sigil.png" />
       <!-- Preload critical scripts so the browser fetches them in parallel with HTML parsing -->
       <link rel="preload" href="/player/ui.js" as="script" />
       <link rel="preload" href="/player/api.js" as="script" />
@@ -349,6 +350,7 @@
 
     <script src="/site-settings.js"></script>
     <script src="/vendor/color-thief.min.js"></script>
+    <script src="/pwa-install.js"></script>
     <script type="module" src="/player/ui.js"></script>
     <script>
       if ('serviceWorker' in navigator) {

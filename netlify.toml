@@ -10,6 +10,11 @@
   external_node_modules = ["sharp"]
 
 [[redirects]]
+  from = "/manifest.webmanifest"
+  to = "/.netlify/functions/pwaManifest"
+  status = 200
+
+[[redirects]]
   from = "/"
   to = "/player.html"
   status = 200

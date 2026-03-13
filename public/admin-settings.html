@@ -562,7 +562,86 @@
             </div>
           </div>
 
-          <!-- ── 8. Footer ───────────────────────────────── -->
+          <!-- ── 8. PWA / App ────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">PWA &amp; Install</p>
+            <p class="meta" style="margin-bottom:14px;">Controls how the site appears when installed as an app on Android, iOS, and desktop. The manifest is served dynamically so changes here take effect without a redeploy.</p>
+            <div class="form-grid">
+              <div style="grid-column: 1 / -1;">
+                <label for="pwaInstallPrompt">Show install prompt banner</label>
+                <select id="pwaInstallPrompt">
+                  <option value="true">Enabled — shows install guidance for Chrome, Samsung Browser &amp; iOS</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div>
+                <label for="pwaName">App name <span class="meta" style="font-weight:400;">(defaults to Brand name)</span></label>
+                <input type="text" id="pwaName" placeholder="e.g. The Mechanical Child" />
+              </div>
+              <div>
+                <label for="pwaShortName">Short name <span class="meta" style="font-weight:400;">(shown under the icon, ≤12 chars)</span></label>
+                <input type="text" id="pwaShortName" placeholder="e.g. TMC" maxlength="20" />
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="pwaDescription">App description</label>
+                <input type="text" id="pwaDescription" placeholder="e.g. Stream the full discography of…" />
+              </div>
+              <div>
+                <label for="pwaThemeColor">Toolbar / status-bar colour <span class="meta" style="font-weight:400;">(defaults to Top bar colour)</span></label>
+                <input type="color" id="pwaThemeColor" />
+              </div>
+              <div>
+                <label for="pwaBackgroundColor">Splash-screen background <span class="meta" style="font-weight:400;">(defaults to Page background)</span></label>
+                <input type="color" id="pwaBackgroundColor" />
+              </div>
+            </div>
+
+            <div style="margin-top:18px;">
+              <p class="form-section__title" style="margin-bottom:6px;font-size:0.8rem;">App icon</p>
+              <p class="meta" style="margin-bottom:12px;">Replaces the default shipped icon on the home screen and splash screen. Use square PNGs with a transparent or solid background. If left blank the bundled <code>icon_192.png</code> / <code>icon_512.png</code> are used.</p>
+              <div class="form-grid">
+                <div>
+                  <label for="pwaIcon192">192 × 192 icon URL</label>
+                  <input type="text" id="pwaIcon192" placeholder="/icon_192.png" />
+                  <div class="inline-actions" style="margin-top:8px;">
+                    <input type="file" id="pwaIcon192File" accept="image/png,image/jpeg,image/webp" style="width:auto;flex:1;" />
+                    <button type="button" id="uploadPwaIcon192Button" class="button-secondary button-sm">Upload 192px icon</button>
+                  </div>
+                  <div id="pwaIcon192Preview" style="margin-top:10px;display:none;">
+                    <img id="pwaIcon192Img" src="" alt="192px icon preview" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid rgba(128,128,128,0.3);" />
+                  </div>
+                </div>
+                <div>
+                  <label for="pwaIcon512">512 × 512 icon URL <span class="meta" style="font-weight:400;">(also used as maskable)</span></label>
+                  <input type="text" id="pwaIcon512" placeholder="/icon_512.png" />
+                  <div class="inline-actions" style="margin-top:8px;">
+                    <input type="file" id="pwaIcon512File" accept="image/png,image/jpeg,image/webp" style="width:auto;flex:1;" />
+                    <button type="button" id="uploadPwaIcon512Button" class="button-secondary button-sm">Upload 512px icon</button>
+                  </div>
+                  <div id="pwaIcon512Preview" style="margin-top:10px;display:none;">
+                    <img id="pwaIconImg" src="" alt="Icon preview" style="width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid rgba(128,128,128,0.3);" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;">
+              <p class="form-section__title" style="margin-bottom:6px;font-size:0.8rem;">Screenshots <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — Chrome uses these for its richer install dialog, which avoids the generic install warning)</span></p>
+              <div class="form-grid">
+                <div>
+                  <label for="pwaScreenshot1">Portrait screenshot URL <span class="meta" style="font-weight:400;">(~1080×1920)</span></label>
+                  <input type="text" id="pwaScreenshot1" placeholder="/img/screenshot-mobile.png" />
+                </div>
+                <div>
+                  <label for="pwaScreenshot2">Landscape screenshot URL <span class="meta" style="font-weight:400;">(~1280×800)</span></label>
+                  <input type="text" id="pwaScreenshot2" placeholder="/img/screenshot-desktop.png" />
+                </div>
+              </div>
+              <p class="meta" style="margin-top:8px;">Upload PNGs to your media host, paste the URLs above, and save. On Android Chrome 116+ this unlocks the "Enhanced Install UI" with a preview of the app — without it Chrome shows only a minimal install banner.</p>
+            </div>
+          </div>
+
+          <!-- ── 9. Footer ───────────────────────────────── -->
           <div class="form-section">
             <p class="form-section__title">Footer</p>
             <div class="form-grid">
@@ -595,7 +674,9 @@
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
-        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle','copyrightNotice','footerSummary','footerContent',
+        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
+        'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
+        'copyrightNotice','footerSummary','footerContent',
         'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice'
       ];
 
@@ -642,8 +723,11 @@
           method: 'POST',
           body: JSON.stringify({ fileName: file.name, contentBase64, folder: 'branding' })
         });
-        document.getElementById(targetId).value = uploaded.url || '';
-        showStatus('Upload complete. Save settings to persist.');
+        const url = uploaded.url || '';
+        document.getElementById(targetId).value = url;
+        showStatus(url
+          ? `Upload complete — URL: ${url} — click Save settings to persist.`
+          : 'Upload returned no URL. Check FTP config.');
       }
 
       // ── Live colour preview ───────────────────────────────────
@@ -782,23 +866,59 @@
         fields.forEach((key) => {
           const input = document.getElementById(key);
           if (!input) return;
-          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'paymentsEnabled') {
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') {
+            input.value = settings[key] === false ? 'false' : 'true';
+          } else if (key === 'paymentsEnabled') {
             input.value = settings[key] === true ? 'true' : 'false';
           } else {
             input.value = settings[key] ?? '';
           }
         });
+        // PWA colour fields fall back to the matching theme colours when not set.
+        const pwaThemeEl = document.getElementById('pwaThemeColor');
+        if (pwaThemeEl && !settings.pwaThemeColor) pwaThemeEl.value = settings.themeTopbarSurface || settings.themeBackground || '#0f0c14';
+        const pwaBgEl = document.getElementById('pwaBackgroundColor');
+        if (pwaBgEl && !settings.pwaBackgroundColor) pwaBgEl.value = settings.themeBackground || '#0f0c14';
         // Ensure palette select reflects stored value (preset key or 'custom')
         const storedPalette = settings.palette || 'custom';
         paletteSelect.value = THEME_PRESETS[storedPalette] ? storedPalette : 'custom';
         fontPairSelect.value = settings.fontPair || fontPairDefault;
         renderFontPairPreview(fontPairSelect.value);
         updateColourPreview();
+        refreshPwaIconPreview();
         _settingsLoaded = true;
       }
 
-      document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch(() => showStatus('Logo upload failed.', true)));
-      document.getElementById('uploadFaviconButton').addEventListener('click', () => uploadAsset('faviconFile', 'faviconUrl').catch(() => showStatus('Favicon upload failed.', true)));
+      document.getElementById('uploadLogoButton').addEventListener('click', () => uploadAsset('logoFile', 'logoUrl').catch((err) => showStatus(`Logo upload failed: ${err.message}`, true)));
+      document.getElementById('uploadFaviconButton').addEventListener('click', () => uploadAsset('faviconFile', 'faviconUrl').catch((err) => showStatus(`Favicon upload failed: ${err.message}`, true)));
+
+      // PWA icon previews
+      function setIconPreview(inputId, previewId, imgId) {
+        const url = document.getElementById(inputId)?.value.trim();
+        const prev = document.getElementById(previewId);
+        const img  = document.getElementById(imgId);
+        if (!prev || !img) return;
+        if (!url) { prev.style.display = 'none'; return; }
+        img.alt = '';
+        img.title = url;
+        img.style.outline = '';
+        img.onload  = () => { img.style.outline = '2px solid #22c55e'; };
+        img.onerror = () => { img.style.outline = '2px solid #ef4444'; img.alt = '✗ cannot load'; img.title = `Cannot load: ${url}`; };
+        img.src = url;
+        prev.style.display = 'block';
+      }
+      function refreshPwaIconPreview() {
+        setIconPreview('pwaIcon192', 'pwaIcon192Preview', 'pwaIcon192Img');
+        setIconPreview('pwaIcon512', 'pwaIcon512Preview', 'pwaIconImg');
+      }
+      document.getElementById('pwaIcon192').addEventListener('input', refreshPwaIconPreview);
+      document.getElementById('pwaIcon512').addEventListener('input', refreshPwaIconPreview);
+      document.getElementById('uploadPwaIcon192Button').addEventListener('click', () =>
+        uploadAsset('pwaIcon192File', 'pwaIcon192').then(refreshPwaIconPreview).catch((err) => showStatus(`Icon upload failed: ${err.message}`, true))
+      );
+      document.getElementById('uploadPwaIcon512Button').addEventListener('click', () =>
+        uploadAsset('pwaIcon512File', 'pwaIcon512').then(refreshPwaIconPreview).catch((err) => showStatus(`Icon upload failed: ${err.message}`, true))
+      );
 
       document.getElementById('settingsForm').addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -808,7 +928,8 @@
 
         const patch = fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
-          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'paymentsEnabled') acc[key] = raw === 'true';
+          if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') acc[key] = raw !== 'false';
+          else if (key === 'paymentsEnabled') acc[key] = raw === 'true';
           else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
           return acc;
         }, {});
