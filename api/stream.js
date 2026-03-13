@@ -1,5 +1,6 @@
 const { loadTracks } = require('./lib/legacyTracksStore');
 const { json } = require('./lib/http');
+const { verifyToken } = require('./lib/tokenAuth');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') return json(405, { message: 'Method not allowed' });
@@ -11,8 +12,15 @@ exports.handler = async (event) => {
   const track = tracks.find((t) => String(t._id || '').trim() === trackId);
 
   if (!track || track.published === false) return json(404, { message: 'Track not found' });
-  if (track.paid === true) return json(403, { message: 'Purchase required' });
   if (!track.mp3Url) return json(404, { message: 'Audio not available' });
+
+  if (track.paid === true) {
+    const rawToken = event.queryStringParameters?.accessToken;
+    const payload = verifyToken(rawToken);
+    if (!payload) return json(403, { message: 'Purchase required' });
+    // scope: 'all' grants access to everything; future scopes can be added here
+    if (payload.scope !== 'all') return json(403, { message: 'Purchase required' });
+  }
 
   return {
     statusCode: 302,

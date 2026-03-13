@@ -31,6 +31,9 @@
         <span class="brand-word" id="brandWord"></span>
       </a>
       <div class="nav-actions">
+        <button class="nav-subscribe hidden" id="navSubscribe" aria-label="Subscribe to unlock all tracks" title="Subscribe">
+          Subscribe
+        </button>
         <a
           class="nav-link icon-only hidden"
           id="tipJarLink"
@@ -312,16 +315,34 @@
       </div>
     </div>
 
-    <!-- Paywall modal -->
+    <!-- Paywall / subscription modal -->
     <div id="paywall-modal" class="paywall-modal" aria-modal="true" role="dialog" aria-labelledby="paywall-title" hidden>
       <div class="paywall-modal__card">
         <div class="paywall-modal__icon">&#128274;</div>
         <h2 class="paywall-modal__title" id="paywall-title">Members only</h2>
-        <p class="paywall-modal__body" id="paywall-body">Support the artist to unlock this track.</p>
-        <div class="paywall-modal__actions">
-          <a class="paywall-modal__cta" href="support.html" id="paywall-cta">Support &amp; unlock</a>
-          <button class="paywall-modal__dismiss" id="paywall-dismiss">Maybe later</button>
+        <p class="paywall-modal__body" id="paywall-body">Subscribe to unlock the full catalogue.</p>
+
+        <!-- Primary: subscription -->
+        <div class="paywall-modal__sub-section">
+          <p class="paywall-modal__price" id="paywall-price" hidden></p>
+          <!-- PayPal JS SDK renders the Subscribe button here -->
+          <div id="paywall-paypal-btn"></div>
+          <p class="paywall-modal__sub-hint">Cancel anytime from your PayPal account.</p>
+          <p class="paywall-modal__loading" id="paywall-loading" hidden>Loading payment options…</p>
+          <p class="paywall-modal__error" id="paywall-error" hidden></p>
         </div>
+
+        <!-- Restore: for returning subscribers whose token has been cleared -->
+        <details class="paywall-modal__restore">
+          <summary>Already subscribed? Restore access</summary>
+          <div class="paywall-modal__restore-form">
+            <input id="paywall-restore-id" type="text" placeholder="Paste your PayPal Subscription ID (I-…)" autocomplete="off" spellcheck="false" />
+            <button id="paywall-restore-submit" type="button">Verify &amp; restore</button>
+            <p id="paywall-restore-msg" class="paywall-modal__restore-msg" hidden></p>
+          </div>
+        </details>
+
+        <button class="paywall-modal__dismiss" id="paywall-dismiss">Maybe later</button>
       </div>
     </div>
 

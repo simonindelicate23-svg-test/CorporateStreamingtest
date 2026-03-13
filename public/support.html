@@ -7,6 +7,92 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
     <link rel="stylesheet" href="/styles/style.css" />
     <script src="/site-settings.js" defer></script>
+    <style>
+      .access-notice {
+        max-width: 620px;
+        margin: 0 auto 40px;
+        padding: 24px 28px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        text-align: center;
+      }
+      .access-notice--success {
+        border-color: #3a9e6e;
+      }
+      .access-notice__icon {
+        font-size: 2.4rem;
+        margin-bottom: 10px;
+      }
+      .access-notice h2 {
+        margin: 0 0 10px;
+        font-size: 1.25rem;
+      }
+      .access-notice p {
+        margin: 0 0 12px;
+        line-height: 1.6;
+        color: var(--text-secondary, #666);
+        font-size: 0.95rem;
+      }
+      .access-notice .warning-box {
+        background: var(--surface, #f5f5f0);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin: 14px 0 0;
+        text-align: left;
+        font-size: 0.88rem;
+        line-height: 1.65;
+        color: var(--text-secondary, #555);
+      }
+      .access-notice .warning-box strong {
+        color: var(--text-primary, #1a1a1a);
+        display: block;
+        margin-bottom: 6px;
+      }
+      .access-notice .actions {
+        margin-top: 18px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .restore-section {
+        max-width: 620px;
+        margin: 0 auto 48px;
+        padding: 0 18px;
+        text-align: center;
+      }
+      .restore-section summary {
+        cursor: pointer;
+        color: var(--text-secondary, #666);
+        font-size: 0.9rem;
+        padding: 8px 0;
+      }
+      .restore-section .restore-form {
+        margin-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+      .restore-section select,
+      .restore-section input[type="text"] {
+        width: 100%;
+        max-width: 420px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        color: var(--text-primary, #1a1a1a);
+        font-size: 0.95rem;
+      }
+      .restore-section .restore-hint {
+        font-size: 0.82rem;
+        color: var(--text-secondary, #888);
+        max-width: 420px;
+      }
+    </style>
   </head>
   <body>
     <nav class="topbar">
@@ -16,6 +102,29 @@
       </div>
     </nav>
     <main>
+      <!-- Post-payment success banner (shown when PayPal returns here) -->
+      <section id="paymentSuccessSection" style="padding:0 18px;" hidden>
+        <div class="access-notice access-notice--success">
+          <div class="access-notice__icon">&#10003;</div>
+          <h2>You're in — thank you!</h2>
+          <p>Your access has been activated on this browser.</p>
+          <div class="warning-box">
+            <strong>Important: keep this access safe</strong>
+            Your access is stored in this browser. <strong>If you clear your browser data,
+            you'll need to restore it.</strong><br><br>
+            To restore access on any device: go to the Support page, open
+            "Already purchased? Restore access" below, and enter your
+            PayPal <span id="restoreIdLabel">Order ID</span> — it's in your
+            <strong>PayPal receipt email</strong> (subject: "Your purchase from…" or
+            "You have a new subscription").<br><br>
+            Keep that email. That's your key.
+          </div>
+          <div class="actions">
+            <a class="pill primary" href="/player.html">Start listening</a>
+          </div>
+        </div>
+      </section>
+
       <section class="support-hero" style="max-width:980px;margin:40px auto;padding:0 18px;text-align:center;">
         <p class="eyebrow">Support</p>
         <h1 id="supportTitle">Support this project</h1>
@@ -33,8 +142,50 @@
           <iframe id="supportEmbed" class="embed-frame" src="" height="712" title="Support embed"></iframe>
         </article>
       </section>
+
+      <!-- Restore access for returning buyers -->
+      <section class="restore-section">
+        <details id="restoreDetails">
+          <summary>Already purchased? Restore access to this browser</summary>
+          <div class="restore-form">
+            <select id="restoreType">
+              <option value="order">One-time purchase (Order ID)</option>
+              <option value="subscription">Subscription (Subscription ID)</option>
+            </select>
+            <input type="text" id="restoreId" placeholder="Paste your PayPal Order ID or Subscription ID" autocomplete="off" spellcheck="false" />
+            <p class="restore-hint" id="restoreHint">
+              Your Order ID looks like <code>1AB23456CD789012E</code> and is in your PayPal receipt email.
+            </p>
+            <button class="pill primary" id="restoreBtn">Restore access</button>
+            <p id="restoreStatus" style="font-size:0.9rem;color:var(--text-secondary,#666);"></p>
+          </div>
+        </details>
+      </section>
     </main>
     <script>
+      const ACCESS_TOKEN_LS_KEY = 'tmc-access-token';
+      const ACCESS_TOKEN_COOKIE = 'tmc_access_token';
+
+      function setAccessToken(token) {
+        try { localStorage.setItem(ACCESS_TOKEN_LS_KEY, token); } catch (_) {}
+        const maxAge = 60 * 60 * 24 * 365;
+        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+      }
+
+      async function verifyAndStore(type, id) {
+        const res = await fetch('/.netlify/functions/verifyPayment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, id: id.trim() }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `Verification failed (${res.status})`);
+        }
+        const { token } = await res.json();
+        setAccessToken(token);
+      }
+
       window.addEventListener('DOMContentLoaded', async () => {
         const settings = await window.SiteSettings.loadSiteSettings();
         window.SiteSettings.applyFontPair(settings.fontPair);
@@ -51,6 +202,70 @@
         const embed = document.getElementById('supportEmbed');
         embed.title = settings.supportEmbedTitle || 'Support embed';
         if (settings.supportEmbedUrl) embed.src = settings.supportEmbedUrl; else embed.style.display = 'none';
+
+        // Handle PayPal return after payment
+        // Orders: ?token=ORDER_ID&PayerID=PAYER_ID
+        // Subscriptions: ?subscription_id=SUB_ID&ba_token=...
+        const params = new URLSearchParams(window.location.search);
+        const orderId = params.get('token');       // PayPal uses "token" for order ID on return
+        const subscriptionId = params.get('subscription_id');
+
+        if (orderId || subscriptionId) {
+          const type = subscriptionId ? 'subscription' : 'order';
+          const id = subscriptionId || orderId;
+          document.getElementById('restoreIdLabel').textContent = subscriptionId ? 'Subscription ID' : 'Order ID';
+          const section = document.getElementById('paymentSuccessSection');
+          section.hidden = false;
+          try {
+            await verifyAndStore(type, id);
+            // Clean up PayPal params from URL without reload
+            history.replaceState(null, '', window.location.pathname);
+          } catch (err) {
+            // Verification failed — show restore form with the ID pre-filled so user can retry
+            section.hidden = true;
+            const details = document.getElementById('restoreDetails');
+            details.open = true;
+            document.getElementById('restoreType').value = type;
+            document.getElementById('restoreId').value = id;
+            document.getElementById('restoreStatus').textContent = 'Could not verify automatically — please try the restore form below.';
+          }
+        }
+
+        // Restore access form
+        const restoreType = document.getElementById('restoreType');
+        const restoreIdInput = document.getElementById('restoreId');
+        const restoreHint = document.getElementById('restoreHint');
+        const restoreBtn = document.getElementById('restoreBtn');
+        const restoreStatus = document.getElementById('restoreStatus');
+
+        restoreType.addEventListener('change', () => {
+          if (restoreType.value === 'subscription') {
+            restoreIdInput.placeholder = 'Paste your PayPal Subscription ID';
+            restoreHint.innerHTML = 'Your Subscription ID looks like <code>I-XXXXXXXXXXXX</code> and is in your PayPal subscription confirmation email, or under <strong>PayPal account → Automatic payments</strong>.';
+          } else {
+            restoreIdInput.placeholder = 'Paste your PayPal Order ID';
+            restoreHint.innerHTML = 'Your Order ID looks like <code>1AB23456CD789012E</code> and is in your PayPal receipt email.';
+          }
+        });
+
+        restoreBtn.addEventListener('click', async () => {
+          const id = restoreIdInput.value.trim();
+          if (!id) { restoreStatus.textContent = 'Please enter your ID.'; return; }
+          restoreBtn.disabled = true;
+          restoreStatus.textContent = 'Verifying with PayPal…';
+          try {
+            await verifyAndStore(restoreType.value, id);
+            restoreStatus.textContent = '';
+            restoreIdInput.value = '';
+            document.getElementById('restoreDetails').open = false;
+            document.getElementById('paymentSuccessSection').hidden = false;
+            history.replaceState(null, '', window.location.pathname);
+          } catch (err) {
+            restoreStatus.textContent = err.message || 'Could not verify — check your ID and try again.';
+          } finally {
+            restoreBtn.disabled = false;
+          }
+        });
       });
     </script>
   </body>

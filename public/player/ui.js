@@ -109,6 +109,86 @@ let RELEASE_ORDER = 'alphabetical';
 let SITE_RELEASE_ORDER = 'alphabetical'; // admin default, used to reset user pref
 const USER_ORDER_KEY = 'tmc-user-release-order';
 const SETTINGS_CACHE_KEY = 'tmc-site-settings-cache';
+const ACCESS_TOKEN_LS_KEY = 'tmc-access-token';
+const ACCESS_TOKEN_COOKIE = 'tmc_access_token';
+
+// ── Access token (localStorage + cookie fallback) ──────────────────
+function parseTokenPayload(token) {
+  if (!token) return null;
+  try {
+    const data = token.split('.')[0];
+    // base64url → base64
+    const b64 = data.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+  } catch (_) { return null; }
+}
+
+function isTokenExpired(token) {
+  const payload = parseTokenPayload(token);
+  if (!payload) return true;
+  if (!payload.exp) return false; // no expiry = permanent (order purchase)
+  return Math.floor(Date.now() / 1000) >= payload.exp;
+}
+
+function getRawToken() {
+  try {
+    const ls = localStorage.getItem(ACCESS_TOKEN_LS_KEY);
+    if (ls) return ls;
+  } catch (_) {}
+  const match = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(ACCESS_TOKEN_COOKIE + '='));
+  return match ? decodeURIComponent(match.slice(ACCESS_TOKEN_COOKIE.length + 1)) : null;
+}
+
+function getAccessToken() {
+  const token = getRawToken();
+  if (!token) return null;
+  if (isTokenExpired(token)) return null; // treat expired as absent; refresh happens separately
+  return token;
+}
+
+function setAccessToken(token) {
+  try { localStorage.setItem(ACCESS_TOKEN_LS_KEY, token); } catch (_) {}
+  const maxAge = 60 * 60 * 24 * 365;
+  document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
+
+function clearAccessToken() {
+  try { localStorage.removeItem(ACCESS_TOKEN_LS_KEY); } catch (_) {}
+  document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Strict`;
+}
+
+// Silently refresh a subscription token. Resolves to new token or null.
+async function refreshSubscriptionToken() {
+  const raw = getRawToken();
+  const payload = parseTokenPayload(raw);
+  if (!payload || payload.type !== 'subscription' || !payload.refId) return null;
+  try {
+    const res = await fetch('/.netlify/functions/verifyPayment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'subscription', id: payload.refId }),
+    });
+    if (!res.ok) return null;
+    const { token } = await res.json();
+    setAccessToken(token);
+    return token;
+  } catch (_) { return null; }
+}
+
+// On page load: if we have an expired subscription token, try a silent background refresh.
+(async () => {
+  const raw = getRawToken();
+  if (raw && isTokenExpired(raw)) {
+    await refreshSubscriptionToken();
+    // If refresh fails the token stays expired; playTrack will show the paywall when needed.
+  }
+})();
+
+// ── Payment runtime state ──────────────────────────────────────────
+// Loaded async by initPayments(); null until the fetch completes.
+let paymentConfig = null;
+// Track that was blocked by the paywall — replayed after subscription completes.
+let pendingTrack = null;
 
 const ALBUMS_PAGE_SIZE = 20;
 let pendingAlbums = [];
@@ -1510,7 +1590,7 @@ function renderTracks(album) {
     li.className = isPaid ? 'track-item paid' : 'track-item';
     li.dataset.id = track._id;
     const prefix = resolvedAlbum?.allTracks || resolvedAlbum?.pseudoType ? `${index + 1}.` : track.trackNumber ? `${track.trackNumber}.` : '';
-    const lockIcon = isPaid ? '<span class="track-lock" aria-label="Members only">&#128274;</span>' : '';
+    const lockIcon = (isPaid && paymentConfig?.paymentsEnabled !== false) ? '<span class="track-lock" aria-label="Members only">&#128274;</span>' : '';
     li.innerHTML = `<div>${prefix}${lockIcon}</div><div>${track.trackName}</div>`;
     li.addEventListener('click', () => playTrack(track));
     dom.tracksList.appendChild(li);
@@ -1754,7 +1834,14 @@ function extractTrackId(trackParam) {
 }
 
 function resolveTrackUrl(track) {
-  if (track?._id) return `/.netlify/functions/stream?trackId=${encodeURIComponent(String(track._id))}`;
+  if (track?._id) {
+    let url = `/.netlify/functions/stream?trackId=${encodeURIComponent(String(track._id))}`;
+    if (track.paid) {
+      const token = getAccessToken();
+      if (token) url += `&accessToken=${encodeURIComponent(token)}`;
+    }
+    return url;
+  }
   return track?.streamUrl || track?.src || null;
 }
 
@@ -1793,14 +1880,21 @@ function primeAdjacentTracks(track) {
 function showPaywallModal(track) {
   const modal = document.getElementById('paywall-modal');
   if (!modal) return;
+  pendingTrack = track;
   const body = document.getElementById('paywall-body');
-  if (body) body.textContent = `"${track.trackName}" is available to supporters. Join to unlock the full catalogue.`;
+  if (body) {
+    body.textContent = track
+      ? `"${track.trackName}" is only available to subscribers. Subscribe once to unlock the full catalogue.`
+      : 'Subscribe to unlock the full catalogue.';
+  }
   modal.hidden = false;
-  document.getElementById('paywall-dismiss')?.focus();
+  // Render the PayPal button now that the container is visible
+  renderPayPalButton();
+  (document.querySelector('#paywall-paypal-btn iframe') ?? document.getElementById('paywall-dismiss'))?.focus();
 }
 
 function playTrack(track, { autoplay = true } = {}) {
-  if (track.paid === true) {
+  if (track.paid === true && paymentConfig?.paymentsEnabled !== false && !getAccessToken()) {
     showPaywallModal(track);
     return;
   }
@@ -2151,6 +2245,22 @@ function bindEvents() {
   state.audio.addEventListener('playing', () => { setBufferingState(false); syncPlayState(); });
   state.audio.addEventListener('waiting', () => { setBufferingState(true); syncPlayState(); });
   state.audio.addEventListener('pause', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('error', async () => {
+    setBufferingState(false);
+    syncPlayState();
+    const track = state.currentTrack;
+    if (!track?.paid) return; // non-paid error, nothing special to do
+    // Paid track failed — token may have expired. Try a silent refresh once.
+    const newToken = await refreshSubscriptionToken();
+    if (newToken) {
+      // Re-try playback with fresh token
+      state.audio.src = resolveTrackUrl(track);
+      state.audio.play().catch(() => {});
+    } else {
+      clearAccessToken();
+      showPaywallModal(track);
+    }
+  });
 
   // When the page comes back to the foreground after being hidden (screen on,
   // tab re-focused), sync the URL bar and document meta which were skipped
@@ -2168,10 +2278,116 @@ function bindEvents() {
   const paywallModal = document.getElementById('paywall-modal');
   const paywallDismiss = document.getElementById('paywall-dismiss');
   if (paywallModal && paywallDismiss) {
-    paywallDismiss.addEventListener('click', () => { paywallModal.hidden = true; });
-    paywallModal.addEventListener('click', (event) => {
-      if (event.target === paywallModal) paywallModal.hidden = true;
+    const closePaywall = () => { paywallModal.hidden = true; pendingTrack = null; };
+    paywallDismiss.addEventListener('click', closePaywall);
+    paywallModal.addEventListener('click', (event) => { if (event.target === paywallModal) closePaywall(); });
+  }
+}
+
+// ── Payment / subscription flow ───────────────────────────────────
+
+function loadPayPalSDK(clientId) {
+  return new Promise((resolve, reject) => {
+    if (window.paypal) { resolve(); return; }
+    const script = document.createElement('script');
+    // vault=true + intent=subscription required for subscription buttons
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription&disable-funding=credit,card`;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('PayPal SDK failed to load'));
+    document.head.appendChild(script);
+  });
+}
+
+// Renders the PayPal Subscribe button into the (now-visible) modal.
+// Called the first time showPaywallModal() makes the container visible.
+let paypalButtonRendered = false;
+
+function renderPayPalButton() {
+  if (paypalButtonRendered || !window.paypal || !paymentConfig?.planId) return;
+  paypalButtonRendered = true;
+  window.paypal.Buttons({
+    style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+    createSubscription: (data, actions) => actions.subscriptions.create({ plan_id: paymentConfig.planId }),
+    onApprove: async (data) => {
+      const errorEl = document.getElementById('paywall-error');
+      try {
+        const res = await fetch('/.netlify/functions/verifyPayment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'subscription', id: data.subscriptionID }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message || 'Verification failed');
+        const { token } = await res.json();
+        setAccessToken(token);
+        document.getElementById('paywall-modal').hidden = true;
+        if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
+      } catch (err) {
+        if (errorEl) { errorEl.textContent = `Could not confirm access: ${err.message}`; errorEl.hidden = false; }
+      }
+    },
+    onError: (err) => {
+      console.error('PayPal button error', err);
+      const errorEl = document.getElementById('paywall-error');
+      if (errorEl) { errorEl.textContent = 'Something went wrong with PayPal. Please try again or use the restore form below.'; errorEl.hidden = false; }
+    },
+  }).render('#paywall-paypal-btn').catch((err) => {
+    paypalButtonRendered = false; // allow a retry next open
+    console.warn('PayPal button render failed', err);
+  });
+}
+
+async function initPayments() {
+  try {
+    const res = await fetch('/.netlify/functions/paymentConfig');
+    if (!res.ok) return;
+    paymentConfig = await res.json();
+    if (!paymentConfig.paymentsEnabled) return;
+
+    // Show the Subscribe button in the nav
+    const navBtn = document.getElementById('navSubscribe');
+    if (navBtn) {
+      navBtn.classList.remove('hidden');
+      navBtn.addEventListener('click', () => showPaywallModal(null));
+    }
+
+    // Pre-fill the price display so it's ready when the modal first opens
+    const priceEl = document.getElementById('paywall-price');
+    if (priceEl && paymentConfig.subscriptionPrice) {
+      priceEl.textContent = paymentConfig.subscriptionPrice;
+      priceEl.hidden = false;
+    }
+
+    // Wire the restore-access form (once, at startup)
+    document.getElementById('paywall-restore-submit')?.addEventListener('click', async () => {
+      const id = (document.getElementById('paywall-restore-id')?.value || '').trim();
+      const msgEl = document.getElementById('paywall-restore-msg');
+      if (!id || !msgEl) return;
+      msgEl.textContent = 'Verifying…';
+      msgEl.hidden = false;
+      const type = id.startsWith('I-') ? 'subscription' : 'order';
+      try {
+        const res2 = await fetch('/.netlify/functions/verifyPayment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, id }),
+        });
+        if (!res2.ok) throw new Error((await res2.json()).message || 'Not found');
+        const { token } = await res2.json();
+        setAccessToken(token);
+        document.getElementById('paywall-modal').hidden = true;
+        msgEl.hidden = true;
+        if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
+      } catch (err) {
+        msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments → Subscriptions.`;
+      }
     });
+
+    // Load the SDK in the background — the button renders lazily on first modal open
+    if (paymentConfig.clientId) {
+      loadPayPalSDK(paymentConfig.clientId).catch(err => console.warn('PayPal SDK load failed', err));
+    }
+  } catch (err) {
+    console.warn('Payment init failed', err);
   }
 }
 
@@ -2221,6 +2437,7 @@ export async function init() {
     renderAlbums();
     syncPlayModes();
     bindEvents();
+    initPayments(); // non-blocking — fetches config, loads PayPal SDK, wires up paywall
     initHeroCollapse();
     const params = new URLSearchParams(window.location.search);
     const routeParams = getPathRouteParams();

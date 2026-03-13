@@ -963,6 +963,113 @@ body.dark-mode .paywall-modal__card {
   color: var(--ink, #eee);
 }
 
+/* ── Subscribe paywall modal — inner elements ─────────────── */
+.paywall-modal__sub-section {
+  margin-bottom: 16px;
+}
+
+.paywall-modal__price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+
+.paywall-modal__sub-hint,
+.paywall-modal__loading {
+  font-size: 0.78rem;
+  color: var(--eyebrow, #888);
+  margin: 10px 0 0;
+}
+
+.paywall-modal__error {
+  font-size: 0.83rem;
+  color: #c0392b;
+  margin: 10px 0 0;
+}
+
+.paywall-modal__restore {
+  margin: 4px 0 16px;
+  text-align: left;
+}
+
+.paywall-modal__restore > summary {
+  font-size: 0.83rem;
+  color: var(--eyebrow, #888);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.paywall-modal__restore > summary:hover { color: var(--ink); }
+
+.paywall-modal__restore-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.paywall-modal__restore-form input {
+  padding: 10px 12px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: var(--surface, #f5f5f0);
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.paywall-modal__restore-form button {
+  padding: 9px 16px;
+  background: var(--control-surface, #eee);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.paywall-modal__restore-form button:hover { filter: brightness(0.95); }
+
+.paywall-modal__restore-msg {
+  font-size: 0.82rem;
+  color: var(--eyebrow, #888);
+  line-height: 1.45;
+}
+
+/* ── Subscribe nav button ─────────────────────────────────── */
+.nav-subscribe {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: var(--accent, #e44b39);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.15s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.nav-subscribe:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .nav-subscribe {
+    padding: 7px 11px;
+    font-size: 0.76rem;
+  }
+}
+
 .player-pane {
   background: var(--panel-surface);
   border-radius: 18px;

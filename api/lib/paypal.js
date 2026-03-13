@@ -107,8 +107,42 @@ const grantEntitlementFromCapture = async (resource) => {
   return true;
 };
 
+const verifyOrder = async (orderId) => {
+  const token = await getAccessToken();
+  const response = await fetch(`${apiBase}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (data.status !== 'COMPLETED') return null;
+  const payer = data.payer || {};
+  return {
+    orderId,
+    email: (payer.email_address || '').toLowerCase(),
+    payerId: payer.payer_id || '',
+  };
+};
+
+const verifySubscription = async (subscriptionId) => {
+  const token = await getAccessToken();
+  const response = await fetch(`${apiBase}/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (data.status !== 'ACTIVE') return null;
+  const subscriber = data.subscriber || {};
+  return {
+    subscriptionId,
+    email: (subscriber.email_address || '').toLowerCase(),
+    payerId: subscriber.payer_id || '',
+  };
+};
+
 module.exports = {
   getAccessToken,
   verifyWebhookSignature,
   grantEntitlementFromCapture,
+  verifyOrder,
+  verifySubscription,
 };
