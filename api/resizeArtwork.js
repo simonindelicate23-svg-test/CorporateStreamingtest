@@ -94,24 +94,50 @@ async function resizeBuffer(buffer, filename, maxDimension) {
   };
 }
 
+const hasR2Config = () => Boolean(
+  process.env.R2_ACCOUNT_ID &&
+  process.env.R2_ACCESS_KEY_ID &&
+  process.env.R2_SECRET_ACCESS_KEY &&
+  process.env.R2_BUCKET_NAME &&
+  process.env.R2_PUBLIC_BASE_URL
+);
+
+const hasFtpConfig = () => Boolean(
+  process.env.FTP_HOST &&
+  process.env.FTP_USER &&
+  process.env.FTP_PASSWORD &&
+  process.env.FTP_PUBLIC_BASE_URL
+);
+
+async function uploadBufferToR2(buffer, remotePath) {
+  const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+  const publicBaseUrl = String(process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  await client.send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: remotePath,
+    Body: buffer,
+  }));
+  return `${publicBaseUrl}/${remotePath}`;
+}
+
 async function uploadBufferToFtp(buffer, remotePath) {
-  const ftpHost = process.env.FTP_HOST;
-  const ftpUser = process.env.FTP_USER;
-  const ftpPassword = process.env.FTP_PASSWORD;
   const ftpPublicBaseUrl = String(process.env.FTP_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-
-  if (!ftpHost || !ftpUser || !ftpPassword || !ftpPublicBaseUrl) {
-    throw new Error('FTP not configured (FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_PUBLIC_BASE_URL).');
-  }
-
   const client = new ftp.Client();
   client.ftp.verbose = false;
 
   try {
     await client.access({
-      host: ftpHost,
-      user: ftpUser,
-      password: ftpPassword,
+      host: process.env.FTP_HOST,
+      user: process.env.FTP_USER,
+      password: process.env.FTP_PASSWORD,
       secure: process.env.FTP_SECURE === 'true',
     });
     const remoteDir = path.posix.dirname(remotePath);
@@ -122,6 +148,14 @@ async function uploadBufferToFtp(buffer, remotePath) {
   } finally {
     client.close();
   }
+}
+
+async function uploadBuffer(buffer, remotePath) {
+  if (hasR2Config()) return uploadBufferToR2(buffer, remotePath);
+  if (hasFtpConfig()) return uploadBufferToFtp(buffer, remotePath);
+  throw new Error(
+    'No storage backend configured. Set R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_NAME/R2_PUBLIC_BASE_URL for R2, or FTP_HOST/FTP_USER/FTP_PASSWORD/FTP_PUBLIC_BASE_URL for FTP.'
+  );
 }
 
 exports.handler = async (event) => {
@@ -189,17 +223,17 @@ exports.handler = async (event) => {
     });
   }
 
-  // Upload to FTP
-  const ftpBasePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
+  // Upload to storage backend (R2 → FTP priority)
+  const basePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
   const safeName = path.basename(parsedUrl.pathname).replace(/[^a-zA-Z0-9._-]/g, '_');
   const stamp = Date.now();
-  const remotePath = [ftpBasePath, 'artwork', `${stamp}-resized-${safeName}`].filter(Boolean).join('/');
+  const remotePath = [basePath, 'artwork', `${stamp}-resized-${safeName}`].filter(Boolean).join('/');
 
   let newUrl;
   try {
-    newUrl = await uploadBufferToFtp(resizeResult.buffer, remotePath);
+    newUrl = await uploadBuffer(resizeResult.buffer, remotePath);
   } catch (err) {
-    return json(500, { message: `FTP upload failed: ${err.message}` });
+    return json(500, { message: `Storage upload failed: ${err.message}` });
   }
 
   return json(200, {

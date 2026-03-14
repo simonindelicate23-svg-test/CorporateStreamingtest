@@ -5,6 +5,14 @@ const config = require('../dbConfig');
 
 const normalizePath = (value) => String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
+const hasR2Config = () => Boolean(
+  process.env.R2_ACCOUNT_ID &&
+  process.env.R2_ACCESS_KEY_ID &&
+  process.env.R2_SECRET_ACCESS_KEY &&
+  process.env.R2_BUCKET_NAME &&
+  process.env.R2_PUBLIC_BASE_URL
+);
+
 const hasFtpConfig = () => Boolean(process.env.FTP_HOST && process.env.FTP_USER && process.env.FTP_PASSWORD);
 
 const getRemoteJsonPath = () => {
@@ -78,6 +86,51 @@ const writeToFtp = async (tracks) => {
   }
 };
 
+const readFromR2 = async () => {
+  const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  try {
+    const response = await client.send(new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: getRemoteJsonPath(),
+    }));
+    const chunks = [];
+    for await (const chunk of response.Body) chunks.push(chunk);
+    const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) return [];
+    throw error;
+  }
+};
+
+const writeToR2 = async (tracks) => {
+  const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  const remotePath = getRemoteJsonPath();
+  await client.send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: remotePath,
+    Body: Buffer.from(JSON.stringify(tracks, null, 2), 'utf8'),
+    ContentType: 'application/json',
+  }));
+  return { store: 'r2-json', path: remotePath };
+};
+
 const readFromFile = async () => {
   const filePath = getFileJsonPath();
   try {
@@ -133,6 +186,8 @@ const loadTracks = async () => {
 
   if (store === 'file-json') result = { tracks: await readFromFile(), store: 'file-json' };
   else if (store === 'ftp-json') result = { tracks: await readFromFtp(), store: 'ftp-json' };
+  else if (store === 'r2-json') result = { tracks: await readFromR2(), store: 'r2-json' };
+  else if (hasR2Config()) result = { tracks: await readFromR2(), store: 'r2-json' };
   else if (hasFtpConfig()) result = { tracks: await readFromFtp(), store: 'ftp-json' };
   else {
     try {
@@ -151,6 +206,12 @@ const saveTracks = async (tracks) => {
   const store = preferredStore();
   clearCachedTracks();
 
+  if (store === 'r2-json' || (store === 'auto' && hasR2Config())) {
+    const result = await writeToR2(tracks);
+    setCachedTracks(tracks, 'r2-json');
+    return result;
+  }
+
   if (store === 'ftp-json' || (store === 'auto' && hasFtpConfig())) {
     const result = await writeToFtp(tracks);
     setCachedTracks(tracks, 'ftp-json');
@@ -163,7 +224,7 @@ const saveTracks = async (tracks) => {
     return result;
   }
 
-  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use ftp-json, file-json, or auto.`);
+  throw new Error(`Unsupported LEGACY_TRACK_STORE value: ${store}. Use r2-json, ftp-json, file-json, or auto.`);
 };
 
 const generateTrackId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;

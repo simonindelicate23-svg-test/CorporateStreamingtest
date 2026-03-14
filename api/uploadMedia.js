@@ -74,20 +74,44 @@ function pruneExpired() {
   }
 }
 
-// ---------- FTP upload ----------
+// ---------- storage helpers ----------
+
+const hasR2Config = () => Boolean(
+  process.env.R2_ACCOUNT_ID &&
+  process.env.R2_ACCESS_KEY_ID &&
+  process.env.R2_SECRET_ACCESS_KEY &&
+  process.env.R2_BUCKET_NAME &&
+  process.env.R2_PUBLIC_BASE_URL
+);
+
+const hasFtpConfig = () => Boolean(
+  process.env.FTP_HOST &&
+  process.env.FTP_USER &&
+  process.env.FTP_PASSWORD &&
+  process.env.FTP_PUBLIC_BASE_URL
+);
+
+async function uploadBufferToR2(buffer, remotePath) {
+  const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+  const publicBaseUrl = String(process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  await client.send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: remotePath,
+    Body: buffer,
+  }));
+  return `${publicBaseUrl}/${remotePath}`;
+}
 
 async function uploadBufferToFtp(buffer, remotePath) {
-  const ftpHost = process.env.FTP_HOST;
-  const ftpUser = process.env.FTP_USER;
-  const ftpPassword = process.env.FTP_PASSWORD;
   const ftpPublicBaseUrl = String(process.env.FTP_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-
-  if (!ftpHost || !ftpUser || !ftpPassword || !ftpPublicBaseUrl) {
-    throw new Error(
-      'Upload not configured. Set FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_PUBLIC_BASE_URL.'
-    );
-  }
-
   const remoteDirectory = path.posix.dirname(remotePath);
   const remoteFileName = path.posix.basename(remotePath);
   const client = new ftp.Client();
@@ -95,9 +119,9 @@ async function uploadBufferToFtp(buffer, remotePath) {
 
   try {
     await client.access({
-      host: ftpHost,
-      user: ftpUser,
-      password: ftpPassword,
+      host: process.env.FTP_HOST,
+      user: process.env.FTP_USER,
+      password: process.env.FTP_PASSWORD,
       secure: process.env.FTP_SECURE === 'true',
     });
     await client.ensureDir(remoteDirectory);
@@ -114,6 +138,14 @@ async function uploadBufferToFtp(buffer, remotePath) {
   } finally {
     client.close();
   }
+}
+
+async function uploadBuffer(buffer, remotePath) {
+  if (hasR2Config()) return uploadBufferToR2(buffer, remotePath);
+  if (hasFtpConfig()) return uploadBufferToFtp(buffer, remotePath);
+  throw new Error(
+    'No storage backend configured. Set R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_NAME/R2_PUBLIC_BASE_URL for R2, or FTP_HOST/FTP_USER/FTP_PASSWORD/FTP_PUBLIC_BASE_URL for FTP.'
+  );
 }
 
 // ---------- handler ----------
@@ -153,7 +185,7 @@ exports.handler = async (event) => {
 
   const safeName = safeFilename(fileName);
   const safeFolder = normalizeSegment(folder) || 'misc';
-  const ftpBasePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
+  const basePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
 
   // ---- non-chunked path (file was small enough to send whole) ----
   if (contentBase64 !== undefined) {
@@ -168,11 +200,11 @@ exports.handler = async (event) => {
     }
 
     const stamp = Date.now();
-    const remotePath = [ftpBasePath, safeFolder, `${stamp}-${safeName}`]
+    const remotePath = [basePath, safeFolder, `${stamp}-${safeName}`]
       .filter(Boolean).join('/');
 
     try {
-      const publicUrl = await uploadBufferToFtp(buffer, remotePath);
+      const publicUrl = await uploadBuffer(buffer, remotePath);
       return json(200, { message: 'Upload complete', url: publicUrl, bytes: buffer.length, requestId });
     } catch (err) {
       console.error('Upload failed', { requestId, error: err.message });
@@ -232,7 +264,7 @@ exports.handler = async (event) => {
     .filter(Boolean).join('/');
 
   try {
-    const publicUrl = await uploadBufferToFtp(assembled, remotePath);
+    const publicUrl = await uploadBuffer(assembled, remotePath);
     return json(200, {
       message: 'Upload complete',
       url: publicUrl,
@@ -240,7 +272,7 @@ exports.handler = async (event) => {
       requestId,
     });
   } catch (err) {
-    console.error('Chunked upload failed at FTP stage', { requestId, error: err.message });
+    console.error('Chunked upload failed at storage stage', { requestId, error: err.message });
     return json(500, { message: 'Upload failed', detail: err.message, requestId });
   }
 };

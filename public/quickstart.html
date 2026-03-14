@@ -292,11 +292,11 @@
 
   <header>
     <h1>Deploy Your Music Streaming App</h1>
-    <p>Three free accounts. No coding. No terminal. About 30 minutes.</p>
+    <p>Three free accounts. No coding. No terminal. About 20 minutes.</p>
     <div class="badge-row">
       <span class="badge badge-nocode">No terminal required</span>
       <span class="badge badge-free">Free tier friendly</span>
-      <span class="badge badge-time">~30 minutes</span>
+      <span class="badge badge-time">~20 minutes</span>
     </div>
   </header>
 
@@ -305,7 +305,7 @@
     <div class="phase-header">
       <div class="phase-number">1</div>
       <div>
-        <div class="phase-title">GitHub — store your app files</div>
+        <div class="phase-title">GitHub — copy the app to your account</div>
         <div class="phase-subtitle">GitHub is where the app lives. Netlify reads from it automatically.</div>
       </div>
     </div>
@@ -320,17 +320,9 @@
 
       <div class="step">
         <div class="step-label">Step 2</div>
-        <h3>Create a new repository</h3>
-        <p>Once logged in, click the <span class="ui-action">+</span> icon in the top-right corner and choose <span class="ui-action">New repository</span>.</p>
-        <p>Give it a name — anything works, like <code>my-music-app</code>. Leave all other settings as they are and click <span class="ui-action">Create repository</span>.</p>
-      </div>
-
-      <div class="step">
-        <div class="step-label">Step 3</div>
-        <h3>Upload your app files</h3>
-        <p>On the repository page, click <span class="ui-action">uploading an existing file</span> (the link in the middle of the empty repo page).</p>
-        <p>Drag your entire project folder into the upload area — or click <span class="ui-action">choose your files</span> and select them all. Then scroll down and click <span class="ui-action">Commit changes</span>.</p>
-        <div class="tip"><strong>Make sure to include the <code>netlify.toml</code> file</strong> — it's in the project folder and tells Netlify how to run the app.</div>
+        <h3>Fork the app repository</h3>
+        <p>Go to <a href="https://github.com/simonindelicate/Full-generic-music-streaming-app" target="_blank">the app's GitHub page</a> and click the <span class="ui-action">Fork</span> button near the top-right of the page.</p>
+        <p>Leave all settings as they are and click <span class="ui-action">Create fork</span>. GitHub will copy the entire app into your account — no file uploads needed.</p>
       </div>
 
     </div>
@@ -415,7 +407,7 @@
         <div class="step-label">Step 10</div>
         <h3>Import your GitHub repository</h3>
         <p>In the Netlify dashboard click <span class="ui-action">Add new site</span> &rarr; <span class="ui-action">Import an existing project</span> &rarr; <span class="ui-action">Deploy with GitHub</span>.</p>
-        <p>Authorize Netlify when prompted, then select your <code>my-music-app</code> repository from the list. Netlify will read the <code>netlify.toml</code> file and configure everything automatically — don't change any build settings.</p>
+        <p>Authorize Netlify when prompted, then select your forked <code>Full-generic-music-streaming-app</code> repository from the list. Netlify will read the <code>netlify.toml</code> file and configure everything automatically — don't change any build settings.</p>
       </div>
 
       <div class="step">
@@ -430,7 +422,7 @@
             <tr><td>R2_SECRET_ACCESS_KEY</td><td>Secret Access Key from Step 8</td></tr>
             <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music-uploads</code></td></tr>
             <tr><td>R2_PUBLIC_BASE_URL</td><td>The <code>https://pub-xxx.r2.dev</code> URL from Step 6</td></tr>
-            <tr><td>JWT_SECRET</td><td>Make up any long string of random characters — at least 30 characters</td></tr>
+            <tr><td>ADMIN_API_TOKEN</td><td>Make up any long string of random characters — this becomes your admin password</td></tr>
           </tbody>
         </table>
         <div class="note"><strong>The variable names must be typed exactly as shown</strong> — they are case-sensitive. A typo here is the most common reason uploads fail.</div>
@@ -441,7 +433,7 @@
         <h3>Deploy</h3>
         <p>Click <span class="ui-action">Deploy site</span>. Netlify will build and publish your app — this takes about a minute.</p>
         <p>When it finishes you'll see a green <strong>Published</strong> status and a live link like <code>https://your-app-name.netlify.app</code>. That's your app.</p>
-        <div class="tip"><strong>Future updates are automatic.</strong> Whenever you upload new files to GitHub, Netlify redeploys within seconds — no action required.</div>
+        <div class="tip"><strong>That's it for setup.</strong> Once it's live, you manage everything — uploading music, editing settings — through the app's admin panel. You don't need to touch GitHub again.</div>
       </div>
 
     </div>
@@ -459,14 +451,14 @@
 
     <ul class="checklist">
       <li>Open your Netlify URL — the app loads</li>
-      <li>Register a new user account in the app</li>
-      <li>Upload a song through the app's upload screen</li>
+      <li>Log in to the admin panel using the <code>ADMIN_API_TOKEN</code> you set in Step 11</li>
+      <li>Upload a song through the admin upload screen</li>
       <li>Open your R2 bucket in Cloudflare and confirm the file appears</li>
       <li>Press play — the audio streams without errors</li>
     </ul>
 
     <div class="note" style="margin-top:1.25rem;">
-      <strong>If uploads fail:</strong> go to Netlify &rarr; <span class="ui-action">Site configuration</span> &rarr; <span class="ui-action">Environment variables</span> and double-check every value. The most common mistake is a typo in <code>R2_SECRET_ACCESS_KEY</code>. After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
+      <strong>If uploads fail:</strong> go to Netlify &rarr; <span class="ui-action">Site configuration</span> &rarr; <span class="ui-action">Environment variables</span> and double-check every value — especially <code>R2_SECRET_ACCESS_KEY</code> and <code>R2_PUBLIC_BASE_URL</code>. After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
     </div>
   </div>
 

@@ -9,6 +9,7 @@
   "author": "Simon Indelicate",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
     "body-parser": "^1.20.2",
     "basic-ftp": "^5.0.4",
     "colorthief": "^2.4.0",
