@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quickstart — Deploy Your Music Streaming App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      line-height: 1.7;
+      padding: 2rem 1rem 6rem;
+    }
+
+    .page {
+      max-width: 740px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: #888;
+      font-size: 1rem;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-free  { background: #1a3a1a; color: #4ade80; border: 1px solid #2d6e2d; }
+    .badge-time  { background: #1a1a3a; color: #818cf8; border: 1px solid #3730a3; }
+
+    /* Phase blocks */
+    .phase {
+      margin-bottom: 3.5rem;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .phase-number {
+      width: 2.25rem;
+      height: 2.25rem;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #a78bfa;
+      flex-shrink: 0;
+    }
+
+    .phase-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .phase-subtitle {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    /* Steps */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding-left: 1.1rem;
+      border-left: 2px solid #222;
+    }
+
+    .step {
+      position: relative;
+      padding: 0 0 2rem 1.75rem;
+    }
+
+    .step:last-child {
+      padding-bottom: 0;
+    }
+
+    .step::before {
+      content: '';
+      position: absolute;
+      left: -0.45rem;
+      top: 0.45rem;
+      width: 0.75rem;
+      height: 0.75rem;
+      background: #333;
+      border: 2px solid #555;
+      border-radius: 50%;
+    }
+
+    .step-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #555;
+      margin-bottom: 0.2rem;
+    }
+
+    .step h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e8e8e8;
+      margin-bottom: 0.4rem;
+    }
+
+    .step p {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    .step p + p {
+      margin-top: 0.4rem;
+    }
+
+    .step a {
+      color: #a78bfa;
+      text-decoration: none;
+    }
+
+    .step a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 0.82em;
+      background: #1e1e1e;
+      border: 1px solid #2e2e2e;
+      border-radius: 4px;
+      padding: 0.1em 0.4em;
+      color: #f0abfc;
+    }
+
+    .code-block {
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-top: 0.75rem;
+      overflow-x: auto;
+    }
+
+    .code-block pre {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      white-space: pre;
+    }
+
+    .code-block .comment { color: #4b5563; }
+    .code-block .key     { color: #818cf8; }
+    .code-block .value   { color: #4ade80; }
+
+    .note {
+      background: #161a2e;
+      border: 1px solid #2a3060;
+      border-left: 3px solid #4f46e5;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #93a3c8;
+    }
+
+    .note strong { color: #a5b4fc; }
+
+    .tip {
+      background: #0f1f0f;
+      border: 1px solid #1e3a1e;
+      border-left: 3px solid #22c55e;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #86a886;
+    }
+
+    .tip strong { color: #4ade80; }
+
+    /* Env var table */
+    .env-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.75rem;
+      font-size: 0.84rem;
+    }
+
+    .env-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      background: #1a1a1a;
+      color: #666;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    .env-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1e1e1e;
+      vertical-align: top;
+    }
+
+    .env-table td:first-child {
+      font-family: ui-monospace, monospace;
+      color: #f0abfc;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .env-table td:last-child {
+      color: #888;
+    }
+
+    /* Checklist */
+    .checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    .checklist li::before {
+      content: '☐';
+      color: #555;
+      font-size: 1rem;
+      line-height: 1.5;
+      flex-shrink: 0;
+    }
+
+    /* Final callout */
+    .done-box {
+      background: #0a1f0a;
+      border: 1px solid #1a4a1a;
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      text-align: center;
+      margin-top: 3rem;
+    }
+
+    .done-box h2 {
+      font-size: 1.3rem;
+      color: #4ade80;
+      margin-bottom: 0.5rem;
+    }
+
+    .done-box p {
+      color: #6a9a6a;
+      font-size: 0.9rem;
+    }
+
+    /* divider */
+    hr {
+      border: none;
+      border-top: 1px solid #1e1e1e;
+      margin: 3rem 0;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Deploy Your Music Streaming App</h1>
+    <p>GitHub &rarr; Netlify (frontend + API) &rarr; Cloudflare R2 (audio files)</p>
+    <div class="badge-row">
+      <span class="badge badge-free">Free tier friendly</span>
+      <span class="badge badge-time">~30 minutes</span>
+    </div>
+  </header>
+
+  <!-- ── PHASE 1 ── -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number">1</div>
+      <div>
+        <div class="phase-title">Put your code on GitHub</div>
+        <div class="phase-subtitle">Netlify deploys directly from a GitHub repo</div>
+      </div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-label">Step 1</div>
+        <h3>Create a GitHub account (if you don't have one)</h3>
+        <p>Go to <a href="https://github.com" target="_blank">github.com</a> and sign up — it's free.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 2</div>
+        <h3>Create a new repository</h3>
+        <p>Click the <strong>+</strong> icon in the top-right &rarr; <strong>New repository</strong>.<br>
+           Give it a name (e.g. <code>my-music-app</code>), set it to <strong>Public</strong> or <strong>Private</strong> — either works — then click <strong>Create repository</strong>.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 3</div>
+        <h3>Push your project to that repo</h3>
+        <p>In your project folder, run:</p>
+        <div class="code-block"><pre>git init
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/<span style="color:#f0abfc">YOUR_USERNAME</span>/<span style="color:#f0abfc">my-music-app</span>.git
+git push -u origin main</pre></div>
+        <div class="note"><strong>First time?</strong> GitHub will ask you to sign in. Use your username and a Personal Access Token (GitHub &rarr; Settings &rarr; Developer settings &rarr; Personal access tokens) instead of your password.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── PHASE 2 ── -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number">2</div>
+      <div>
+        <div class="phase-title">Set up Cloudflare R2 for audio storage</div>
+        <div class="phase-subtitle">Free egress — no charge when listeners stream your files</div>
+      </div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-label">Step 4</div>
+        <h3>Create a Cloudflare account</h3>
+        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and sign up. You do <strong>not</strong> need to add a domain or credit card for R2's free tier.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 5</div>
+        <h3>Create an R2 bucket</h3>
+        <p>In the Cloudflare dashboard, click <strong>R2</strong> in the left sidebar &rarr; <strong>Create bucket</strong>.<br>
+           Name it something like <code>music-uploads</code>. Leave all other settings as-is and click <strong>Create bucket</strong>.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 6</div>
+        <h3>Make the bucket publicly readable</h3>
+        <p>Open your new bucket &rarr; click the <strong>Settings</strong> tab &rarr; scroll to <strong>Public access</strong> &rarr; click <strong>Allow Access</strong>.<br>
+           Cloudflare will show you your public URL — copy and save it. It looks like:</p>
+        <div class="code-block"><pre>https://pub-<span style="color:#f0abfc">xxxxxxxxxxxxxxxx</span>.r2.dev</pre></div>
+        <div class="tip"><strong>This is your R2_PUBLIC_BASE_URL.</strong> Every file you upload will be available at <code>YOUR_PUBLIC_URL/filename.mp3</code>.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 7</div>
+        <h3>Generate an API token</h3>
+        <p>Still in R2 &rarr; click <strong>Manage R2 API tokens</strong> (top-right of the R2 page) &rarr; <strong>Create API token</strong>.<br>
+           Set permissions to <strong>Object Read &amp; Write</strong> for your bucket only. Click <strong>Create API token</strong>.</p>
+        <p>You'll see three values — copy them now (you won't see the secret again):</p>
+        <table class="env-table">
+          <thead>
+            <tr><th>Value shown on screen</th><th>This becomes your env var</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Account ID</td><td>shown at the top of any R2 page</td></tr>
+            <tr><td>Access Key ID</td><td><code>R2_ACCESS_KEY_ID</code></td></tr>
+            <tr><td>Secret Access Key</td><td><code>R2_SECRET_ACCESS_KEY</code></td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:0.75rem;">Your Account ID is on the right-hand sidebar of any R2 page — copy that too.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── PHASE 3 ── -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number">3</div>
+      <div>
+        <div class="phase-title">Deploy to Netlify</div>
+        <div class="phase-subtitle">Netlify hosts the frontend and runs the Node API via serverless functions</div>
+      </div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-label">Step 8</div>
+        <h3>Create a Netlify account</h3>
+        <p>Go to <a href="https://netlify.com" target="_blank">netlify.com</a> &rarr; <strong>Sign up</strong> &rarr; choose <strong>Sign up with GitHub</strong>. This connects your account in one click.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 9</div>
+        <h3>Import your GitHub repo</h3>
+        <p>In the Netlify dashboard click <strong>Add new site</strong> &rarr; <strong>Import an existing project</strong> &rarr; <strong>Deploy with GitHub</strong>.<br>
+           Authorize Netlify, then pick your <code>my-music-app</code> repository from the list.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 10</div>
+        <h3>Configure the build settings</h3>
+        <p>Netlify will auto-detect settings from <code>netlify.toml</code> in the repo. You should see:</p>
+        <div class="code-block"><pre><span class="comment"># netlify.toml already in your project</span>
+<span class="key">[build]</span>
+  <span class="key">command</span>  = <span class="value">"npm install"</span>
+  <span class="key">publish</span>  = <span class="value">"public"</span>
+
+<span class="key">[[redirects]]</span>
+  <span class="key">from</span>   = <span class="value">"/api/*"</span>
+  <span class="key">to</span>     = <span class="value">"/.netlify/functions/api/:splat"</span>
+  <span class="key">status</span> = <span class="value">200</span></pre></div>
+        <p>If the file already looks like this, leave everything as-is and continue.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 11</div>
+        <h3>Add your environment variables</h3>
+        <p>Before clicking deploy, click <strong>Add environment variables</strong> and add the following. Use the values you copied in Steps 6 and 7:</p>
+        <table class="env-table">
+          <thead>
+            <tr><th>Variable name</th><th>Where to find the value</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>R2_ACCOUNT_ID</td><td>Right sidebar on any R2 page in Cloudflare</td></tr>
+            <tr><td>R2_ACCESS_KEY_ID</td><td>Copied when you created the API token</td></tr>
+            <tr><td>R2_SECRET_ACCESS_KEY</td><td>Copied when you created the API token</td></tr>
+            <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music-uploads</code></td></tr>
+            <tr><td>R2_PUBLIC_BASE_URL</td><td>The <code>https://pub-xxx.r2.dev</code> URL from Step 6</td></tr>
+            <tr><td>JWT_SECRET</td><td>Any long random string — e.g. run <code>openssl rand -hex 32</code> in a terminal</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Never put these values in your code or commit them to GitHub.</strong> Netlify's environment variables panel is the right place for secrets.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 12</div>
+        <h3>Deploy</h3>
+        <p>Click <strong>Deploy site</strong>. Netlify will build and deploy — this takes about 60 seconds.<br>
+           When it finishes, you'll get a live URL like <code>https://your-app-name.netlify.app</code>.</p>
+        <div class="tip"><strong>Every future push to your GitHub main branch automatically redeploys.</strong> You never need to touch Netlify again for routine updates.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── PHASE 4 ── -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number">4</div>
+      <div>
+        <div class="phase-title">Verify everything works</div>
+        <div class="phase-subtitle">Quick checklist before you share the link</div>
+      </div>
+    </div>
+
+    <ul class="checklist">
+      <li>Open your Netlify URL — the app loads without a blank screen</li>
+      <li>Register a new account through the app's UI</li>
+      <li>Upload a song — the upload completes without an error</li>
+      <li>Go to your R2 bucket in Cloudflare and confirm the file appears there</li>
+      <li>Press play on the song in the app — audio streams correctly</li>
+      <li>Check the Netlify deploy log (Site &rarr; Deploys) — no red error lines</li>
+    </ul>
+
+    <div class="note" style="margin-top:1.25rem;">
+      <strong>If the upload fails:</strong> double-check your R2 env vars in Netlify (Site settings &rarr; Environment variables) — a single typo in <code>R2_SECRET_ACCESS_KEY</code> is the most common culprit. After fixing, trigger a new deploy.
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── What you pay ── -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="color:#4ade80; border-color:#2d6e2d;">$</div>
+      <div>
+        <div class="phase-title">What this costs</div>
+        <div class="phase-subtitle">Spoiler: probably nothing for a long time</div>
+      </div>
+    </div>
+
+    <table class="env-table">
+      <thead>
+        <tr><th>Service</th><th>Free tier</th><th>When you'd pay</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>GitHub</td>
+          <td>Unlimited public &amp; private repos</td>
+          <td>Almost never for a solo project</td>
+        </tr>
+        <tr>
+          <td>Netlify</td>
+          <td>100 GB bandwidth/month, 300 build minutes/month</td>
+          <td>High traffic sites (thousands of daily users)</td>
+        </tr>
+        <tr>
+          <td>Cloudflare R2</td>
+          <td>10 GB storage, 10M reads/month — <strong>always free egress</strong></td>
+          <td>Storing more than 10 GB of audio</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="done-box">
+    <h2>You're live.</h2>
+    <p>Share your <code>.netlify.app</code> URL. New deploys happen automatically every time you push to GitHub.<br>Audio is served globally for free via Cloudflare's network.</p>
+  </div>
+
+</div>
+</body>
+</html>
