@@ -206,8 +206,15 @@
         }
 
         // For non-image files, attempt a presigned direct-to-R2 upload.
-        // On the first call this probes the server; if unavailable (FTP backend returns 400)
-        // _presignAvailable is set to false and this block is skipped for all subsequent uploads.
+        // State machine for _presignAvailable:
+        //   null  = unknown — probe once per upload attempt
+        //   true  = confirmed working — use directly without probing
+        //   false = permanently unavailable (FTP backend) — skip forever
+        //
+        // If the presign server request returns non-ok (FTP: 400) → set false permanently.
+        // If the PUT to storage fails (e.g. CORS not yet configured) → leave as null so
+        // the next upload retries (once CORS is set up it will start working immediately),
+        // and fall through to chunked path this time.
         const ext = '.' + file.name.split('.').pop().toLowerCase();
         if (!IMAGE_EXTS.has(ext) && _presignAvailable !== false) {
           const presignRes = await fetch(endpoint, {
@@ -218,20 +225,30 @@
           if (presignRes.ok) {
             const { presignedUrl, publicUrl } = await presignRes.json();
             if (presignedUrl && publicUrl) {
-              _presignAvailable = true;
-              if (onProgress) onProgress(0, 1);
-              const putRes = await fetch(presignedUrl, {
-                method: 'PUT',
-                body: file,
-                headers: { 'Content-Type': file.type || 'application/octet-stream' },
-              });
-              if (!putRes.ok) throw new Error(`Direct upload to storage failed (${putRes.status})`);
-              if (onProgress) onProgress(1, 1);
-              return publicUrl;
+              try {
+                if (onProgress) onProgress(0, 1);
+                const putRes = await fetch(presignedUrl, {
+                  method: 'PUT',
+                  body: file,
+                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                });
+                if (!putRes.ok) throw new Error(`PUT failed (${putRes.status})`);
+                // Success — cache for future uploads
+                _presignAvailable = true;
+                if (onProgress) onProgress(1, 1);
+                return publicUrl;
+              } catch (_putErr) {
+                // PUT failed (CORS not configured, connection reset, etc.)
+                // Leave _presignAvailable as null — it will re-probe next upload, so once
+                // CORS is set up the fast path activates automatically.
+                // Fall through to chunked upload below.
+              }
             }
+          } else {
+            // Server returned non-ok — FTP backend or R2 not configured.
+            // Skip presign permanently for this page session.
+            _presignAvailable = false;
           }
-          // Server returned non-ok (e.g. FTP backend) — use chunked path from here on
-          _presignAvailable = false;
         }
 
         // Chunked upload through Netlify (FTP backend, or images)
