@@ -5,8 +5,12 @@ const config = require('../dbConfig');
 
 const normalizePath = (value) => String(value || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
+const getS3Endpoint = () =>
+  process.env.S3_ENDPOINT ||
+  (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null);
+
 const hasR2Config = () => Boolean(
-  process.env.R2_ACCOUNT_ID &&
+  getS3Endpoint() &&
   process.env.R2_ACCESS_KEY_ID &&
   process.env.R2_SECRET_ACCESS_KEY &&
   process.env.R2_BUCKET_NAME &&
@@ -89,8 +93,8 @@ const writeToFtp = async (tracks) => {
 const readFromR2 = async () => {
   const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
   const client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    region: process.env.S3_REGION || 'auto',
+    endpoint: getS3Endpoint(),
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
@@ -114,8 +118,8 @@ const readFromR2 = async () => {
 const writeToR2 = async (tracks) => {
   const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
   const client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    region: process.env.S3_REGION || 'auto',
+    endpoint: getS3Endpoint(),
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
