@@ -33,10 +33,7 @@
       margin-bottom: 0.5rem;
     }
 
-    header p {
-      color: #888;
-      font-size: 1rem;
-    }
+    header p { color: #888; font-size: 1rem; }
 
     .badge-row {
       display: flex;
@@ -53,13 +50,12 @@
       letter-spacing: 0.03em;
     }
 
-    .badge-free  { background: #1a3a1a; color: #4ade80; border: 1px solid #2d6e2d; }
-    .badge-time  { background: #1a1a3a; color: #818cf8; border: 1px solid #3730a3; }
-    .badge-nocode { background: #2a1a10; color: #fb923c; border: 1px solid #7c3a10; }
+    .badge-green  { background: #1a3a1a; color: #4ade80; border: 1px solid #2d6e2d; }
+    .badge-purple { background: #1a1a3a; color: #818cf8; border: 1px solid #3730a3; }
+    .badge-orange { background: #2a1a10; color: #fb923c; border: 1px solid #7c3a10; }
 
-    .phase {
-      margin-bottom: 3.5rem;
-    }
+    /* ── phases ── */
+    .phase { margin-bottom: 3.5rem; }
 
     .phase-header {
       display: flex;
@@ -83,33 +79,19 @@
       flex-shrink: 0;
     }
 
-    .phase-title {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: #fff;
-    }
+    .phase-title { font-size: 1.2rem; font-weight: 600; color: #fff; }
+    .phase-subtitle { font-size: 0.85rem; color: #666; }
 
-    .phase-subtitle {
-      font-size: 0.85rem;
-      color: #666;
-    }
-
+    /* ── linear steps ── */
     .steps {
       display: flex;
       flex-direction: column;
-      gap: 0;
       padding-left: 1.1rem;
       border-left: 2px solid #222;
     }
 
-    .step {
-      position: relative;
-      padding: 0 0 2rem 1.75rem;
-    }
-
-    .step:last-child {
-      padding-bottom: 0;
-    }
+    .step { position: relative; padding: 0 0 2rem 1.75rem; }
+    .step:last-child { padding-bottom: 0; }
 
     .step::before {
       content: '';
@@ -132,29 +114,142 @@
       margin-bottom: 0.2rem;
     }
 
-    .step h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #e8e8e8;
-      margin-bottom: 0.4rem;
+    .step h3 { font-size: 1rem; font-weight: 600; color: #e8e8e8; margin-bottom: 0.4rem; }
+    .step p { font-size: 0.9rem; color: #aaa; }
+    .step p + p { margin-top: 0.5rem; }
+    .step a { color: #a78bfa; text-decoration: none; }
+    .step a:hover { text-decoration: underline; }
+
+    /* ── collapsible options ── */
+    .option-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
 
-    .step p {
-      font-size: 0.9rem;
+    details.option {
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    details.option[open] {
+      border-color: #3a3560;
+    }
+
+    details.option summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      list-style: none;
+      background: #141414;
+      user-select: none;
+    }
+
+    details.option summary::-webkit-details-marker { display: none; }
+
+    details.option[open] summary {
+      background: #16142a;
+      border-bottom: 1px solid #2a2a40;
+    }
+
+    .option-summary-left { flex: 1; min-width: 0; }
+
+    .option-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.2rem;
+    }
+
+    .option-desc {
+      font-size: 0.82rem;
+      color: #777;
+      margin-top: 0.35rem;
+    }
+
+    .option-tags {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-top: 0.35rem;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+    }
+
+    .tag-green  { background: #1a3a1a; color: #4ade80; border: 1px solid #2d6e2d; }
+    .tag-blue   { background: #0f1f30; color: #67c5f5; border: 1px solid #1a4060; }
+    .tag-amber  { background: #1f1500; color: #fbbf24; border: 1px solid #4a3000; }
+    .tag-purple { background: #1a1a3a; color: #a78bfa; border: 1px solid #3730a3; }
+
+    .option-arrow {
+      font-size: 0.8rem;
+      color: #555;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+
+    details.option[open] .option-arrow { transform: rotate(180deg); }
+
+    .option-body {
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .option-body .substep h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e8e8e8;
+      margin-bottom: 0.35rem;
+    }
+
+    .option-body .substep p {
+      font-size: 0.88rem;
       color: #aaa;
     }
 
-    .step p + p {
-      margin-top: 0.5rem;
+    .option-body .substep p + p { margin-top: 0.4rem; }
+
+    .option-body .substep a { color: #a78bfa; text-decoration: none; }
+    .option-body .substep a:hover { text-decoration: underline; }
+
+    .substep-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #555;
+      margin-bottom: 0.15rem;
     }
 
-    .step a {
-      color: #a78bfa;
-      text-decoration: none;
+    .netlify-vars {
+      background: #0d0d1a;
+      border: 1px solid #2a2a50;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
     }
 
-    .step a:hover { text-decoration: underline; }
+    .netlify-vars-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #6060aa;
+      margin-bottom: 0.75rem;
+    }
 
+    /* ── shared elements ── */
     code {
       font-family: ui-monospace, 'Cascadia Code', monospace;
       font-size: 0.82em;
@@ -205,24 +300,23 @@
     .env-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 0.75rem;
-      font-size: 0.84rem;
+      font-size: 0.83rem;
     }
 
     .env-table th {
       text-align: left;
-      padding: 0.5rem 0.75rem;
+      padding: 0.45rem 0.7rem;
       background: #1a1a1a;
       color: #666;
       font-weight: 600;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       border-bottom: 1px solid #2a2a2a;
     }
 
     .env-table td {
-      padding: 0.5rem 0.75rem;
+      padding: 0.45rem 0.7rem;
       border-bottom: 1px solid #1e1e1e;
       vertical-align: top;
     }
@@ -230,7 +324,7 @@
     .env-table td:first-child {
       font-family: ui-monospace, monospace;
       color: #f0abfc;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       white-space: nowrap;
     }
 
@@ -275,16 +369,8 @@
       margin-top: 3rem;
     }
 
-    .done-box h2 {
-      font-size: 1.3rem;
-      color: #4ade80;
-      margin-bottom: 0.5rem;
-    }
-
-    .done-box p {
-      color: #6a9a6a;
-      font-size: 0.9rem;
-    }
+    .done-box h2 { font-size: 1.3rem; color: #4ade80; margin-bottom: 0.5rem; }
+    .done-box p { color: #6a9a6a; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -292,11 +378,11 @@
 
   <header>
     <h1>Deploy Your Music Streaming App</h1>
-    <p>Three free accounts. No domain needed. No terminal. About 20 minutes.</p>
+    <p>Free accounts. No terminal. About 20–30 minutes depending on your storage choice.</p>
     <div class="badge-row">
-      <span class="badge badge-nocode">No terminal required</span>
-      <span class="badge badge-free">No domain required</span>
-      <span class="badge badge-time">~20 minutes</span>
+      <span class="badge badge-orange">No terminal required</span>
+      <span class="badge badge-green">Free tier options</span>
+      <span class="badge badge-purple">~20–30 minutes</span>
     </div>
   </header>
 
@@ -311,20 +397,17 @@
     </div>
 
     <div class="steps">
-
       <div class="step">
         <div class="step-label">Step 1</div>
         <h3>Create a free GitHub account</h3>
-        <p>Go to <a href="https://github.com" target="_blank">github.com</a> and click <span class="ui-action">Sign up</span>. Use any email address. The free plan is all you need.</p>
+        <p>Go to <a href="https://github.com" target="_blank">github.com</a> and click <span class="ui-action">Sign up</span>. The free plan is all you need.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 2</div>
         <h3>Fork the app repository</h3>
-        <p>Go to <a href="https://github.com/simonindelicate/Full-generic-music-streaming-app" target="_blank">the app's GitHub page</a> and click the <span class="ui-action">Fork</span> button near the top-right of the page.</p>
-        <p>Leave all settings as they are and click <span class="ui-action">Create fork</span>. GitHub will copy the entire app into your account.</p>
+        <p>Go to <a href="https://github.com/simonindelicate/Full-generic-music-streaming-app" target="_blank">the app's GitHub page</a> and click <span class="ui-action">Fork</span> near the top-right, then <span class="ui-action">Create fork</span>. GitHub copies the entire app into your account.</p>
       </div>
-
     </div>
   </div>
 
@@ -333,66 +416,252 @@
     <div class="phase-header">
       <div class="phase-number">2</div>
       <div>
-        <div class="phase-title">Backblaze B2 — free audio storage</div>
-        <div class="phase-subtitle">No credit card needed. 10 GB free. Files stream directly to listeners.</div>
+        <div class="phase-title">Storage — choose one option</div>
+        <div class="phase-subtitle">Complete all the steps inside your chosen option, then move to Phase 3.</div>
       </div>
     </div>
 
-    <div class="steps">
+    <div class="option-list">
 
-      <div class="step">
-        <div class="step-label">Step 3</div>
-        <h3>Create a free Backblaze account</h3>
-        <p>Go to <a href="https://www.backblaze.com/sign-up/cloud-storage" target="_blank">backblaze.com</a> and sign up. No credit card is required for the free tier.</p>
-      </div>
+      <!-- ══ OPTION A: BACKBLAZE B2 ══ -->
+      <details class="option" open>
+        <summary>
+          <div class="option-summary-left">
+            <div class="option-name">Backblaze B2</div>
+            <div class="option-tags">
+              <span class="tag tag-green">Recommended</span>
+              <span class="tag tag-blue">No credit card</span>
+              <span class="tag tag-blue">No domain needed</span>
+            </div>
+            <div class="option-desc">Free to sign up. 10 GB free storage. No domain or credit card required. Very cheap beyond the free tier ($0.01/GB).</div>
+          </div>
+          <div class="option-arrow">▼</div>
+        </summary>
 
-      <div class="step">
-        <div class="step-label">Step 4</div>
-        <h3>Create a storage bucket</h3>
-        <p>In the Backblaze dashboard, click <span class="ui-action">B2 Cloud Storage</span> in the left sidebar, then click <span class="ui-action">Create a Bucket</span>.</p>
-        <p>Give it a name (e.g. <code>my-music</code>). Under <strong>Files in Bucket are</strong>, select <strong>Public</strong>. Leave everything else as-is and click <span class="ui-action">Create a Bucket</span>.</p>
-        <div class="note"><strong>The bucket name must be globally unique</strong> — if your first choice is taken, add a few random characters.</div>
-      </div>
+        <div class="option-body">
 
-      <div class="step">
-        <div class="step-label">Step 5</div>
-        <h3>Note your endpoint and download URL</h3>
-        <p>After creating the bucket, click on it to open it. You'll see two pieces of information you need to save:</p>
-        <table class="env-table">
-          <thead><tr><th>Where to find it</th><th>Looks like</th><th>Save as</th></tr></thead>
-          <tbody>
-            <tr><td>Bucket page → <strong>Endpoint</strong></td><td><code>s3.us-west-004.backblazeb2.com</code></td><td>your S3 Endpoint</td></tr>
-            <tr><td>Bucket page → <strong>Friendly URL</strong></td><td><code>https://f004.backblazeb2.com/file/my-music</code></td><td>your Public Base URL</td></tr>
-          </tbody>
-        </table>
-        <div class="note"><strong>Save both of these.</strong> The numbers (004, etc.) will vary — use whatever your dashboard shows, not these examples.</div>
-      </div>
+          <div class="substep">
+            <div class="substep-label">A · 1</div>
+            <h4>Create a free Backblaze account</h4>
+            <p>Go to <a href="https://www.backblaze.com/sign-up/cloud-storage" target="_blank">backblaze.com</a> and sign up. No credit card is required.</p>
+          </div>
 
-      <div class="step">
-        <div class="step-label">Step 6</div>
-        <h3>Create an application key</h3>
-        <p>In the left sidebar click <span class="ui-action">Application Keys</span>, then <span class="ui-action">Add a New Application Key</span>.</p>
-        <p>Give it any name. Under <strong>Allow access to Bucket(s)</strong>, select your new bucket. Set <strong>Type of Access</strong> to <strong>Read and Write</strong>. Click <span class="ui-action">Create New Key</span>.</p>
-        <p>The next screen shows your key details. <strong>Copy both values now — the secret is only shown once:</strong></p>
-        <table class="env-table">
-          <thead><tr><th>Label on screen</th><th>Save it as</th></tr></thead>
-          <tbody>
-            <tr><td>keyID</td><td>your Access Key ID</td></tr>
-            <tr><td>applicationKey</td><td>your Secret Access Key</td></tr>
-          </tbody>
-        </table>
-        <div class="note"><strong>Paste these into a notes app right now</strong> before clicking away. You cannot retrieve the application key again.</div>
-      </div>
+          <div class="substep">
+            <div class="substep-label">A · 2</div>
+            <h4>Create a storage bucket</h4>
+            <p>In the dashboard, click <span class="ui-action">B2 Cloud Storage</span> in the sidebar, then <span class="ui-action">Create a Bucket</span>. Name it (e.g. <code>my-music</code>). Under <strong>Files in Bucket are</strong> select <strong>Public</strong>. Click <span class="ui-action">Create a Bucket</span>.</p>
+            <div class="note"><strong>The bucket name must be globally unique</strong> across all Backblaze users — add a few random characters if your first choice is taken.</div>
+          </div>
 
-    </div>
-  </div>
+          <div class="substep">
+            <div class="substep-label">A · 3</div>
+            <h4>Save your endpoint and friendly URL</h4>
+            <p>Click on your new bucket. Find and copy two things from the bucket page:</p>
+            <table class="env-table" style="margin-top:0.6rem;">
+              <thead><tr><th>Where to find it</th><th>Looks like</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Endpoint</strong></td><td><code>s3.us-west-004.backblazeb2.com</code></td></tr>
+                <tr><td><strong>Friendly URL</strong></td><td><code>https://f004.backblazeb2.com/file/my-music</code></td></tr>
+              </tbody>
+            </table>
+            <div class="note"><strong>The numbers (004 etc.) will differ for you</strong> — use whatever your dashboard shows.</div>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">A · 4</div>
+            <h4>Create an application key</h4>
+            <p>In the sidebar click <span class="ui-action">Application Keys</span> → <span class="ui-action">Add a New Application Key</span>. Give it any name. Under <strong>Allow access to Bucket(s)</strong> select your bucket. Set <strong>Type of Access</strong> to <strong>Read and Write</strong>. Click <span class="ui-action">Create New Key</span>.</p>
+            <p>You'll see two values. <strong>Copy both now — the application key is only shown once:</strong></p>
+            <table class="env-table" style="margin-top:0.6rem;">
+              <thead><tr><th>Label</th><th>Save it as</th></tr></thead>
+              <tbody>
+                <tr><td>keyID</td><td>your Access Key ID</td></tr>
+                <tr><td>applicationKey</td><td>your Secret Access Key</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="netlify-vars">
+            <div class="netlify-vars-title">Environment variables to add in Netlify (Step 5)</div>
+            <table class="env-table">
+              <thead><tr><th>Name (type exactly)</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>S3_ENDPOINT</td><td>Your endpoint with <code>https://</code> — e.g. <code>https://s3.us-west-004.backblazeb2.com</code></td></tr>
+                <tr><td>S3_REGION</td><td>The region part of the endpoint — e.g. <code>us-west-004</code></td></tr>
+                <tr><td>R2_ACCESS_KEY_ID</td><td>keyID from step A·4</td></tr>
+                <tr><td>R2_SECRET_ACCESS_KEY</td><td>applicationKey from step A·4</td></tr>
+                <tr><td>R2_BUCKET_NAME</td><td>Your bucket name, e.g. <code>my-music</code></td></tr>
+                <tr><td>R2_PUBLIC_BASE_URL</td><td>Your Friendly URL, e.g. <code>https://f004.backblazeb2.com/file/my-music</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- ══ OPTION B: CLOUDFLARE R2 ══ -->
+      <details class="option">
+        <summary>
+          <div class="option-summary-left">
+            <div class="option-name">Cloudflare R2</div>
+            <div class="option-tags">
+              <span class="tag tag-purple">Best performance</span>
+              <span class="tag tag-amber">Credit card required</span>
+              <span class="tag tag-amber">Domain required</span>
+            </div>
+            <div class="option-desc">Truly zero egress fees. Best global performance. Requires a domain on Cloudflare and a payment card on your account (you won't be charged within the free tier).</div>
+          </div>
+          <div class="option-arrow">▼</div>
+        </summary>
+
+        <div class="option-body">
+
+          <div class="substep">
+            <div class="substep-label">B · 1</div>
+            <h4>Create a free Cloudflare account</h4>
+            <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and sign up. You will need to add a payment card to activate R2 — even on the free tier. You won't be charged unless you exceed the free limits (10 GB storage, 10 million reads/month, unlimited data transfer).</p>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">B · 2</div>
+            <h4>Add your domain to Cloudflare</h4>
+            <p>In the dashboard click <span class="ui-action">Add a domain</span>. Enter your domain and choose the <strong>Free</strong> plan. Cloudflare will show you two nameserver addresses — copy them.</p>
+            <p>Log in to wherever you bought your domain and replace the existing nameservers with the two Cloudflare ones. Save the change. Cloudflare will email you when propagation is complete (usually minutes to a couple of hours).</p>
+            <div class="tip"><strong>Already using Cloudflare for your domain?</strong> Skip to B·3.</div>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">B · 3</div>
+            <h4>Create a storage bucket</h4>
+            <p>In the sidebar go to <strong>Storage &amp; Databases</strong> → <span class="ui-action">R2 Object Storage</span> → <span class="ui-action">Create bucket</span>. Name it (e.g. <code>music</code>) and click <span class="ui-action">Create bucket</span>.</p>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">B · 4</div>
+            <h4>Connect your domain to the bucket</h4>
+            <p>Open the bucket → <span class="ui-action">Settings</span> tab → scroll to <strong>Public Access → Custom Domains</strong> → <span class="ui-action">Connect Domain</span>.</p>
+            <p>Enter a subdomain, e.g. <code>cdn.yourdomain.com</code>. Click <span class="ui-action">Continue</span>, review the record, then <span class="ui-action">Connect Domain</span>. Wait for the status to show <em>Active</em>.</p>
+            <p><strong>Copy and save the full custom domain URL</strong>, e.g. <code>https://cdn.yourdomain.com</code>.</p>
+            <div class="note"><strong>This step requires your domain to already be on Cloudflare's nameservers</strong> (step B·2). If it isn't active yet, wait and come back.</div>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">B · 5</div>
+            <h4>Get your Account ID</h4>
+            <p>Navigate back to <span class="ui-action">R2 Object Storage</span> in the sidebar. On the right find the <strong>Account Details</strong> box — copy your <strong>Account ID</strong>.</p>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">B · 6</div>
+            <h4>Create an API token</h4>
+            <p>In the Account Details box click <span class="ui-action">Manage</span> next to <strong>API Tokens</strong> → <span class="ui-action">Create API token</span>. Set permissions to <strong>Object Read &amp; Write</strong>. Click <span class="ui-action">Create API token</span>.</p>
+            <p>Copy both values — <strong>the secret is only shown once:</strong></p>
+            <table class="env-table" style="margin-top:0.6rem;">
+              <thead><tr><th>Label</th><th>Save it as</th></tr></thead>
+              <tbody>
+                <tr><td>Access Key ID</td><td>your Access Key</td></tr>
+                <tr><td>Secret Access Key</td><td>your Secret</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="netlify-vars">
+            <div class="netlify-vars-title">Environment variables to add in Netlify (Step 5)</div>
+            <table class="env-table">
+              <thead><tr><th>Name (type exactly)</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>R2_ACCOUNT_ID</td><td>Your Account ID from step B·5</td></tr>
+                <tr><td>R2_ACCESS_KEY_ID</td><td>Access Key ID from step B·6</td></tr>
+                <tr><td>R2_SECRET_ACCESS_KEY</td><td>Secret Access Key from step B·6</td></tr>
+                <tr><td>R2_BUCKET_NAME</td><td>Your bucket name, e.g. <code>music</code></td></tr>
+                <tr><td>R2_PUBLIC_BASE_URL</td><td>Your custom domain from step B·4, e.g. <code>https://cdn.yourdomain.com</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- ══ OPTION C: FTP ══ -->
+      <details class="option">
+        <summary>
+          <div class="option-summary-left">
+            <div class="option-name">FTP / Web Hosting</div>
+            <div class="option-tags">
+              <span class="tag tag-blue">If you already have hosting</span>
+              <span class="tag tag-amber">Paid hosting required</span>
+            </div>
+            <div class="option-desc">Use your existing web host's file storage. Good if you already pay for shared hosting. No special storage account needed.</div>
+          </div>
+          <div class="option-arrow">▼</div>
+        </summary>
+
+        <div class="option-body">
+
+          <div class="substep">
+            <div class="substep-label">C · 1</div>
+            <h4>Get a web hosting account with FTP access</h4>
+            <p>You need a standard shared hosting plan that gives you FTP access and a web-accessible file directory. Most shared hosts work. <a href="https://www.hostinger.com/web-hosting" target="_blank">Hostinger</a> is a reasonable choice — their shared hosting starts at a few dollars a month and includes FTP, a domain, and a straightforward control panel (hPanel).</p>
+            <p>If you already have a host with FTP access, skip ahead to C·2.</p>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">C · 2</div>
+            <h4>Find your FTP credentials</h4>
+            <p>Log into your host's control panel and look for an <strong>FTP Accounts</strong> or <strong>File Manager</strong> section. You need:</p>
+            <table class="env-table" style="margin-top:0.6rem;">
+              <thead><tr><th>What you need</th><th>Where to find it</th></tr></thead>
+              <tbody>
+                <tr><td>FTP hostname</td><td>Usually your domain name or something like <code>ftp.yourdomain.com</code> — shown in your host's FTP settings</td></tr>
+                <tr><td>FTP username</td><td>Your FTP account username</td></tr>
+                <tr><td>FTP password</td><td>Your FTP password</td></tr>
+              </tbody>
+            </table>
+            <div class="note"><strong>Hostinger users:</strong> go to hPanel → <span class="ui-action">Files</span> → <span class="ui-action">FTP Accounts</span>. Your FTP hostname is shown there. You can set an FTP password on that page if you haven't already.</div>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">C · 3</div>
+            <h4>Note your public uploads URL</h4>
+            <p>Audio files will be uploaded into a folder on your hosting (the app uses <code>uploads/</code> by default, sitting inside your public web root). You need the public URL that corresponds to that folder.</p>
+            <p>For most hosts this is simply <code>https://yourdomain.com/uploads</code>. Check that this URL is accessible in a browser — if it shows a directory listing or a blank page rather than a 404, you're good.</p>
+            <div class="note"><strong>The folder doesn't need to exist yet</strong> — the app creates it automatically on first upload.</div>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">C · 4</div>
+            <h4>Check whether your host uses FTPS</h4>
+            <p>Some hosts require a secure FTP connection (FTPS). Your host's FTP settings page will tell you. If it says <strong>Explicit TLS</strong> or <strong>FTPS</strong>, you'll need to set <code>FTP_SECURE=true</code> below.</p>
+          </div>
+
+          <div class="netlify-vars">
+            <div class="netlify-vars-title">Environment variables to add in Netlify (Step 5)</div>
+            <table class="env-table">
+              <thead><tr><th>Name (type exactly)</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>FTP_HOST</td><td>Your FTP hostname, e.g. <code>ftp.yourdomain.com</code></td></tr>
+                <tr><td>FTP_USER</td><td>Your FTP username</td></tr>
+                <tr><td>FTP_PASSWORD</td><td>Your FTP password</td></tr>
+                <tr><td>FTP_PUBLIC_BASE_URL</td><td>The public URL to your uploads folder, e.g. <code>https://yourdomain.com/uploads</code></td></tr>
+                <tr><td>FTP_BASE_PATH</td><td>The path to your uploads folder on the server, e.g. <code>public_html/uploads</code> — ask your host if unsure</td></tr>
+                <tr><td>FTP_SECURE</td><td><code>true</code> if your host uses FTPS, otherwise <code>false</code></td></tr>
+              </tbody>
+            </table>
+            <div class="note" style="margin-top:0.75rem;"><strong>FTP_BASE_PATH</strong> is the server-side folder path, not a URL. On Hostinger it is typically <code>public_html/uploads</code>. On other hosts it might just be <code>uploads</code> or <code>www/uploads</code> — check your host's file manager to confirm where your public web root is.</div>
+          </div>
+
+        </div>
+      </details>
+
+    </div><!-- /option-list -->
+  </div><!-- /phase 2 -->
 
   <!-- ── PHASE 3 ── -->
   <div class="phase">
     <div class="phase-header">
       <div class="phase-number">3</div>
       <div>
-        <div class="phase-title">Netlify — publish your app to the internet</div>
+        <div class="phase-title">Netlify — publish your app</div>
         <div class="phase-subtitle">Netlify connects to GitHub and deploys automatically.</div>
       </div>
     </div>
@@ -400,40 +669,35 @@
     <div class="steps">
 
       <div class="step">
-        <div class="step-label">Step 7</div>
+        <div class="step-label">Step 3</div>
         <h3>Create a free Netlify account</h3>
         <p>Go to <a href="https://netlify.com" target="_blank">netlify.com</a> and click <span class="ui-action">Sign up</span>. Choose <span class="ui-action">Sign up with GitHub</span> — this connects the two accounts in one click.</p>
       </div>
 
       <div class="step">
-        <div class="step-label">Step 8</div>
+        <div class="step-label">Step 4</div>
         <h3>Import your GitHub repository</h3>
-        <p>Click <span class="ui-action">Add new site</span> → <span class="ui-action">Import an existing project</span> → <span class="ui-action">Deploy with GitHub</span>. Authorize Netlify when prompted, then select your forked <code>Full-generic-music-streaming-app</code> repository. Netlify reads the <code>netlify.toml</code> file automatically — don't change any build settings.</p>
+        <p>Click <span class="ui-action">Add new site</span> → <span class="ui-action">Import an existing project</span> → <span class="ui-action">Deploy with GitHub</span>. Authorize Netlify, then select your forked <code>Full-generic-music-streaming-app</code> repository. Netlify reads <code>netlify.toml</code> automatically — don't change any build settings.</p>
       </div>
 
       <div class="step">
-        <div class="step-label">Step 9</div>
-        <h3>Add your keys</h3>
-        <p>Before clicking deploy, click <span class="ui-action">Add environment variables</span> and add each of the following:</p>
-        <table class="env-table">
+        <div class="step-label">Step 5</div>
+        <h3>Add your environment variables</h3>
+        <p>Before clicking deploy, click <span class="ui-action">Add environment variables</span>. Add all the variables from the storage option you chose in Phase 2 — the table is at the bottom of that section.</p>
+        <p>Then add one more that applies to all options:</p>
+        <table class="env-table" style="margin-top:0.6rem;">
           <thead><tr><th>Name (type exactly)</th><th>Value</th></tr></thead>
           <tbody>
-            <tr><td>S3_ENDPOINT</td><td>Your endpoint from Step 5, with <code>https://</code> — e.g. <code>https://s3.us-west-004.backblazeb2.com</code></td></tr>
-            <tr><td>S3_REGION</td><td>The region part of your endpoint — e.g. <code>us-west-004</code></td></tr>
-            <tr><td>R2_ACCESS_KEY_ID</td><td>keyID from Step 6</td></tr>
-            <tr><td>R2_SECRET_ACCESS_KEY</td><td>applicationKey from Step 6</td></tr>
-            <tr><td>R2_BUCKET_NAME</td><td>Your bucket name from Step 4, e.g. <code>my-music</code></td></tr>
-            <tr><td>R2_PUBLIC_BASE_URL</td><td>Your Friendly URL from Step 5, e.g. <code>https://f004.backblazeb2.com/file/my-music</code></td></tr>
             <tr><td>ADMIN_API_TOKEN</td><td>Make up any long string of random characters — this is your admin password</td></tr>
           </tbody>
         </table>
-        <div class="note"><strong>Variable names are case-sensitive.</strong> A typo here is the most common reason uploads fail.</div>
+        <div class="note"><strong>Variable names are case-sensitive.</strong> A typo is the most common reason uploads fail.</div>
       </div>
 
       <div class="step">
-        <div class="step-label">Step 10</div>
+        <div class="step-label">Step 6</div>
         <h3>Deploy</h3>
-        <p>Click <span class="ui-action">Deploy site</span>. Netlify will build and publish your app in about a minute. When it finishes you'll see a green <strong>Published</strong> status and a live link like <code>https://your-app-name.netlify.app</code>.</p>
+        <p>Click <span class="ui-action">Deploy site</span>. Netlify builds and publishes your app in about a minute. When it finishes you'll see a green <strong>Published</strong> status and a live link like <code>https://your-app-name.netlify.app</code>.</p>
         <div class="tip"><strong>That's it for setup.</strong> You manage everything — uploading music, editing settings — through the app's admin panel. You don't need to touch GitHub again.</div>
       </div>
 
@@ -452,14 +716,14 @@
 
     <ul class="checklist">
       <li>Open your Netlify URL — the app loads</li>
-      <li>Log in to the admin panel using the <code>ADMIN_API_TOKEN</code> you set in Step 9</li>
+      <li>Log in to the admin panel using the <code>ADMIN_API_TOKEN</code> you set in Step 5</li>
       <li>Upload a song through the admin upload screen</li>
-      <li>Open your B2 bucket in Backblaze and confirm the file appears</li>
+      <li>Check your storage (Backblaze / Cloudflare / hosting file manager) and confirm the file is there</li>
       <li>Press play — the audio streams without errors</li>
     </ul>
 
     <div class="note" style="margin-top:1.25rem;">
-      <strong>If uploads fail:</strong> go to Netlify → <span class="ui-action">Site configuration</span> → <span class="ui-action">Environment variables</span> and double-check every value — especially <code>S3_ENDPOINT</code> (must include <code>https://</code>) and <code>R2_PUBLIC_BASE_URL</code> (must be the Friendly URL, not the endpoint). After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
+      <strong>If uploads fail:</strong> go to Netlify → <span class="ui-action">Site configuration</span> → <span class="ui-action">Environment variables</span>, double-check every value against the table in your chosen storage option, then go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
     </div>
   </div>
 
@@ -470,22 +734,18 @@
       <div class="phase-number" style="color:#4ade80; border-color:#2d6e2d;">$</div>
       <div>
         <div class="phase-title">What this costs</div>
-        <div class="phase-subtitle">Nothing, for any realistic independent artist</div>
       </div>
     </div>
 
     <table class="env-table">
-      <thead><tr><th>Service</th><th>Free tier includes</th></tr></thead>
+      <thead><tr><th>Option</th><th>Ongoing cost</th></tr></thead>
       <tbody>
-        <tr><td>GitHub</td><td>Unlimited repositories</td></tr>
-        <tr><td>Netlify</td><td>100 GB bandwidth/month, 300 build minutes/month</td></tr>
-        <tr><td>Backblaze B2</td><td>10 GB storage free. Download: free up to 3× your monthly stored data (so 2 GB stored = 6 GB/month free = roughly 1,200 full song plays). After that: $0.01/GB — one cent per gigabyte.</td></tr>
+        <tr><td>GitHub + Netlify</td><td>Free for both (100 GB Netlify bandwidth/month)</td></tr>
+        <tr><td>Backblaze B2</td><td>Free up to 3× your stored data/month in downloads (e.g. 2 GB stored = 6 GB/month free ≈ 1,200 song plays). After that: $0.01/GB. Most artists pay nothing.</td></tr>
+        <tr><td>Cloudflare R2</td><td>Free within limits (10 GB storage, 10 M reads/month, unlimited transfer). Domain costs ~$8–12/year.</td></tr>
+        <tr><td>FTP / hosting</td><td>Whatever your hosting plan costs — typically $3–8/month. May include a domain.</td></tr>
       </tbody>
     </table>
-
-    <div class="note" style="margin-top:1rem;">
-      <strong>In practice:</strong> if you have a 2 GB music catalogue (around 400 songs at average quality) and your listeners collectively stream 6 GB or less per month, your Backblaze bill is $0. At 10,000 plays/month beyond the free tier you'd owe around $0.50. Most independent artists never pay anything.
-    </div>
   </div>
 
   <div class="done-box">
