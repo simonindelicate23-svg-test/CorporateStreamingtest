@@ -99,6 +99,8 @@ const readFromR2 = async () => {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     },
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   try {
     const response = await client.send(new GetObjectCommand({
@@ -124,6 +126,8 @@ const writeToR2 = async (tracks) => {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     },
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   const remotePath = getRemoteJsonPath();
   await client.send(new PutObjectCommand({
