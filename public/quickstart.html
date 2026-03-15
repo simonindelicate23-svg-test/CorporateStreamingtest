@@ -292,11 +292,14 @@
 
   <header>
     <h1>Deploy Your Music Streaming App</h1>
-    <p>Three free accounts. No coding. No terminal. About 20 minutes.</p>
+    <p>Three free accounts. No terminal. About 30 minutes.</p>
     <div class="badge-row">
       <span class="badge badge-nocode">No terminal required</span>
       <span class="badge badge-free">Free tier friendly</span>
-      <span class="badge badge-time">~20 minutes</span>
+      <span class="badge badge-time">~30 minutes</span>
+    </div>
+    <div class="note" style="margin-top:1.25rem;">
+      <strong>You need a domain name</strong> for audio storage to work. A domain costs roughly $8–12/year — it's the only thing in this guide that isn't free. If you don't have one, <a href="https://www.cloudflare.com/products/registrar/" target="_blank">Cloudflare Registrar</a> sells domains at cost with no markup.
     </div>
   </header>
 
@@ -333,46 +336,53 @@
     <div class="phase-header">
       <div class="phase-number">2</div>
       <div>
-        <div class="phase-title">Cloudflare R2 — store your audio files</div>
-        <div class="phase-subtitle">Free to stream — no charge when listeners play your music.</div>
+        <div class="phase-title">Cloudflare — domain and audio storage</div>
+        <div class="phase-subtitle">Cloudflare hosts your audio files and serves them to listeners for free.</div>
       </div>
     </div>
 
     <div class="steps">
 
       <div class="step">
-        <div class="step-label">Step 4</div>
+        <div class="step-label">Step 3</div>
         <h3>Create a free Cloudflare account</h3>
-        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>. You don't need to add a website.</p>
-        <div class="note"><strong>You will need to add a payment card to use R2</strong> — even on the free tier. Cloudflare requires this to activate storage. You won't be charged unless you exceed the generous free limits (10 GB storage, unlimited streaming).</div>
+        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>.</p>
+        <div class="note"><strong>You will need to add a payment card to activate R2 storage</strong> — even on the free tier. You won't be charged unless you exceed the free limits (10 GB storage, 10 million reads/month, unlimited data transfer).</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label">Step 4</div>
+        <h3>Add your domain to Cloudflare</h3>
+        <p>In the Cloudflare dashboard click <span class="ui-action">Add a domain</span>. Enter your domain name and choose the <strong>Free</strong> plan. Cloudflare will scan your DNS records and show you <strong>two nameserver addresses</strong>.</p>
+        <p>Log in to wherever you bought your domain and replace the existing nameservers with the two Cloudflare nameservers. Save the change.</p>
+        <div class="note"><strong>Nameserver changes usually take a few minutes to a couple of hours.</strong> Cloudflare will email you when your domain is active. You can do Steps 5–8 while you wait, but you'll need it active before Step 6 will work.</div>
       </div>
 
       <div class="step">
         <div class="step-label">Step 5</div>
         <h3>Create a storage bucket</h3>
-        <p>In the Cloudflare dashboard, look at the left sidebar and scroll down until you see <strong>Storage &amp; Databases</strong>. Click it to expand the section, then click <span class="ui-action">R2 Object Storage</span>.</p>
-        <p>On the R2 overview page, click <span class="ui-action">Create bucket</span>. Name it something like <code>music-uploads</code>, leave everything else as-is, and click <span class="ui-action">Create bucket</span>.</p>
+        <p>In the sidebar go to <strong>Storage &amp; Databases</strong> → <span class="ui-action">R2 Object Storage</span> → <span class="ui-action">Create bucket</span>. Name it something like <code>music</code>, leave everything else as-is, and click <span class="ui-action">Create bucket</span>.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 6</div>
-        <h3>Make it publicly accessible</h3>
-        <p>Open your new bucket, click the <span class="ui-action">Settings</span> tab, and find the <strong>Public Development URL</strong> section. Click <span class="ui-action">Enable</span>.</p>
-        <p>Cloudflare will show you a URL looking like <code>https://pub-xxxxxxxx.r2.dev</code> — <strong>copy and save this</strong>. You'll need it in Step 11.</p>
+        <h3>Connect your domain to the bucket</h3>
+        <p>Open your bucket, click the <span class="ui-action">Settings</span> tab, scroll to <strong>Public Access → Custom Domains</strong>, and click <span class="ui-action">Connect Domain</span>.</p>
+        <p>Enter a subdomain — for example <code>cdn.yourdomain.com</code>. Click <span class="ui-action">Continue</span>, review the DNS record, then click <span class="ui-action">Connect Domain</span>. Wait for the status to show <em>Active</em> (refresh if needed).</p>
+        <p><strong>Copy and save your full custom domain URL</strong>, e.g. <code>https://cdn.yourdomain.com</code>. You'll need it in Step 11.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 7</div>
         <h3>Get your Account ID</h3>
-        <p>Navigate back to <span class="ui-action">R2 Object Storage</span> in the sidebar to get to the R2 overview page. On the right-hand side you'll see an <strong>Account Details</strong> box containing your <strong>Account ID</strong> — copy and save it.</p>
+        <p>Navigate back to <span class="ui-action">R2 Object Storage</span> in the sidebar. On the right-hand side find the <strong>Account Details</strong> box — copy and save your <strong>Account ID</strong>.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 8</div>
         <h3>Create an API token</h3>
-        <p>Still on the R2 overview page, find the <strong>Account Details</strong> box on the right. Click the <span class="ui-action">Manage</span> button next to <strong>API Tokens</strong>, then click <span class="ui-action">Create API token</span>.</p>
-        <p>Set permissions to <strong>Object Read &amp; Write</strong>. Click <span class="ui-action">Create API token</span>.</p>
-        <p>You'll see two values on the next screen. <strong>Copy both — you won't be able to see them again:</strong></p>
+        <p>Still in the Account Details box, click <span class="ui-action">Manage</span> next to <strong>API Tokens</strong>, then click <span class="ui-action">Create API token</span>. Set permissions to <strong>Object Read &amp; Write</strong> and click <span class="ui-action">Create API token</span>.</p>
+        <p>You'll see two values. <strong>Copy both now — you won't be able to see them again:</strong></p>
         <table class="env-table">
           <thead><tr><th>Label on screen</th><th>Save it as</th></tr></thead>
           <tbody>
@@ -401,40 +411,38 @@
       <div class="step">
         <div class="step-label">Step 9</div>
         <h3>Create a free Netlify account</h3>
-        <p>Go to <a href="https://netlify.com" target="_blank">netlify.com</a> and click <span class="ui-action">Sign up</span>. Choose <span class="ui-action">Sign up with GitHub</span> — this connects the two accounts in one click, no extra setup needed.</p>
+        <p>Go to <a href="https://netlify.com" target="_blank">netlify.com</a> and click <span class="ui-action">Sign up</span>. Choose <span class="ui-action">Sign up with GitHub</span> — this connects the two accounts in one click.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 10</div>
         <h3>Import your GitHub repository</h3>
-        <p>In the Netlify dashboard click <span class="ui-action">Add new site</span> &rarr; <span class="ui-action">Import an existing project</span> &rarr; <span class="ui-action">Deploy with GitHub</span>.</p>
-        <p>Authorize Netlify when prompted, then select your forked <code>Full-generic-music-streaming-app</code> repository from the list. Netlify will read the <code>netlify.toml</code> file and configure everything automatically — don't change any build settings.</p>
+        <p>Click <span class="ui-action">Add new site</span> → <span class="ui-action">Import an existing project</span> → <span class="ui-action">Deploy with GitHub</span>. Authorize Netlify when prompted, then select your forked <code>Full-generic-music-streaming-app</code> repository. Netlify reads the <code>netlify.toml</code> file automatically — don't change any build settings.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 11</div>
         <h3>Add your secret keys</h3>
-        <p>Before clicking deploy, click <span class="ui-action">Add environment variables</span>. Add each of the following — use the values you saved in Steps 7 and 8:</p>
+        <p>Before clicking deploy, click <span class="ui-action">Add environment variables</span> and add each of the following:</p>
         <table class="env-table">
           <thead><tr><th>Name (type exactly)</th><th>Value</th></tr></thead>
           <tbody>
             <tr><td>R2_ACCOUNT_ID</td><td>Your Account ID from Step 7</td></tr>
             <tr><td>R2_ACCESS_KEY_ID</td><td>Access Key ID from Step 8</td></tr>
             <tr><td>R2_SECRET_ACCESS_KEY</td><td>Secret Access Key from Step 8</td></tr>
-            <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music-uploads</code></td></tr>
-            <tr><td>R2_PUBLIC_BASE_URL</td><td>The <code>https://pub-xxx.r2.dev</code> URL from Step 6</td></tr>
-            <tr><td>ADMIN_API_TOKEN</td><td>Make up any long string of random characters — this becomes your admin password</td></tr>
+            <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music</code></td></tr>
+            <tr><td>R2_PUBLIC_BASE_URL</td><td>Your custom domain from Step 6, e.g. <code>https://cdn.yourdomain.com</code></td></tr>
+            <tr><td>ADMIN_API_TOKEN</td><td>Make up any long string of random characters — this is your admin password</td></tr>
           </tbody>
         </table>
-        <div class="note"><strong>The variable names must be typed exactly as shown</strong> — they are case-sensitive. A typo here is the most common reason uploads fail.</div>
+        <div class="note"><strong>Variable names are case-sensitive.</strong> A typo here is the most common reason uploads fail.</div>
       </div>
 
       <div class="step">
         <div class="step-label">Step 12</div>
         <h3>Deploy</h3>
-        <p>Click <span class="ui-action">Deploy site</span>. Netlify will build and publish your app — this takes about a minute.</p>
-        <p>When it finishes you'll see a green <strong>Published</strong> status and a live link like <code>https://your-app-name.netlify.app</code>. That's your app.</p>
-        <div class="tip"><strong>That's it for setup.</strong> Once it's live, you manage everything — uploading music, editing settings — through the app's admin panel. You don't need to touch GitHub again.</div>
+        <p>Click <span class="ui-action">Deploy site</span>. Netlify will build and publish your app in about a minute. When it finishes you'll see a green <strong>Published</strong> status and a live link like <code>https://your-app-name.netlify.app</code>.</p>
+        <div class="tip"><strong>That's it for setup.</strong> You manage everything — uploading music, editing settings — through the app's admin panel. You don't need to touch GitHub again.</div>
       </div>
 
     </div>
@@ -459,7 +467,7 @@
     </ul>
 
     <div class="note" style="margin-top:1.25rem;">
-      <strong>If uploads fail:</strong> go to Netlify &rarr; <span class="ui-action">Site configuration</span> &rarr; <span class="ui-action">Environment variables</span> and double-check every value — especially <code>R2_SECRET_ACCESS_KEY</code> and <code>R2_PUBLIC_BASE_URL</code>. After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
+      <strong>If uploads fail:</strong> go to Netlify → <span class="ui-action">Site configuration</span> → <span class="ui-action">Environment variables</span> and double-check every value. After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
     </div>
   </div>
 
@@ -470,23 +478,24 @@
       <div class="phase-number" style="color:#4ade80; border-color:#2d6e2d;">$</div>
       <div>
         <div class="phase-title">What this costs</div>
-        <div class="phase-subtitle">Almost certainly nothing for an independent artist</div>
+        <div class="phase-subtitle">Almost certainly just the domain for an independent artist</div>
       </div>
     </div>
 
     <table class="env-table">
       <thead><tr><th>Service</th><th>Free tier includes</th></tr></thead>
       <tbody>
-        <tr><td>GitHub</td><td>Unlimited repositories, unlimited file uploads</td></tr>
+        <tr><td>GitHub</td><td>Unlimited repositories</td></tr>
         <tr><td>Netlify</td><td>100 GB bandwidth/month, 300 build minutes/month</td></tr>
-        <tr><td>Cloudflare R2</td><td>10 GB storage, 10 million plays/month — <strong>streaming is always free</strong></td></tr>
+        <tr><td>Cloudflare R2</td><td>10 GB storage, 10 million reads/month, <strong>free data transfer</strong></td></tr>
+        <tr><td>Domain name</td><td>~$8–12/year — the only recurring cost</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="done-box">
     <h2>You're live.</h2>
-    <p>Share your <code>.netlify.app</code> link. Your music is streaming globally, for free.</p>
+    <p>Share your <code>.netlify.app</code> link. Your music is streaming globally.</p>
   </div>
 
 </div>
