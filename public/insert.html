@@ -181,6 +181,7 @@
       /* ── Upload helpers ───────────────────────────────────────── */
       const CHUNK_SIZE = 3 * 1024 * 1024;
       const CHUNK_THRESHOLD = 4 * 1024 * 1024;
+      const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
 
       const readSliceAsBase64 = (blob) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -201,6 +202,41 @@
           return result;
         }
 
+        // For non-image files, request a presigned URL and upload directly to R2.
+        // This bypasses Netlify's body-size limit and function timeout entirely.
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (!IMAGE_EXTS.has(ext)) {
+          try {
+            const presignRes = await fetch(endpoint, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ action: 'presign', fileName: file.name, folder }),
+            });
+            if (presignRes.ok) {
+              const { presignedUrl, publicUrl } = await presignRes.json();
+              if (presignedUrl && publicUrl) {
+                if (onProgress) onProgress(0, 1);
+                const putRes = await fetch(presignedUrl, {
+                  method: 'PUT',
+                  body: file,
+                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                });
+                if (!putRes.ok) throw new Error(`Direct upload failed (${putRes.status})`);
+                if (onProgress) onProgress(1, 1);
+                return publicUrl;
+              }
+            }
+          } catch (err) {
+            // If presign isn't available (e.g. FTP backend), fall through to chunked upload
+            if (err.message && !err.message.startsWith('Direct upload failed')) {
+              // network error on presign request — fall through
+            } else {
+              throw err;
+            }
+          }
+        }
+
+        // Fallback: chunked upload through Netlify (used for images and FTP backend)
         if (file.size <= CHUNK_THRESHOLD) {
           const contentBase64 = await readSliceAsBase64(file);
           const result = await postChunk({ fileName: file.name, contentBase64, folder });
