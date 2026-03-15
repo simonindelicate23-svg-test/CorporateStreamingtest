@@ -109,16 +109,22 @@ const hasFtpConfig = () => Boolean(
   process.env.FTP_PUBLIC_BASE_URL
 );
 
+const getS3Endpoint = () =>
+  process.env.S3_ENDPOINT ||
+  (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null);
+
 async function uploadBufferToR2(buffer, remotePath) {
   const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
   const publicBaseUrl = String(process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
   const client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    region: process.env.S3_REGION || 'auto',
+    endpoint: getS3Endpoint(),
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     },
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   await client.send(new PutObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
