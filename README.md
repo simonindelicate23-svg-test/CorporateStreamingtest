@@ -18,8 +18,38 @@ You need to sign up for a few services before doing anything else. All of the fr
 **What it is:** Netlify runs your website for free. It takes the code from your GitHub account, builds it into a live site, and handles all the technical server stuff. You get a free `your-chosen-name.netlify.app` web address, or you can connect your own domain later.
 **Where to sign up:** [netlify.com](https://netlify.com) → Sign up with your GitHub account (this is the easiest option — it links the two together automatically).
 
-### 3. Web hosting with FTP (paid — roughly £3–8/month)
-**What it is:** Netlify runs the code, but it can't store large files like MP3s. You need a separate place to store your music files and a few small settings files. A basic web hosting package from any provider works — you just need FTP access and a public URL for the files.
+### 3. Somewhere to store your music files — pick one
+
+Netlify runs the code, but it can't store large files like MP3s. You need a separate place to store them. Pick whichever option suits you:
+
+---
+
+#### Option A: Cloudflare R2 (recommended — free up to 10 GB)
+
+Cloudflare R2 is object storage — think of it as a hard drive on the internet. It has a generous free tier and no egress fees.
+
+1. Go to [cloudflare.com](https://cloudflare.com) and sign up (or log in)
+2. In the left sidebar go to **Storage & databases → R2 Object Storage**
+3. Click **Create bucket**, name it (e.g. `music-uploads`), and click **Create bucket** again
+4. **Enable public access on the bucket:**
+   - Open the bucket, click the **Settings** tab
+   - Find **Public Development URL** and click **Enable**
+   - Cloudflare will give you a URL like `https://pub-abc123....r2.dev` — copy it, you'll need it as `R2_PUBLIC_BASE_URL`
+5. **Create an API token:**
+   - Go back to the R2 overview page and click **Manage R2 API tokens** (top-right)
+   - Click **Create API token**
+   - Give it a name, set permissions to **Object Read & Write**, scope it to your bucket
+   - Click **Create API token**
+   - Copy the **Access Key ID** and **Secret Access Key** — you won't see the secret again
+6. Your **Account ID** is in the URL bar of your Cloudflare dashboard: `dash.cloudflare.com/YOUR-ACCOUNT-ID/...`, or in the sidebar under **Account Home → right-hand panel**
+
+You'll set the five R2 variables (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`) in Netlify in Step 3. When all five are present, the app uses R2 automatically and ignores any FTP settings.
+
+---
+
+#### Option B: Web hosting with FTP (paid — roughly £3–8/month)
+
+A basic web hosting package from any provider works — you just need FTP access and a public URL for the files.
 
 **Recommended providers** (any of these work):
 - [IONOS](https://www.ionos.co.uk) — Basic Web Hosting, around £3/month
@@ -102,6 +132,38 @@ Example of the kind of thing to use: `xK9mP2nQr7tL4vWj8cZ6bY3` — but make up y
 
 ---
 
+Then add the variables for whichever storage option you chose:
+
+#### If you chose Cloudflare R2
+
+**`R2_ACCOUNT_ID`**
+Your Cloudflare account ID. Found in the URL bar of your Cloudflare dashboard (`dash.cloudflare.com/YOUR-ACCOUNT-ID/...`) or in the right-hand panel on the Account Home page.
+
+---
+
+**`R2_ACCESS_KEY_ID`**
+The Access Key ID from the R2 API token you created.
+
+---
+
+**`R2_SECRET_ACCESS_KEY`**
+The Secret Access Key from the R2 API token you created.
+
+---
+
+**`R2_BUCKET_NAME`**
+The name you gave your bucket, e.g. `music-uploads`.
+
+---
+
+**`R2_PUBLIC_BASE_URL`**
+The public URL for your bucket. This is the URL Cloudflare showed you when you enabled the **Public Development URL** in bucket Settings — it looks like `https://pub-abc123def456.r2.dev`.
+Do not add a trailing slash.
+
+---
+
+#### If you chose FTP
+
 **`FTP_HOST`**
 The FTP server address from your web hosting provider.
 This will be in the welcome email from your hosting company, or in their control panel.
@@ -128,7 +190,7 @@ Example: `https://yourdomain.com` or `https://yourdomain.com/music`
 
 ---
 
-After adding all five variables, click **Trigger deploy → Deploy site** in Netlify to restart the site with your settings.
+After adding your variables, click **Trigger deploy → Deploy site** in Netlify to restart the site with your settings.
 
 ---
 
@@ -357,7 +419,9 @@ Log in at `/admin/admin-login.html` using your `ADMIN_API_TOKEN`.
 ## Common problems
 
 **"The player loads but I don't see any tracks"**
-Check your `FTP_PUBLIC_BASE_URL`. Go to your hosting provider's file manager and try to open an uploaded MP3 in your browser directly. The URL it has — minus the filename — should match `FTP_PUBLIC_BASE_URL` exactly.
+If you're using **R2:** Check that `R2_PUBLIC_BASE_URL` is the URL from bucket **Settings → Public Development URL** (looks like `https://pub-abc123.r2.dev`). Make sure it has no trailing slash. Also confirm all five `R2_*` variables are set — if any is missing the app falls back to FTP.
+
+If you're using **FTP:** Check your `FTP_PUBLIC_BASE_URL`. Go to your hosting provider's file manager and try to open an uploaded MP3 in your browser directly. The URL it has — minus the filename — should match `FTP_PUBLIC_BASE_URL` exactly.
 
 **"Unauthorized" when logging in to admin**
 The token you're typing must exactly match `ADMIN_API_TOKEN` in Netlify, including case. There are no spaces, no line breaks.
@@ -375,12 +439,29 @@ They need to paste their PayPal Subscription ID into the "Already subscribed? Re
 
 ## Environment variables — complete list
 
-### Required
+### Always required
 
 | Variable | Description |
 |---|---|
 | `APP_BASE_URL` | Your Netlify site URL, e.g. `https://your-site.netlify.app` |
 | `ADMIN_API_TOKEN` | Your admin password — protects all write operations |
+
+### Cloudflare R2 storage (use this or FTP, not both)
+
+When all five R2 variables are set, R2 is used and FTP variables are ignored.
+
+| Variable | Description |
+|---|---|
+| `R2_ACCOUNT_ID` | Your Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | R2 API token — Access Key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 API token — Secret Access Key |
+| `R2_BUCKET_NAME` | Your bucket name, e.g. `music-uploads` |
+| `R2_PUBLIC_BASE_URL` | Public URL from bucket Settings → Public Development URL, e.g. `https://pub-abc123.r2.dev` |
+
+### FTP storage (use this or R2, not both)
+
+| Variable | Description |
+|---|---|
 | `FTP_HOST` | FTP server hostname from your hosting provider |
 | `FTP_USER` | FTP username |
 | `FTP_PASSWORD` | FTP password |
