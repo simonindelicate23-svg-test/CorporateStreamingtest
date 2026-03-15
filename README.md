@@ -43,7 +43,42 @@ Cloudflare R2 is object storage — think of it as a hard drive on the internet.
    - Copy the **Access Key ID** and **Secret Access Key** — you won't see the secret again
 6. Your **Account ID** is in the URL bar of your Cloudflare dashboard: `dash.cloudflare.com/YOUR-ACCOUNT-ID/...`, or in the sidebar under **Account Home → right-hand panel**
 
+7. **Configure CORS on your bucket** — audio files are uploaded directly from the browser to R2, so R2 needs to permit this. In the Cloudflare dashboard open your bucket → **Settings** tab → **CORS Policy** → add:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://your-app.netlify.app"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Replace `https://your-app.netlify.app` with your actual Netlify URL (or custom domain). Save.
+
 You'll set the five R2 variables (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`) in Netlify in Step 3. When all five are present, the app uses R2 automatically and ignores any FTP settings.
+
+---
+
+#### Option A note: Backblaze B2 CORS
+
+Audio files are uploaded directly from the browser to B2. You need to add a CORS rule to your bucket. Use the B2 CLI:
+
+```bash
+b2 update-bucket --cors-rules '[
+  {
+    "corsRuleName": "allowNetlifyUploads",
+    "allowedOrigins": ["https://your-app.netlify.app"],
+    "allowedOperations": ["s3_put"],
+    "allowedHeaders": ["content-type"],
+    "maxAgeSeconds": 3600
+  }
+]' YOUR-BUCKET-NAME allPublic
+```
+
+Install the CLI with `pip install b2` and authenticate with `b2 authorize-account YOUR-KEY-ID YOUR-APP-KEY` first.
 
 ---
 

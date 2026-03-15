@@ -481,6 +481,24 @@
             </table>
           </div>
 
+          <div class="substep">
+            <div class="substep-label">A · 5</div>
+            <h4>Allow your Netlify site to upload directly to B2 (CORS)</h4>
+            <p>Audio files are uploaded from your browser straight to B2, bypassing Netlify's file-size limits. You need to tell B2 your site is allowed to send files.</p>
+            <p>Backblaze B2 CORS rules are set via their API. The easiest way is to use <a href="https://www.backblaze.com/apidocs/b2-update-bucket" target="_blank">the B2 update-bucket API</a> or the <code>b2</code> command-line tool. Run this command (replace the placeholders):</p>
+            <pre style="background:#0a0a1a;border:1px solid #2a2a50;border-radius:6px;padding:0.75rem 1rem;font-size:0.78rem;color:#a5b4fc;overflow-x:auto;margin-top:0.5rem;">b2 update-bucket --cors-rules '[
+  {
+    "corsRuleName": "allowNetlifyUploads",
+    "allowedOrigins": ["https://your-app.netlify.app"],
+    "allowedOperations": ["s3_put"],
+    "allowedHeaders": ["content-type"],
+    "maxAgeSeconds": 3600
+  }
+]' my-music allPublic</pre>
+            <p>Replace <code>https://your-app.netlify.app</code> with your Netlify URL and <code>my-music</code> with your bucket name.</p>
+            <div class="note"><strong>Need to install the b2 CLI?</strong> Run <code>pip install b2</code> then <code>b2 authorize-account YOUR-KEY-ID YOUR-APPLICATION-KEY</code> to log in first.</div>
+          </div>
+
           <div class="netlify-vars">
             <div class="netlify-vars-title">Environment variables to add in Netlify (Step 5)</div>
             <table class="env-table">
@@ -563,6 +581,23 @@
                 <tr><td>Secret Access Key</td><td>your Secret</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="substep">
+            <div class="substep-label">B · 7</div>
+            <h4>Allow your Netlify site to upload directly to R2 (CORS)</h4>
+            <p>Audio files are uploaded from your browser straight to R2, bypassing Netlify's file-size limits. R2 needs to know your site is allowed to do this.</p>
+            <p>Open the bucket → <span class="ui-action">Settings</span> tab → scroll to <strong>CORS Policy</strong> → click <span class="ui-action">Add CORS policy</span> (or edit the existing one). Paste in the following, replacing the URL with your actual Netlify site address:</p>
+            <pre style="background:#0a0a1a;border:1px solid #2a2a50;border-radius:6px;padding:0.75rem 1rem;font-size:0.78rem;color:#a5b4fc;overflow-x:auto;margin-top:0.5rem;">[
+  {
+    "AllowedOrigins": ["https://your-app.netlify.app"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]</pre>
+            <p>Click <span class="ui-action">Save</span>.</p>
+            <div class="note"><strong>Your Netlify URL</strong> is the <code>https://something.netlify.app</code> address from Phase 3. If you've set a custom domain, use that instead.</div>
           </div>
 
           <div class="netlify-vars">

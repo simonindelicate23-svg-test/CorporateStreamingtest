@@ -193,6 +193,31 @@ exports.handler = async (event) => {
   const safeFolder = normalizeSegment(folder) || 'misc';
   const basePath = normalizeSegment(process.env.FTP_BASE_PATH || 'uploads');
 
+  // ---- presign path (client uploads directly to R2, bypassing Netlify) ----
+  if (body.action === 'presign') {
+    if (!hasR2Config()) {
+      return json(400, { message: 'Presigned uploads require R2 storage to be configured', requestId });
+    }
+    const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+    const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+    const client = new S3Client({
+      region: process.env.S3_REGION || 'auto',
+      endpoint: getS3Endpoint(),
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+    });
+    const stamp = Date.now();
+    const remotePath = [basePath, safeFolder, `${stamp}-${safeName}`].filter(Boolean).join('/');
+    const publicBaseUrl = String(process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+    const command = new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: remotePath });
+    const presignedUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
+    return json(200, { presignedUrl, publicUrl: `${publicBaseUrl}/${remotePath}`, requestId });
+  }
+
   // ---- non-chunked path (file was small enough to send whole) ----
   if (contentBase64 !== undefined) {
     if (!safeName || !contentBase64) {
