@@ -343,33 +343,34 @@
       <div class="step">
         <div class="step-label">Step 4</div>
         <h3>Create a free Cloudflare account</h3>
-        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>. You don't need to add a website or a credit card.</p>
+        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>. You don't need to add a website.</p>
+        <div class="note"><strong>You will need to add a payment card to use R2</strong> — even on the free tier. Cloudflare requires this to activate storage. You won't be charged unless you exceed the generous free limits (10 GB storage, unlimited streaming).</div>
       </div>
 
       <div class="step">
         <div class="step-label">Step 5</div>
         <h3>Create a storage bucket</h3>
-        <p>In the Cloudflare dashboard, click <span class="ui-action">R2</span> in the left sidebar, then click <span class="ui-action">Create bucket</span>.</p>
-        <p>Name it something like <code>music-uploads</code>. Leave everything else as-is and click <span class="ui-action">Create bucket</span>.</p>
+        <p>In the Cloudflare dashboard, look at the left sidebar and scroll down until you see <strong>Storage &amp; Databases</strong>. Click it to expand the section, then click <span class="ui-action">R2 Object Storage</span>.</p>
+        <p>On the R2 overview page, click <span class="ui-action">Create bucket</span>. Name it something like <code>music-uploads</code>, leave everything else as-is, and click <span class="ui-action">Create bucket</span>.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 6</div>
         <h3>Make it publicly accessible</h3>
         <p>Open your new bucket, click the <span class="ui-action">Settings</span> tab, scroll down to <strong>Public access</strong>, and click <span class="ui-action">Allow Access</span>.</p>
-        <p>Cloudflare will show you a public URL that looks like <code>https://pub-xxxxxxxx.r2.dev</code> — <strong>copy and save this</strong>. You'll need it in Step 11.</p>
+        <p>Cloudflare will show you a public URL labeled <strong>Public Development URL</strong>, looking like <code>https://pub-xxxxxxxx.r2.dev</code> — <strong>copy and save this</strong>. You'll need it in Step 11.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 7</div>
         <h3>Get your Account ID</h3>
-        <p>Look at the right-hand sidebar on any R2 page. You'll see <strong>Account ID</strong> — copy and save it.</p>
+        <p>Navigate back to <span class="ui-action">R2 Object Storage</span> in the sidebar to get to the R2 overview page. On the right-hand side you'll see an <strong>Account Details</strong> box containing your <strong>Account ID</strong> — copy and save it.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 8</div>
         <h3>Create an API token</h3>
-        <p>On the R2 overview page, click <span class="ui-action">Manage R2 API tokens</span> in the top-right, then <span class="ui-action">Create API token</span>.</p>
+        <p>Still on the R2 overview page, find the <strong>Account Details</strong> box on the right. Click the <span class="ui-action">Manage</span> button next to <strong>API Tokens</strong>, then click <span class="ui-action">Create API token</span>.</p>
         <p>Set permissions to <strong>Object Read &amp; Write</strong>. Click <span class="ui-action">Create API token</span>.</p>
         <p>You'll see two values on the next screen. <strong>Copy both — you won't be able to see them again:</strong></p>
         <table class="env-table">
