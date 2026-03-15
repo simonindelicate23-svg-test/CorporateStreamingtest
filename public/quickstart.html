@@ -292,14 +292,11 @@
 
   <header>
     <h1>Deploy Your Music Streaming App</h1>
-    <p>Three free accounts. No terminal. About 30 minutes.</p>
+    <p>Three free accounts. No domain needed. No terminal. About 20 minutes.</p>
     <div class="badge-row">
       <span class="badge badge-nocode">No terminal required</span>
-      <span class="badge badge-free">Free tier friendly</span>
-      <span class="badge badge-time">~30 minutes</span>
-    </div>
-    <div class="note" style="margin-top:1.25rem;">
-      <strong>You need a domain name</strong> for audio storage to work. A domain costs roughly $8–12/year — it's the only thing in this guide that isn't free. If you don't have one, <a href="https://www.cloudflare.com/products/registrar/" target="_blank">Cloudflare Registrar</a> sells domains at cost with no markup.
+      <span class="badge badge-free">No domain required</span>
+      <span class="badge badge-time">~20 minutes</span>
     </div>
   </header>
 
@@ -325,7 +322,7 @@
         <div class="step-label">Step 2</div>
         <h3>Fork the app repository</h3>
         <p>Go to <a href="https://github.com/simonindelicate/Full-generic-music-streaming-app" target="_blank">the app's GitHub page</a> and click the <span class="ui-action">Fork</span> button near the top-right of the page.</p>
-        <p>Leave all settings as they are and click <span class="ui-action">Create fork</span>. GitHub will copy the entire app into your account — no file uploads needed.</p>
+        <p>Leave all settings as they are and click <span class="ui-action">Create fork</span>. GitHub will copy the entire app into your account.</p>
       </div>
 
     </div>
@@ -336,8 +333,8 @@
     <div class="phase-header">
       <div class="phase-number">2</div>
       <div>
-        <div class="phase-title">Cloudflare — domain and audio storage</div>
-        <div class="phase-subtitle">Cloudflare hosts your audio files and serves them to listeners for free.</div>
+        <div class="phase-title">Backblaze B2 — free audio storage</div>
+        <div class="phase-subtitle">No credit card needed. 10 GB free. Files stream directly to listeners.</div>
       </div>
     </div>
 
@@ -345,52 +342,46 @@
 
       <div class="step">
         <div class="step-label">Step 3</div>
-        <h3>Create a free Cloudflare account</h3>
-        <p>Go to <a href="https://cloudflare.com" target="_blank">cloudflare.com</a> and click <span class="ui-action">Sign up</span>.</p>
-        <div class="note"><strong>You will need to add a payment card to activate R2 storage</strong> — even on the free tier. You won't be charged unless you exceed the free limits (10 GB storage, 10 million reads/month, unlimited data transfer).</div>
+        <h3>Create a free Backblaze account</h3>
+        <p>Go to <a href="https://www.backblaze.com/sign-up/cloud-storage" target="_blank">backblaze.com</a> and sign up. No credit card is required for the free tier.</p>
       </div>
 
       <div class="step">
         <div class="step-label">Step 4</div>
-        <h3>Add your domain to Cloudflare</h3>
-        <p>In the Cloudflare dashboard click <span class="ui-action">Add a domain</span>. Enter your domain name and choose the <strong>Free</strong> plan. Cloudflare will scan your DNS records and show you <strong>two nameserver addresses</strong>.</p>
-        <p>Log in to wherever you bought your domain and replace the existing nameservers with the two Cloudflare nameservers. Save the change.</p>
-        <div class="note"><strong>Nameserver changes usually take a few minutes to a couple of hours.</strong> Cloudflare will email you when your domain is active. You can do Steps 5–8 while you wait, but you'll need it active before Step 6 will work.</div>
+        <h3>Create a storage bucket</h3>
+        <p>In the Backblaze dashboard, click <span class="ui-action">B2 Cloud Storage</span> in the left sidebar, then click <span class="ui-action">Create a Bucket</span>.</p>
+        <p>Give it a name (e.g. <code>my-music</code>). Under <strong>Files in Bucket are</strong>, select <strong>Public</strong>. Leave everything else as-is and click <span class="ui-action">Create a Bucket</span>.</p>
+        <div class="note"><strong>The bucket name must be globally unique</strong> — if your first choice is taken, add a few random characters.</div>
       </div>
 
       <div class="step">
         <div class="step-label">Step 5</div>
-        <h3>Create a storage bucket</h3>
-        <p>In the sidebar go to <strong>Storage &amp; Databases</strong> → <span class="ui-action">R2 Object Storage</span> → <span class="ui-action">Create bucket</span>. Name it something like <code>music</code>, leave everything else as-is, and click <span class="ui-action">Create bucket</span>.</p>
+        <h3>Note your endpoint and download URL</h3>
+        <p>After creating the bucket, click on it to open it. You'll see two pieces of information you need to save:</p>
+        <table class="env-table">
+          <thead><tr><th>Where to find it</th><th>Looks like</th><th>Save as</th></tr></thead>
+          <tbody>
+            <tr><td>Bucket page → <strong>Endpoint</strong></td><td><code>s3.us-west-004.backblazeb2.com</code></td><td>your S3 Endpoint</td></tr>
+            <tr><td>Bucket page → <strong>Friendly URL</strong></td><td><code>https://f004.backblazeb2.com/file/my-music</code></td><td>your Public Base URL</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Save both of these.</strong> The numbers (004, etc.) will vary — use whatever your dashboard shows, not these examples.</div>
       </div>
 
       <div class="step">
         <div class="step-label">Step 6</div>
-        <h3>Connect your domain to the bucket</h3>
-        <p>Open your bucket, click the <span class="ui-action">Settings</span> tab, scroll to <strong>Public Access → Custom Domains</strong>, and click <span class="ui-action">Connect Domain</span>.</p>
-        <p>Enter a subdomain — for example <code>cdn.yourdomain.com</code>. Click <span class="ui-action">Continue</span>, review the DNS record, then click <span class="ui-action">Connect Domain</span>. Wait for the status to show <em>Active</em> (refresh if needed).</p>
-        <p><strong>Copy and save your full custom domain URL</strong>, e.g. <code>https://cdn.yourdomain.com</code>. You'll need it in Step 11.</p>
-      </div>
-
-      <div class="step">
-        <div class="step-label">Step 7</div>
-        <h3>Get your Account ID</h3>
-        <p>Navigate back to <span class="ui-action">R2 Object Storage</span> in the sidebar. On the right-hand side find the <strong>Account Details</strong> box — copy and save your <strong>Account ID</strong>.</p>
-      </div>
-
-      <div class="step">
-        <div class="step-label">Step 8</div>
-        <h3>Create an API token</h3>
-        <p>Still in the Account Details box, click <span class="ui-action">Manage</span> next to <strong>API Tokens</strong>, then click <span class="ui-action">Create API token</span>. Set permissions to <strong>Object Read &amp; Write</strong> and click <span class="ui-action">Create API token</span>.</p>
-        <p>You'll see two values. <strong>Copy both now — you won't be able to see them again:</strong></p>
+        <h3>Create an application key</h3>
+        <p>In the left sidebar click <span class="ui-action">Application Keys</span>, then <span class="ui-action">Add a New Application Key</span>.</p>
+        <p>Give it any name. Under <strong>Allow access to Bucket(s)</strong>, select your new bucket. Set <strong>Type of Access</strong> to <strong>Read and Write</strong>. Click <span class="ui-action">Create New Key</span>.</p>
+        <p>The next screen shows your key details. <strong>Copy both values now — the secret is only shown once:</strong></p>
         <table class="env-table">
           <thead><tr><th>Label on screen</th><th>Save it as</th></tr></thead>
           <tbody>
-            <tr><td>Access Key ID</td><td>your R2 Access Key</td></tr>
-            <tr><td>Secret Access Key</td><td>your R2 Secret</td></tr>
+            <tr><td>keyID</td><td>your Access Key ID</td></tr>
+            <tr><td>applicationKey</td><td>your Secret Access Key</td></tr>
           </tbody>
         </table>
-        <div class="note"><strong>Paste these into a notes app right now</strong> before clicking away. You cannot retrieve the secret again.</div>
+        <div class="note"><strong>Paste these into a notes app right now</strong> before clicking away. You cannot retrieve the application key again.</div>
       </div>
 
     </div>
@@ -409,29 +400,30 @@
     <div class="steps">
 
       <div class="step">
-        <div class="step-label">Step 9</div>
+        <div class="step-label">Step 7</div>
         <h3>Create a free Netlify account</h3>
         <p>Go to <a href="https://netlify.com" target="_blank">netlify.com</a> and click <span class="ui-action">Sign up</span>. Choose <span class="ui-action">Sign up with GitHub</span> — this connects the two accounts in one click.</p>
       </div>
 
       <div class="step">
-        <div class="step-label">Step 10</div>
+        <div class="step-label">Step 8</div>
         <h3>Import your GitHub repository</h3>
         <p>Click <span class="ui-action">Add new site</span> → <span class="ui-action">Import an existing project</span> → <span class="ui-action">Deploy with GitHub</span>. Authorize Netlify when prompted, then select your forked <code>Full-generic-music-streaming-app</code> repository. Netlify reads the <code>netlify.toml</code> file automatically — don't change any build settings.</p>
       </div>
 
       <div class="step">
-        <div class="step-label">Step 11</div>
-        <h3>Add your secret keys</h3>
+        <div class="step-label">Step 9</div>
+        <h3>Add your keys</h3>
         <p>Before clicking deploy, click <span class="ui-action">Add environment variables</span> and add each of the following:</p>
         <table class="env-table">
           <thead><tr><th>Name (type exactly)</th><th>Value</th></tr></thead>
           <tbody>
-            <tr><td>R2_ACCOUNT_ID</td><td>Your Account ID from Step 7</td></tr>
-            <tr><td>R2_ACCESS_KEY_ID</td><td>Access Key ID from Step 8</td></tr>
-            <tr><td>R2_SECRET_ACCESS_KEY</td><td>Secret Access Key from Step 8</td></tr>
-            <tr><td>R2_BUCKET_NAME</td><td>The bucket name you chose, e.g. <code>music</code></td></tr>
-            <tr><td>R2_PUBLIC_BASE_URL</td><td>Your custom domain from Step 6, e.g. <code>https://cdn.yourdomain.com</code></td></tr>
+            <tr><td>S3_ENDPOINT</td><td>Your endpoint from Step 5, with <code>https://</code> — e.g. <code>https://s3.us-west-004.backblazeb2.com</code></td></tr>
+            <tr><td>S3_REGION</td><td>The region part of your endpoint — e.g. <code>us-west-004</code></td></tr>
+            <tr><td>R2_ACCESS_KEY_ID</td><td>keyID from Step 6</td></tr>
+            <tr><td>R2_SECRET_ACCESS_KEY</td><td>applicationKey from Step 6</td></tr>
+            <tr><td>R2_BUCKET_NAME</td><td>Your bucket name from Step 4, e.g. <code>my-music</code></td></tr>
+            <tr><td>R2_PUBLIC_BASE_URL</td><td>Your Friendly URL from Step 5, e.g. <code>https://f004.backblazeb2.com/file/my-music</code></td></tr>
             <tr><td>ADMIN_API_TOKEN</td><td>Make up any long string of random characters — this is your admin password</td></tr>
           </tbody>
         </table>
@@ -439,7 +431,7 @@
       </div>
 
       <div class="step">
-        <div class="step-label">Step 12</div>
+        <div class="step-label">Step 10</div>
         <h3>Deploy</h3>
         <p>Click <span class="ui-action">Deploy site</span>. Netlify will build and publish your app in about a minute. When it finishes you'll see a green <strong>Published</strong> status and a live link like <code>https://your-app-name.netlify.app</code>.</p>
         <div class="tip"><strong>That's it for setup.</strong> You manage everything — uploading music, editing settings — through the app's admin panel. You don't need to touch GitHub again.</div>
@@ -460,14 +452,14 @@
 
     <ul class="checklist">
       <li>Open your Netlify URL — the app loads</li>
-      <li>Log in to the admin panel using the <code>ADMIN_API_TOKEN</code> you set in Step 11</li>
+      <li>Log in to the admin panel using the <code>ADMIN_API_TOKEN</code> you set in Step 9</li>
       <li>Upload a song through the admin upload screen</li>
-      <li>Open your R2 bucket in Cloudflare and confirm the file appears</li>
+      <li>Open your B2 bucket in Backblaze and confirm the file appears</li>
       <li>Press play — the audio streams without errors</li>
     </ul>
 
     <div class="note" style="margin-top:1.25rem;">
-      <strong>If uploads fail:</strong> go to Netlify → <span class="ui-action">Site configuration</span> → <span class="ui-action">Environment variables</span> and double-check every value. After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
+      <strong>If uploads fail:</strong> go to Netlify → <span class="ui-action">Site configuration</span> → <span class="ui-action">Environment variables</span> and double-check every value — especially <code>S3_ENDPOINT</code> (must include <code>https://</code>) and <code>R2_PUBLIC_BASE_URL</code> (must be the Friendly URL, not the endpoint). After fixing, go to <span class="ui-action">Deploys</span> and click <span class="ui-action">Trigger deploy</span>.
     </div>
   </div>
 
@@ -478,7 +470,7 @@
       <div class="phase-number" style="color:#4ade80; border-color:#2d6e2d;">$</div>
       <div>
         <div class="phase-title">What this costs</div>
-        <div class="phase-subtitle">Almost certainly just the domain for an independent artist</div>
+        <div class="phase-subtitle">Nothing, for any realistic independent artist</div>
       </div>
     </div>
 
@@ -487,10 +479,13 @@
       <tbody>
         <tr><td>GitHub</td><td>Unlimited repositories</td></tr>
         <tr><td>Netlify</td><td>100 GB bandwidth/month, 300 build minutes/month</td></tr>
-        <tr><td>Cloudflare R2</td><td>10 GB storage, 10 million reads/month, <strong>free data transfer</strong></td></tr>
-        <tr><td>Domain name</td><td>~$8–12/year — the only recurring cost</td></tr>
+        <tr><td>Backblaze B2</td><td>10 GB storage free. Download: free up to 3× your monthly stored data (so 2 GB stored = 6 GB/month free = roughly 1,200 full song plays). After that: $0.01/GB — one cent per gigabyte.</td></tr>
       </tbody>
     </table>
+
+    <div class="note" style="margin-top:1rem;">
+      <strong>In practice:</strong> if you have a 2 GB music catalogue (around 400 songs at average quality) and your listeners collectively stream 6 GB or less per month, your Backblaze bill is $0. At 10,000 plays/month beyond the free tier you'd owe around $0.50. Most independent artists never pay anything.
+    </div>
   </div>
 
   <div class="done-box">
