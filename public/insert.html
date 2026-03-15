@@ -192,26 +192,28 @@
 
       // null = unknown, true = R2 presign confirmed, false = FTP/unavailable
       let _presignAvailable = null;
+      // Resolves once the background probe completes (or immediately if skipped).
+      // Initialised to a resolved promise so uploadFileToMediaHost is safe to call
+      // even if DOMContentLoaded hasn't fired yet for some reason.
+      let _presignProbe = Promise.resolve();
 
-      // Fire the storage-backend probe at page load, in the background.
-      // By the time the user selects a file and clicks upload the probe has
-      // settled, so the presign request NEVER fires as part of the chunked
-      // upload sequence. That keeps Lambda instance routing undisturbed and
-      // preserves the reliable FTP chunked-upload behaviour.
-      const _presignProbe = (() => {
+      // Fire the storage-backend probe after deferred scripts have loaded
+      // (common.js is defer, so AdminDataStore isn't available until DOMContentLoaded).
+      // By the time the user selects a file the probe has settled, so for FTP users
+      // _presignAvailable is already false and no extra round-trip disrupts the
+      // Lambda instance routing that the chunked upload path depends on.
+      window.addEventListener('DOMContentLoaded', () => {
         const tok = AdminDataStore.getToken();
-        if (!tok) return Promise.resolve();
-        return fetch('/.netlify/functions/uploadMedia', {
+        if (!tok) return;
+        _presignProbe = fetch('/.netlify/functions/uploadMedia', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Admin-Token': tok },
           body: JSON.stringify({ action: 'presign', fileName: '_probe_.bin', folder: '_probe_' }),
         }).then(res => {
-          // 401 = not yet authenticated, leave as null (inline probe fires on upload)
-          // 400 = FTP backend or no R2 config
           if (res.ok || res.status === 401) return;
           _presignAvailable = false;
         }).catch(() => { /* network error — leave as null */ });
-      })();
+      });
 
       async function uploadFileToMediaHost(file, folder, onProgress) {
         const endpoint = '/.netlify/functions/uploadMedia';
