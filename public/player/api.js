@@ -47,6 +47,7 @@ function pseudoAlbumFromConfig(entry) {
     enableShuffle: entry.enableShuffle !== false,
     limit: entry.limit ? Number(entry.limit) : undefined,
     trackIds: entry.trackIds || undefined,
+    trackSortOrder: entry.trackSortOrder || 'manual',
     pseudoSortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : 999,
     placement: entry.placement || 'before',
   };
