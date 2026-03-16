@@ -117,19 +117,24 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
   if (event.httpMethod !== 'GET') return json(405, { error: 'Method not allowed' });
 
-  if (!config.discoveryOptIn) {
-    return json(403, {
-      error: 'This catalogue is private.',
-      hint: 'The site owner can make it discoverable by setting DISCOVERY_OPT_IN=true.',
-    });
-  }
-
   try {
     const feedUrl = `${config.appBaseUrl}/.netlify/functions/catalogue`;
     const [{ tracks }, settings] = await Promise.all([
       loadTracks(),
       loadSiteSettings().catch(() => ({})),
     ]);
+
+    // siteSettings.discoveryOptIn takes precedence; fall back to env var
+    const optedIn = typeof settings.discoveryOptIn === 'boolean'
+      ? settings.discoveryOptIn
+      : config.discoveryOptIn;
+
+    if (!optedIn) {
+      return json(403, {
+        error: 'This catalogue is private.',
+        hint: 'The site owner can enable discovery in Site Settings → Catalogue API.',
+      });
+    }
 
     const feed = buildFeed(tracks || [], settings, feedUrl);
 
