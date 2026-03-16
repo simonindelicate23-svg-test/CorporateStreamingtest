@@ -1107,9 +1107,30 @@ function updateFilters() {
 }
 
 function sortTracksForAlbum(album, tracks = []) {
-  // Custom playlists preserve the admin-defined order
   if (album?.pseudoType === 'custom-playlist') {
-    return album?.limit ? tracks.slice(0, album.limit) : tracks;
+    const order = album.trackSortOrder || 'manual';
+    if (order === 'manual') {
+      return album?.limit ? tracks.slice(0, album.limit) : tracks;
+    }
+    const sorted = [...tracks];
+    if (order === 'alpha-asc') {
+      sorted.sort((a, b) => (a.trackName || '').localeCompare(b.trackName || ''));
+    } else if (order === 'alpha-desc') {
+      sorted.sort((a, b) => (b.trackName || '').localeCompare(a.trackName || ''));
+    } else if (order === 'album-order') {
+      sorted.sort((a, b) => {
+        const byAlbum = (a.albumName || '').localeCompare(b.albumName || '');
+        if (byAlbum !== 0) return byAlbum;
+        const byNum = (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0);
+        if (byNum !== 0) return byNum;
+        return (a.trackName || '').localeCompare(b.trackName || '');
+      });
+    } else if (order === 'date-desc') {
+      sorted.sort((a, b) => getTrackTimestamp(b) - getTrackTimestamp(a));
+    } else if (order === 'date-asc') {
+      sorted.sort((a, b) => getTrackTimestamp(a) - getTrackTimestamp(b));
+    }
+    return album?.limit ? sorted.slice(0, album.limit) : sorted;
   }
   const sorted = [...tracks];
   if (album?.pseudoType === 'whats-new') {

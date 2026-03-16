@@ -434,6 +434,33 @@
         orderDiv.appendChild(orderInput);
         fields.appendChild(orderDiv);
 
+        // Custom playlist track order
+        if (entry.pseudoType === 'custom-playlist') {
+          const trackOrderDiv = document.createElement('div');
+          const trackOrderLbl = document.createElement('label');
+          trackOrderLbl.textContent = 'Track order';
+          const trackOrderSelect = document.createElement('select');
+          [
+            ['manual',      'Manual (drag-and-drop order)'],
+            ['alpha-asc',   'A → Z (track name)'],
+            ['alpha-desc',  'Z → A (track name)'],
+            ['album-order', 'Album order (album then track number)'],
+            ['date-desc',   'Newest added first'],
+            ['date-asc',    'Oldest added first'],
+          ].forEach(([val, lbl]) => {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = lbl;
+            trackOrderSelect.appendChild(opt);
+          });
+          trackOrderSelect.value = entry.trackSortOrder || 'manual';
+          trackOrderSelect.addEventListener('change', () => {
+            pseudoAlbums[index].trackSortOrder = trackOrderSelect.value;
+          });
+          trackOrderDiv.appendChild(trackOrderLbl);
+          trackOrderDiv.appendChild(trackOrderSelect);
+          fields.appendChild(trackOrderDiv);
+        }
+
         // What's New limit
         if (entry.pseudoType === 'whats-new') {
           const limitDiv = document.createElement('div');
