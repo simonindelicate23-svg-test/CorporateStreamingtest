@@ -120,7 +120,75 @@
       .artwork-preview-sm.visible { display: block; }
 
       /* ── Track picker ─────────────────────────────────────────── */
-      .track-picker {
+      .track-picker { display: flex; flex-direction: column; gap: 10px; }
+
+      /* Selected ordered list */
+      .track-picker__ordered {
+        border: 1px solid rgba(0,0,0,0.09);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .track-picker__ordered-header {
+        padding: 8px 12px;
+        background: #f0eef9;
+        font-size: 0.82rem;
+        color: #4f46e5;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(79,70,229,0.15);
+      }
+      .track-picker__ordered-list {
+        max-height: 240px;
+        overflow-y: auto;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .track-picker__ordered-list:empty::after {
+        content: 'No tracks added yet.';
+        display: block;
+        padding: 10px 12px;
+        color: #aaa;
+        font-style: italic;
+        font-size: 0.83rem;
+      }
+      .tp-selected-row {
+        display: grid;
+        grid-template-columns: 20px 1fr auto auto;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: #faf9ff;
+        border: 1px solid rgba(79,70,229,0.1);
+        user-select: none;
+      }
+      .tp-selected-row.drag-over { outline: 2px solid #4f46e5; }
+      .tp-drag-handle {
+        cursor: grab;
+        color: #bbb;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 2px;
+      }
+      .tp-drag-handle:active { cursor: grabbing; }
+      .tp-selected-row .ti-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tp-selected-row .ti-album { color: #999; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tp-remove-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #bbb;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 2px;
+        flex-shrink: 0;
+      }
+      .tp-remove-btn:hover { color: #ef4444; }
+
+      /* Add-tracks panel */
+      .track-picker__add {
         border: 1px solid rgba(0,0,0,0.09);
         border-radius: 8px;
         overflow: hidden;
@@ -138,7 +206,7 @@
         font-size: 0.85rem;
       }
       .track-picker__list {
-        max-height: 280px;
+        max-height: 200px;
         overflow-y: auto;
         padding: 6px;
         display: grid;
@@ -146,31 +214,30 @@
       }
       .track-picker__item {
         display: grid;
-        grid-template-columns: 20px 1fr auto;
+        grid-template-columns: 1fr auto auto;
         gap: 8px;
         align-items: center;
         padding: 7px 10px;
         border-radius: 6px;
-        cursor: pointer;
         font-size: 0.85rem;
         background: transparent;
-        border: none;
-        text-align: left;
-        width: 100%;
       }
-      .track-picker__item:hover { background: #f4f2ee; }
-      .track-picker__item input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4f46e5; }
-      .track-picker__item .ti-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .track-picker__item.is-added { opacity: 0.45; }
+      .track-picker__item .ti-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .track-picker__item .ti-album { color: #999; font-size: 0.78rem; }
-
-      .selected-tracks-summary {
-        padding: 8px 12px;
-        background: #f0eef9;
-        border-top: 1px solid rgba(79,70,229,0.15);
-        font-size: 0.82rem;
-        color: #4f46e5;
-        font-weight: 600;
+      .tp-add-btn {
+        background: #4f46e5;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 3px 10px;
+        font-size: 0.78rem;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
+      .tp-add-btn:hover { background: #4338ca; }
+      .tp-add-btn:disabled { background: #ccc; cursor: default; }
 
       /* ── Add custom playlist ──────────────────────────────────── */
       .add-playlist-btn {
@@ -616,32 +683,116 @@
         const container = document.createElement('div');
         container.className = 'track-picker';
 
+        // Ordered array of selected track IDs (order matters for Manual sort)
+        const orderedIds = [...selectedIds];
+
+        // ── Selected / ordered panel ──────────────────────────────
+        const orderedPanel = document.createElement('div');
+        orderedPanel.className = 'track-picker__ordered';
+
+        const orderedHeader = document.createElement('div');
+        orderedHeader.className = 'track-picker__ordered-header';
+
+        const orderedList = document.createElement('div');
+        orderedList.className = 'track-picker__ordered-list';
+
+        orderedPanel.appendChild(orderedHeader);
+        orderedPanel.appendChild(orderedList);
+        container.appendChild(orderedPanel);
+
+        // ── Add-tracks panel ──────────────────────────────────────
+        const addPanel = document.createElement('div');
+        addPanel.className = 'track-picker__add';
+
         const searchWrap = document.createElement('div');
         searchWrap.className = 'track-picker__search';
         const searchInput = document.createElement('input');
-        searchInput.placeholder = 'Search tracks…';
+        searchInput.placeholder = 'Search to add tracks…';
         searchInput.type = 'search';
         searchWrap.appendChild(searchInput);
-        container.appendChild(searchWrap);
 
-        const list = document.createElement('div');
-        list.className = 'track-picker__list';
-        container.appendChild(list);
+        const addList = document.createElement('div');
+        addList.className = 'track-picker__list';
 
-        const summary = document.createElement('div');
-        summary.className = 'selected-tracks-summary';
-        container.appendChild(summary);
+        addPanel.appendChild(searchWrap);
+        addPanel.appendChild(addList);
+        container.appendChild(addPanel);
 
-        const selected = new Set(selectedIds);
+        // ── State helpers ─────────────────────────────────────────
+        const byId = () => Object.fromEntries(allTracks.map(t => [t._id, t]));
 
-        function updateSummary() {
-          const count = selected.size;
-          summary.textContent = count ? `${count} track${count === 1 ? '' : 's'} selected` : 'No tracks selected';
-          pseudoAlbums[entryIdx].trackIds = [...selected];
+        function commit() {
+          pseudoAlbums[entryIdx].trackIds = [...orderedIds];
+          const n = orderedIds.length;
+          orderedHeader.textContent = n ? `${n} track${n === 1 ? '' : 's'} — drag to reorder` : 'No tracks added yet';
         }
 
-        function renderTracks(filterText = '') {
-          list.innerHTML = '';
+        // ── Render the ordered selected list with drag-to-reorder ──
+        let dragSrc = null;
+
+        function renderOrdered() {
+          orderedList.innerHTML = '';
+          const map = byId();
+          orderedIds.forEach((id, i) => {
+            const t = map[id];
+            if (!t) return;
+
+            const row = document.createElement('div');
+            row.className = 'tp-selected-row';
+            row.draggable = true;
+            row.dataset.idx = i;
+
+            const handle = document.createElement('span');
+            handle.className = 'tp-drag-handle';
+            handle.textContent = '⠿';
+            handle.title = 'Drag to reorder';
+
+            const name = document.createElement('span');
+            name.className = 'ti-name';
+            name.textContent = t.trackName || 'Untitled';
+
+            const album = document.createElement('span');
+            album.className = 'ti-album';
+            album.textContent = t.albumName || '';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'tp-remove-btn';
+            removeBtn.textContent = '✕';
+            removeBtn.title = 'Remove from playlist';
+            removeBtn.addEventListener('click', () => {
+              orderedIds.splice(i, 1);
+              commit();
+              renderOrdered();
+              renderAddList(searchInput.value);
+            });
+
+            row.addEventListener('dragstart', () => { dragSrc = i; row.style.opacity = '0.4'; });
+            row.addEventListener('dragend',  () => { dragSrc = null; row.style.opacity = ''; orderedList.querySelectorAll('.tp-selected-row').forEach(r => r.classList.remove('drag-over')); });
+            row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
+            row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+            row.addEventListener('drop', e => {
+              e.preventDefault();
+              row.classList.remove('drag-over');
+              if (dragSrc === null || dragSrc === i) return;
+              const [moved] = orderedIds.splice(dragSrc, 1);
+              orderedIds.splice(i, 0, moved);
+              dragSrc = null;
+              commit();
+              renderOrdered();
+            });
+
+            row.appendChild(handle);
+            row.appendChild(name);
+            row.appendChild(album);
+            row.appendChild(removeBtn);
+            orderedList.appendChild(row);
+          });
+        }
+
+        // ── Render the add-from list ──────────────────────────────
+        function renderAddList(filterText = '') {
+          addList.innerHTML = '';
           const q = filterText.toLowerCase();
           const filtered = allTracks.filter(t =>
             !q ||
@@ -651,43 +802,50 @@
           );
 
           filtered.forEach(t => {
-            const row = document.createElement('label');
-            row.className = 'track-picker__item';
+            const isAdded = orderedIds.includes(t._id);
+            const row = document.createElement('div');
+            row.className = 'track-picker__item' + (isAdded ? ' is-added' : '');
 
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = selected.has(t._id);
-            cb.addEventListener('change', () => {
-              if (cb.checked) selected.add(t._id);
-              else selected.delete(t._id);
-              updateSummary();
+            const name = document.createElement('span');
+            name.className = 'ti-name';
+            name.textContent = t.trackName || 'Untitled';
+
+            const album = document.createElement('span');
+            album.className = 'ti-album';
+            album.textContent = t.albumName || '';
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'tp-add-btn';
+            addBtn.textContent = isAdded ? 'Added' : '+ Add';
+            addBtn.disabled = isAdded;
+            addBtn.addEventListener('click', () => {
+              if (orderedIds.includes(t._id)) return;
+              orderedIds.push(t._id);
+              commit();
+              renderOrdered();
+              renderAddList(searchInput.value);
             });
 
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'ti-name';
-            nameSpan.textContent = t.trackName || 'Untitled';
-
-            const albumSpan = document.createElement('span');
-            albumSpan.className = 'ti-album';
-            albumSpan.textContent = t.albumName || '';
-
-            row.appendChild(cb);
-            row.appendChild(nameSpan);
-            row.appendChild(albumSpan);
-            list.appendChild(row);
+            row.appendChild(name);
+            row.appendChild(album);
+            row.appendChild(addBtn);
+            addList.appendChild(row);
           });
 
           if (!filtered.length) {
             const empty = document.createElement('p');
             empty.style.cssText = 'padding:12px;color:#999;font-style:italic;font-size:0.85rem;';
             empty.textContent = 'No tracks match.';
-            list.appendChild(empty);
+            addList.appendChild(empty);
           }
         }
 
-        searchInput.addEventListener('input', () => renderTracks(searchInput.value));
-        renderTracks();
-        updateSummary();
+        searchInput.addEventListener('input', () => renderAddList(searchInput.value));
+
+        commit();
+        renderOrdered();
+        renderAddList();
 
         return container;
       }
