@@ -42,13 +42,13 @@ function toTrackDocument(album = {}, track = {}) {
 
   const document = {
     _id: track._id || generateTrackId(),
-    albumName: album.albumName,
+    albumName: typeof album.albumName === 'string' ? album.albumName.trim() : album.albumName,
     albumId: album.albumId || slugify(album.albumName || ''),
     albumArtworkUrl: album.albumArtworkUrl || album.artworkUrl,
     artistName: album.artistName,
     artworkUrl: album.artworkUrl,
     mp3Url: track.mp3Url,
-    trackName: track.trackName,
+    trackName: typeof track.trackName === 'string' ? track.trackName.trim() : track.trackName,
     trackNumber: Number.isNaN(parsedTrackNumber) ? track.trackNumber : parsedTrackNumber,
     durationSeconds: Number.isNaN(parsedDuration) || parsedDuration <= 0 ? undefined : parsedDuration,
     duration: Number.isNaN(parsedDuration) || parsedDuration <= 0 ? undefined : parsedDuration,
@@ -154,7 +154,7 @@ async function populateAlbumDurations(tracks = [], albumName) {
   const failures = [];
 
   for (const track of tracks) {
-    if (track.albumName !== albumName) continue;
+    if (String(track.albumName || '').trim() !== albumName) continue;
     if (!track.mp3Url) {
       failures.push({ id: track._id, reason: 'Missing mp3Url' });
       continue;
@@ -252,7 +252,7 @@ exports.handler = async (event) => {
       const isPhantom = albumName === null || String(albumName).trim() === '';
       let removed = 0;
       const remaining = tracks.filter((track) => {
-        const matches = isPhantom ? !track.albumName : track.albumName === albumName;
+        const matches = isPhantom ? !String(track.albumName || '').trim() : String(track.albumName || '').trim() === String(albumName || '').trim();
         if (matches) { removed += 1; return false; }
         return true;
       });
@@ -269,7 +269,7 @@ exports.handler = async (event) => {
       const derivedOldSlug = slugify(albumName);
       let matched = 0;
       tracks.forEach((track, idx) => {
-        if (track.albumName !== albumName) return;
+        if (String(track.albumName || '').trim() !== albumName) return;
         matched += 1;
         let effectiveUpdates = updates;
         // When renaming, auto-derive albumId from the new name if the existing
