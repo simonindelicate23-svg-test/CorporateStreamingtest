@@ -629,7 +629,7 @@
         if (!tracks.length) return showTrackStatus('Add at least one track with a name and URL.', true);
 
         const albumPayload = {
-          albumName: fields.albumName.value || activeAlbum.albumName,
+          albumName: (fields.albumName.value || activeAlbum.albumName || '').trim(),
           albumId: fields.albumId.value, artistName: fields.artistName.value,
           artworkUrl: fields.artworkUrl.value,
           albumArtworkUrl: fields.albumArtworkUrl.value || fields.artworkUrl.value,
