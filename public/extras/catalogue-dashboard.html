@@ -895,6 +895,13 @@
       }
     }, 200);
   });
+
+  (function () {
+    const inp = document.getElementById('catInput');
+    if (inp && location.protocol !== 'file:') {
+      inp.value = location.origin + '/catalogue';
+    }
+  })();
 </script>
 </body>
 </html>

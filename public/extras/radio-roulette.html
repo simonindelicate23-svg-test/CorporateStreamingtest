@@ -625,6 +625,13 @@ https://anotherinstance.com/catalogue"></textarea>
     document.getElementById('audio').pause();
     screen('setup');
   }
+
+  (function () {
+    const inp = document.getElementById('inp');
+    if (inp && location.protocol !== 'file:') {
+      inp.value = location.origin + '/catalogue';
+    }
+  })();
 </script>
 </body>
 </html>
