@@ -540,39 +540,38 @@
     <span class="oracle-sigil">🔮</span>
     <h1 class="oracle-title">The Harmonic Oracle</h1>
     <p class="oracle-sub">
-      Feed the Oracle your catalogue.<br>
+      Give the Oracle a catalogue URL.<br>
       Ask it anything. It will answer in music.
     </p>
 
-    <div class="step-label">I. The Catalogue</div>
-    <textarea id="catInp" placeholder='{
-  "releases": [ ... ]
-}
-
-— paste raw catalogue JSON here —'></textarea>
+    <div class="step-label">I. The Catalogue URL</div>
+    <input type="url" id="catInp" placeholder="https://yoursite.com/catalogue"
+      style="width:100%;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;color:var(--text);font-size:0.95rem;outline:none;margin-bottom:20px;transition:border-color 0.2s,box-shadow 0.2s;display:block"
+      onkeydown="if(event.key==='Enter')document.getElementById('queryInp').focus()">
 
     <div class="divider">then</div>
 
     <div class="step-label">II. Your Question or Mood</div>
     <input class="query-input" id="queryInp" type="text"
-      placeholder="e.g. I need strength to face what's coming…" />
+      placeholder="e.g. I need strength to face what's coming…"
+      onkeydown="if(event.key==='Enter')invoke()" />
 
     <div id="serr" class="setup-err"></div>
 
-    <button class="invoke-btn" onclick="invoke()">
+    <button class="invoke-btn" id="invokeBtn" onclick="invoke()">
       ✦ &nbsp; Consult the Oracle &nbsp; ✦
     </button>
   </div>
 </div>
 
 <!-- ── RITUAL LOADING ─────────────────────────────── -->
-<div class="screen" id="ritual">
+<div class="screen" id="ritual" style="display:none">
   <span class="ritual-glyph">⬡</span>
   <div class="ritual-words" id="ritualWords">The Oracle is listening…</div>
 </div>
 
 <!-- ── READING ────────────────────────────────────── -->
-<div class="screen" id="reading" style="justify-content:flex-start;padding-top:40px">
+<div class="screen" id="reading" style="display:none;justify-content:flex-start;padding-top:40px">
   <div style="width:100%;max-width:900px">
     <div class="reading-header">
       <div class="reading-query" id="readingQuery">You asked about…</div>
@@ -777,19 +776,33 @@ function genreGlyph(genre) {
 }
 
 /* ── INVOKE ─────────────────────────────────────── */
-function invoke() {
-  const rawJson = document.getElementById('catInp').value.trim();
-  const query   = document.getElementById('queryInp').value.trim();
-  const serr    = document.getElementById('serr');
+async function invoke() {
+  const url   = document.getElementById('catInp').value.trim();
+  const query = document.getElementById('queryInp').value.trim();
+  const serr  = document.getElementById('serr');
+  const btn   = document.getElementById('invokeBtn');
   serr.style.display = 'none';
+
+  if (!url.match(/^https?:\/\//)) {
+    serr.textContent = 'Please enter a valid https:// catalogue URL.';
+    serr.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⬡  Summoning…';
 
   let data;
   try {
-    data = JSON.parse(rawJson);
-    if (!data.releases) throw new Error('No releases found.');
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    data = await r.json();
+    if (!data.releases) throw new Error('No releases in response.');
   } catch (e) {
-    serr.textContent = 'Could not parse catalogue JSON: ' + e.message;
+    serr.textContent = 'Could not reach the catalogue: ' + e.message;
     serr.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '✦  Consult the Oracle  ✦';
     return;
   }
 
@@ -977,6 +990,9 @@ function resetToSetup() {
   audio.pause();
   currentAudio  = null;
   playingCardIdx = -1;
+  const btn = document.getElementById('invokeBtn');
+  btn.disabled = false;
+  btn.textContent = '✦  Consult the Oracle  ✦';
   showScreen('setup');
 }
 

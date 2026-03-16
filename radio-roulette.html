@@ -412,11 +412,10 @@
   </div>
 
   <div class="field-label">Catalogues</div>
-  <textarea id="inp" placeholder="Paste catalogue URLs (one per line):
-https://mysite.com/catalogue
-https://another.example.com/catalogue
+  <textarea id="inp" placeholder="Paste /catalogue endpoint URLs, one per line:
 
-— or paste raw catalogue JSON directly —"></textarea>
+https://mysite.com/catalogue
+https://anotherinstance.com/catalogue"></textarea>
 
   <div id="err" class="err"></div>
   <button class="go-btn" onclick="go()">▶&ensp;Shuffle &amp; Play</button>
@@ -473,9 +472,9 @@ https://another.example.com/catalogue
 
   /* ── helpers ──────────────────────────────────────── */
   function screen(id) {
-    ['setup','loading','player'].forEach(s =>
-      document.getElementById(s).style.display = s === id ? '' : 'none'
-    );
+    document.getElementById('setup').style.display  = id === 'setup'   ? 'block' : 'none';
+    document.getElementById('loading').style.display = id === 'loading' ? 'block' : 'none';
+    document.getElementById('player').style.display  = id === 'player'  ? 'block' : 'none';
   }
 
   function setErr(msg) {
@@ -533,34 +532,28 @@ https://another.example.com/catalogue
     screen('loading');
     pool = [];
 
-    // Try as raw JSON first
-    let parsedAsJson = false;
-    try {
-      const d = JSON.parse(raw);
-      if (d.releases) { extractTracks(d); parsedAsJson = true; }
-    } catch {}
-
-    if (!parsedAsJson) {
-      const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
-      const errs = [];
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.match(/^https?:\/\//)) continue;
-        document.getElementById('lstatus').textContent =
-          `Fetching ${i + 1} of ${lines.length}…`;
-        try {
-          const r = await fetch(line);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          extractTracks(await r.json());
-        } catch (e) {
-          errs.push(`${new URL(line).hostname}: ${e.message}`);
-        }
+    const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    const errs  = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.match(/^https?:\/\//)) {
+        errs.push(`Skipped (not a URL): ${line.slice(0, 60)}`);
+        continue;
       }
-      if (errs.length && !pool.length) {
-        screen('setup');
-        setErr(errs.join('\n'));
-        return;
+      document.getElementById('lstatus').textContent =
+        `Fetching ${i + 1} of ${lines.length}…`;
+      try {
+        const r = await fetch(line);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        extractTracks(await r.json());
+      } catch (e) {
+        errs.push(`${new URL(line).hostname}: ${e.message}`);
       }
+    }
+    if (errs.length && !pool.length) {
+      screen('setup');
+      setErr(errs.join('\n'));
+      return;
     }
 
     if (!pool.length) {

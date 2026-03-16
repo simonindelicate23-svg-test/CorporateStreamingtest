@@ -397,14 +397,12 @@
   <div class="input-wrap">
     <div class="input-logo">
       <h1>Catalogue Dashboard</h1>
-      <p>Paste your catalogue JSON to explore it visually.</p>
+      <p>Enter a <code style="color:var(--c1);font-size:0.9em">/catalogue</code> endpoint URL to explore it visually.</p>
     </div>
 
-    <textarea id="catInput" placeholder='{
-  "feedVersion": "1",
-  "instance": { ... },
-  "releases": [ ... ]
-}'></textarea>
+    <input type="url" id="catInput" placeholder="https://yoursite.com/catalogue"
+      style="width:100%;padding:16px;background:var(--s1);border:1px solid var(--border);border-radius:14px;color:var(--text);font-size:1rem;outline:none;transition:border-color 0.2s;margin-bottom:4px"
+      onkeydown="if(event.key==='Enter')parseCatalogue()">
 
     <div id="perr" class="perr"></div>
     <button class="parse-btn" onclick="parseCatalogue()">→ &nbsp;Analyse Catalogue</button>
@@ -480,18 +478,36 @@
   let catData = null;
 
   /* ─── parse & route ─────────────────────────────── */
-  function parseCatalogue() {
-    const raw = document.getElementById('catInput').value.trim();
+  async function parseCatalogue() {
+    const url = document.getElementById('catInput').value.trim();
     const err = document.getElementById('perr');
     err.style.display = 'none';
-    try {
-      catData = JSON.parse(raw);
-      if (!catData.releases) throw new Error('No "releases" key found.');
-    } catch (e) {
-      err.textContent = e.message;
+
+    if (!url.match(/^https?:\/\//)) {
+      err.textContent = 'Please enter a valid https:// URL.';
       err.style.display = 'block';
       return;
     }
+
+    const btn = document.querySelector('.parse-btn');
+    btn.textContent = 'Fetching…';
+    btn.disabled = true;
+
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      catData = await r.json();
+      if (!catData.releases) throw new Error('No "releases" key in response.');
+    } catch (e) {
+      err.textContent = e.message;
+      err.style.display = 'block';
+      btn.textContent = '→  Analyse Catalogue';
+      btn.disabled = false;
+      return;
+    }
+
+    btn.textContent = '→  Analyse Catalogue';
+    btn.disabled = false;
     document.getElementById('inputScreen').style.display = 'none';
     document.getElementById('dashboard').style.display  = 'block';
     buildDashboard(catData);
