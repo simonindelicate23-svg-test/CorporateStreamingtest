@@ -318,33 +318,71 @@
     <!-- Paywall / subscription modal -->
     <div id="paywall-modal" class="paywall-modal" aria-modal="true" role="dialog" aria-labelledby="paywall-title" hidden>
       <div class="paywall-modal__card">
-        <div class="paywall-modal__icon">&#128274;</div>
+        <div class="paywall-modal__icon" id="paywall-icon">&#128274;</div>
         <h2 class="paywall-modal__title" id="paywall-title">Members only</h2>
         <p class="paywall-modal__body" id="paywall-body">Subscribe to unlock the full catalogue.</p>
 
-        <!-- Primary: subscription -->
-        <div class="paywall-modal__sub-section">
-          <p class="paywall-modal__price" id="paywall-price" hidden></p>
-          <!-- PayPal JS SDK renders the Subscribe button here -->
-          <div id="paywall-paypal-btn"></div>
-          <p class="paywall-modal__sub-hint">Cancel anytime from your PayPal account.</p>
-          <p class="paywall-modal__loading" id="paywall-loading" hidden>Loading payment options…</p>
-          <p class="paywall-modal__error" id="paywall-error" hidden></p>
+        <!-- Subscribed confirmation view — shown in place of payment flow when access is active -->
+        <div id="paywall-subscribed-view" class="paywall-modal__subscribed-view" hidden>
+          <p class="paywall-modal__subscribed-msg">You have full access to the entire catalogue. Enjoy the music!</p>
+          <button class="paywall-modal__cta" id="paywall-subscribed-ok">Continue listening</button>
         </div>
 
-        <!-- Restore: for returning subscribers whose token has been cleared -->
-        <details class="paywall-modal__restore">
-          <summary>Already subscribed? Restore access</summary>
-          <div class="paywall-modal__restore-form">
-            <input id="paywall-restore-id" type="text" placeholder="Paste your PayPal Subscription ID (I-…)" autocomplete="off" spellcheck="false" />
-            <button id="paywall-restore-submit" type="button">Verify &amp; restore</button>
-            <p id="paywall-restore-msg" class="paywall-modal__restore-msg" hidden></p>
+        <!-- Payment flow — hidden when user is already subscribed -->
+        <div id="paywall-payment-flow">
+          <!-- Primary: subscription -->
+          <div class="paywall-modal__sub-section">
+            <p class="paywall-modal__price" id="paywall-price" hidden></p>
+            <!-- PayPal JS SDK renders the Subscribe button here -->
+            <div id="paywall-paypal-btn"></div>
+            <p class="paywall-modal__sub-hint">Cancel anytime. <button class="paywall-modal__text-link" id="paywall-open-help" type="button">Subscriber help</button></p>
+            <p class="paywall-modal__loading" id="paywall-loading" hidden>Loading payment options…</p>
+            <p class="paywall-modal__error" id="paywall-error" hidden></p>
           </div>
-        </details>
+
+          <!-- Restore: email-based for returning subscribers whose token has been cleared -->
+          <details class="paywall-modal__restore">
+            <summary>Already subscribed? Restore access</summary>
+            <div class="paywall-modal__restore-form">
+              <input id="paywall-restore-id" type="text" placeholder="I-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" />
+              <p class="paywall-modal__restore-hint">Your Subscription ID is in your PayPal confirmation email, or find it at <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer">PayPal&nbsp;→&nbsp;Automatic&nbsp;payments</a>.</p>
+              <button id="paywall-restore-submit" type="button">Restore access</button>
+              <p id="paywall-restore-msg" class="paywall-modal__restore-msg" hidden></p>
+            </div>
+          </details>
+        </div>
 
         <button class="paywall-modal__dismiss" id="paywall-dismiss">Maybe later</button>
       </div>
     </div>
+
+    <!-- Subscriber help panel — shown below footer, only for active subscribers -->
+    <section id="subscriber-help" class="subscriber-help" hidden aria-label="Subscriber support">
+      <div class="subscriber-help__inner">
+        <h2 class="subscriber-help__heading">Subscriber support</h2>
+        <div class="subscriber-help__status">
+          <span class="subscriber-help__badge">&#10003; Active subscription</span>
+          <span id="subscriber-help-email" class="subscriber-help__email"></span>
+        </div>
+        <div class="subscriber-help__faq">
+          <details>
+            <summary>How do I listen on a new device or after clearing my browser?</summary>
+            <p>Your access privileges are stored in your local browser to save you the bother of signing in — if you switch browsers or clear your browsing data you may temporarily lose access. If this happens, click <strong>Subscribe</strong> in the menu, then open <strong>Already subscribed? Restore access</strong>. Paste your Subscription ID — it starts with <code>I-</code> and is in your PayPal confirmation email, or find it at <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer">PayPal&nbsp;→&nbsp;Automatic&nbsp;payments</a>.</p>
+          </details>
+          <details>
+            <summary>Where can I manage or cancel my PayPal subscription?</summary>
+            <p>Log in at <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer">PayPal&nbsp;→&nbsp;Automatic&nbsp;payments</a> to manage or cancel. Your access continues until the next payment would be due.</p>
+          </details>
+          <details>
+            <summary>I'm having trouble with my access.</summary>
+            <p>Click <strong>Subscribe</strong> in the menu and use <strong>Already subscribed? Restore access</strong> to re-activate your token.</p>
+          </details>
+        </div>
+        <div class="subscriber-help__actions">
+          <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="pill ghost">Manage or cancel via PayPal</a>
+        </div>
+      </div>
+    </section>
 
     <div id="toast-container" role="status" aria-live="assertive" aria-atomic="false"></div>
 

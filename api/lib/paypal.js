@@ -3,7 +3,15 @@ const { newEntitlementId } = require('./ids');
 
 const apiBase = process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com';
 
+// In-process OAuth token cache — avoids a round-trip on every API call.
+// Netlify function instances are short-lived so this won't grow unbounded.
+let _cachedToken = null;
+let _tokenExpiresAt = 0;
+
 const getAccessToken = async () => {
+  const now = Date.now();
+  if (_cachedToken && now < _tokenExpiresAt) return _cachedToken;
+
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
@@ -26,7 +34,10 @@ const getAccessToken = async () => {
   }
 
   const data = await response.json();
-  return data.access_token;
+  // Cache with a 4-minute TTL (tokens last 9 min; leave margin for clock skew)
+  _cachedToken = data.access_token;
+  _tokenExpiresAt = now + 4 * 60 * 1000;
+  return _cachedToken;
 };
 
 const verifyWebhookSignature = async (event, rawBody) => {
@@ -139,10 +150,32 @@ const verifySubscription = async (subscriptionId) => {
   };
 };
 
+const cancelSubscription = async (subscriptionId, reason = 'Cancelled by subscriber') => {
+  const token = await getAccessToken();
+  const response = await fetch(
+    `${apiBase}/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reason }),
+    }
+  );
+  // PayPal returns 204 No Content on success
+  if (!response.ok && response.status !== 204) {
+    const text = await response.text();
+    throw new Error(`PayPal cancel failed: ${response.status} ${text}`);
+  }
+  return true;
+};
+
 module.exports = {
   getAccessToken,
   verifyWebhookSignature,
   grantEntitlementFromCapture,
   verifyOrder,
   verifySubscription,
+  cancelSubscription,
 };
