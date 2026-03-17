@@ -1,7 +1,7 @@
 const { json } = require('./lib/http');
 const { cancelSubscription: ppCancel } = require('./lib/paypal');
 const { verifyToken } = require('./lib/tokenAuth');
-const { getCollections } = require('./lib/db');
+const { findBySubscriptionId, upsertSubscription } = require('./lib/subscriptionsStore');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { message: 'Method not allowed' });
@@ -22,12 +22,11 @@ exports.handler = async (event) => {
   try {
     await ppCancel(subscriptionId, 'Cancelled by subscriber via site');
 
-    // Update our subscription record
-    const { subscriptions } = await getCollections();
-    await subscriptions.updateOne(
-      { subscriptionId },
-      { $set: { status: 'CANCELLED', cancelledAt: new Date() } }
-    ).catch(() => {});
+    // Update our record if we have one
+    const existing = await findBySubscriptionId(subscriptionId).catch(() => null);
+    if (existing) {
+      await upsertSubscription({ ...existing, status: 'CANCELLED', cancelledAt: new Date().toISOString() }).catch(() => {});
+    }
 
     return json(200, { message: 'Subscription cancelled' });
   } catch (err) {

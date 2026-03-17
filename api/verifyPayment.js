@@ -1,7 +1,7 @@
 const { json } = require('./lib/http');
 const { verifyOrder, verifySubscription } = require('./lib/paypal');
 const { signToken } = require('./lib/tokenAuth');
-const { getCollections } = require('./lib/db');
+const { upsertSubscription } = require('./lib/subscriptionsStore');
 
 // Subscription tokens expire after 1 hour; client silently refreshes.
 // Order tokens never expire — a completed purchase is permanent.
@@ -43,22 +43,13 @@ exports.handler = async (event) => {
 
     // Persist email → subscriptionId mapping so users can restore by email later
     if (result.email) {
-      try {
-        const { subscriptions } = await getCollections();
-        await subscriptions.updateOne(
-          { subscriptionId: result.subscriptionId },
-          {
-            $set: {
-              email: result.email,
-              subscriptionId: result.subscriptionId,
-              payerId: result.payerId || '',
-              lastVerified: new Date(),
-              status: 'ACTIVE',
-            },
-          },
-          { upsert: true }
-        );
-      } catch (_) { /* non-fatal */ }
+      upsertSubscription({
+        email: result.email,
+        subscriptionId: result.subscriptionId,
+        payerId: result.payerId || '',
+        lastVerified: new Date().toISOString(),
+        status: 'ACTIVE',
+      }).catch(() => {}); // non-fatal, don't block the response
     }
 
     const iat = Math.floor(Date.now() / 1000);

@@ -1,7 +1,7 @@
 const { json } = require('./lib/http');
 const { verifySubscription } = require('./lib/paypal');
 const { signToken } = require('./lib/tokenAuth');
-const { getCollections } = require('./lib/db');
+const { findByEmail, upsertSubscription } = require('./lib/subscriptionsStore');
 
 const SUBSCRIPTION_TTL_SECONDS = 60 * 60;
 
@@ -21,8 +21,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { subscriptions } = await getCollections();
-    const record = await subscriptions.findOne({ email, status: { $ne: 'CANCELLED' } });
+    const record = await findByEmail(email);
 
     if (!record) {
       return json(404, {
@@ -30,24 +29,17 @@ exports.handler = async (event) => {
       });
     }
 
-    // Verify with PayPal that it is still active
+    // Re-verify with PayPal that the subscription is still active
     const result = await verifySubscription(record.subscriptionId).catch(() => null);
     if (!result) {
-      // Mark our record as potentially stale so we don't keep trying
-      await subscriptions.updateOne(
-        { subscriptionId: record.subscriptionId },
-        { $set: { status: 'INACTIVE', lastChecked: new Date() } }
-      ).catch(() => {});
+      await upsertSubscription({ ...record, status: 'INACTIVE', lastChecked: new Date().toISOString() }).catch(() => {});
       return json(402, {
         message: 'Subscription is no longer active. If you believe this is an error, contact support.',
       });
     }
 
     // Refresh our record
-    await subscriptions.updateOne(
-      { subscriptionId: record.subscriptionId },
-      { $set: { status: 'ACTIVE', lastVerified: new Date() } }
-    ).catch(() => {});
+    await upsertSubscription({ ...record, status: 'ACTIVE', lastVerified: new Date().toISOString() }).catch(() => {});
 
     const iat = Math.floor(Date.now() / 1000);
     const token = signToken({

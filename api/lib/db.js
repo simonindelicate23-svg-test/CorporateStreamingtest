@@ -28,7 +28,6 @@ const getCollections = async () => {
     products: db.collection('products'),
     entitlements: db.collection('entitlements'),
     settings: db.collection('settings'),
-    subscriptions: db.collection('subscriptions'),
   };
 };
 
