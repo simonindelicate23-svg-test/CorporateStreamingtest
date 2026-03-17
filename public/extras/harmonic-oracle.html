@@ -755,10 +755,26 @@ function getInterpretation(genre, positionIdx) {
 }
 
 /* ── SCORING ────────────────────────────────────── */
+const STOP_WORDS = new Set([
+  // question / auxiliary words that prefix almost every query
+  'will','would','could','should','shall','might','must','can','may',
+  'did','does','do','done','has','have','had','was','were','are','is','be','been','being',
+  'what','when','where','which','who','whom','whose','why','how',
+  // articles, conjunctions, prepositions
+  'the','a','an','and','but','or','nor','for','yet','so',
+  'in','on','at','to','of','up','as','by','if','it','its',
+  'from','with','into','onto','over','about','after','before',
+  'that','this','these','those','than','then','there','their','they',
+  // pronouns / fillers
+  'i','me','my','we','us','our','you','your','he','she','his','her',
+  'not','no','any','all','some','more','very','just','also',
+  'get','got','go','going','come','coming','make','making',
+]);
+
 function scoreTrack(track, query) {
   if (!query) return Math.random();
-  const q       = query.toLowerCase();
-  const words   = q.split(/\s+/).filter(w => w.length > 2);
+  const q       = query.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+  const words   = q.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
   const text    = [track.title, track.artist, track.album, track.genre]
     .filter(Boolean).join(' ').toLowerCase();
 
