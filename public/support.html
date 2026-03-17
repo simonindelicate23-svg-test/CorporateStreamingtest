@@ -146,9 +146,10 @@
         <details id="restoreDetails">
           <summary>Already subscribed? Restore access to this browser</summary>
           <div class="restore-form">
-            <input type="email" id="restoreEmail" placeholder="Email you used to subscribe" autocomplete="email" />
+            <input type="text" id="restoreId" placeholder="I-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" />
             <p class="restore-hint">
-              Enter the email address you used when subscribing via PayPal and we'll restore your access instantly.
+              Your Subscription ID starts with <code>I-</code>. Find it in your PayPal confirmation email,
+              or at <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer">PayPal&nbsp;→&nbsp;Automatic&nbsp;payments</a>.
             </p>
             <button class="pill primary" id="restoreBtn">Restore access</button>
             <p id="restoreStatus" style="font-size:0.9rem;color:var(--text-secondary,#666);"></p>
@@ -180,19 +181,6 @@
         setAccessToken(token);
       }
 
-      async function restoreByEmail(email) {
-        const res = await fetch('/.netlify/functions/restoreByEmail', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim() }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || `Could not restore access (${res.status})`);
-        }
-        const { token } = await res.json();
-        setAccessToken(token);
-      }
 
       window.addEventListener('DOMContentLoaded', async () => {
         const settings = await window.SiteSettings.loadSiteSettings();
@@ -232,29 +220,29 @@
             section.hidden = true;
             const details = document.getElementById('restoreDetails');
             details.open = true;
-            document.getElementById('restoreStatus').textContent = 'Could not verify automatically — enter your email below to restore access.';
+            document.getElementById('restoreStatus').textContent = 'Could not verify automatically — paste your Subscription ID below to restore access.';
           }
         }
 
         // Restore access form
-        const restoreEmailInput = document.getElementById('restoreEmail');
+        const restoreIdInput = document.getElementById('restoreId');
         const restoreBtn = document.getElementById('restoreBtn');
         const restoreStatus = document.getElementById('restoreStatus');
 
         restoreBtn.addEventListener('click', async () => {
-          const email = (restoreEmailInput?.value || '').trim();
-          if (!email) { restoreStatus.textContent = 'Please enter your email address.'; return; }
+          const id = (restoreIdInput?.value || '').trim();
+          if (!id) { restoreStatus.textContent = 'Please paste your Subscription ID.'; return; }
           restoreBtn.disabled = true;
-          restoreStatus.textContent = 'Looking up your subscription…';
+          restoreStatus.textContent = 'Verifying with PayPal…';
           try {
-            await restoreByEmail(email);
+            await verifyAndStore('subscription', id);
             restoreStatus.textContent = '';
-            restoreEmailInput.value = '';
+            restoreIdInput.value = '';
             document.getElementById('restoreDetails').open = false;
             document.getElementById('paymentSuccessSection').hidden = false;
             history.replaceState(null, '', window.location.pathname);
           } catch (err) {
-            restoreStatus.textContent = err.message || 'Could not restore — check your email and try again.';
+            restoreStatus.textContent = err.message || 'Not found — check your Subscription ID and try again.';
           } finally {
             restoreBtn.disabled = false;
           }

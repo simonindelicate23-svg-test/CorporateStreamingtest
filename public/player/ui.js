@@ -2467,19 +2467,19 @@ async function initPayments() {
       priceEl.hidden = false;
     }
 
-    // Wire the restore-access form (email-based, once at startup)
+    // Wire the restore-access form (subscription ID, once at startup)
     document.getElementById('paywall-restore-submit')?.addEventListener('click', async () => {
-      const email = (document.getElementById('paywall-restore-email')?.value || '').trim();
+      const id = (document.getElementById('paywall-restore-id')?.value || '').trim();
       const msgEl = document.getElementById('paywall-restore-msg');
       if (!msgEl) return;
-      if (!email) { msgEl.textContent = 'Please enter your email address.'; msgEl.hidden = false; return; }
-      msgEl.textContent = 'Looking up your subscription\u2026';
+      if (!id) { msgEl.textContent = 'Please paste your Subscription ID.'; msgEl.hidden = false; return; }
+      msgEl.textContent = 'Verifying with PayPal\u2026';
       msgEl.hidden = false;
       try {
-        const res2 = await fetch('/.netlify/functions/restoreByEmail', {
+        const res2 = await fetch('/.netlify/functions/verifyPayment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ type: 'subscription', id }),
         });
         if (!res2.ok) throw new Error((await res2.json()).message || 'Not found');
         const { token } = await res2.json();
@@ -2490,7 +2490,7 @@ async function initPayments() {
         showToast('Access restored \u2014 welcome back! Full catalogue unlocked.', 'welcome');
         if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
       } catch (err) {
-        msgEl.textContent = err.message || 'Could not restore \u2014 check your email and try again.';
+        msgEl.textContent = err.message || 'Not found \u2014 check your Subscription ID and try again.';
       }
     });
 
