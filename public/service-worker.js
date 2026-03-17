@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tmc-pwa-cache-v6';
+const CACHE_NAME = 'tmc-pwa-cache-v7';
 const OFFLINE_URL = '/player.html';
 const PRECACHE_ASSETS = [
   '/',
@@ -54,8 +54,9 @@ self.addEventListener('fetch', (event) => {
 
   const isApiRequest = pathname.startsWith('/.netlify/functions/');
   if (isApiRequest) {
-    // API responses must be fresh; do not persist stale copies across deploys.
-    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    // Let the browser handle API requests natively — no caching, no SW interception.
+    // Calling event.respondWith here would cause hard failures if the fetch rejects;
+    // not calling it lets the browser fall back gracefully.
     return;
   }
 

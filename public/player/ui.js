@@ -2316,7 +2316,7 @@ function loadPayPalSDK(clientId) {
     if (window.paypal) { resolve(); return; }
     const script = document.createElement('script');
     // vault=true + intent=subscription required for subscription buttons
-    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription&disable-funding=credit,card`;
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription`;
     script.onload = resolve;
     script.onerror = () => reject(new Error('PayPal SDK failed to load'));
     document.head.appendChild(script);
