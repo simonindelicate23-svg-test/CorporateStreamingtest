@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalogue Dashboard</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #07070f;
+    --s0: #0e0e1a;
+    --s1: #131320;
+    --s2: #1a1a2e;
+    --border: #1f1f38;
+    --text: #e8e8f5;
+    --muted: #52526a;
+    --dim: #2a2a48;
+
+    /* accent palette */
+    --c1: #a78bfa;   /* violet */
+    --c2: #38bdf8;   /* sky */
+    --c3: #34d399;   /* emerald */
+    --c4: #fb923c;   /* orange */
+    --c5: #f472b6;   /* pink */
+    --c6: #facc15;   /* yellow */
+
+    --radius: 16px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ── INPUT SCREEN ──────────────────────────────── */
+  #inputScreen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+    background-image:
+      radial-gradient(ellipse at 15% 80%, rgba(167,139,250,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 20%, rgba(56,189,248,0.06) 0%, transparent 50%);
+  }
+
+  .input-wrap {
+    width: 100%;
+    max-width: 580px;
+    animation: rise 0.5s ease;
+  }
+
+  .input-logo { text-align: center; margin-bottom: 40px; }
+  .input-logo h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    background: linear-gradient(110deg, var(--c1), var(--c2), var(--c3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .input-logo p { color: var(--muted); font-size: 0.95rem; }
+
+  textarea {
+    width: 100%;
+    min-height: 240px;
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    padding: 18px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus { border-color: var(--c1); }
+  textarea::placeholder { color: var(--muted); opacity: 0.5; }
+
+  .parse-btn {
+    margin-top: 14px;
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(110deg, var(--c1), var(--c2));
+    border: none;
+    border-radius: 12px;
+    color: #06061a;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .parse-btn:hover { opacity: 0.9; }
+
+  .perr {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 10px;
+    color: #fca5a5;
+    font-size: 0.85rem;
+    display: none;
+  }
+
+  /* ── DASHBOARD ─────────────────────────────────── */
+  #dashboard {
+    display: none;
+    padding: 24px 20px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+    animation: rise 0.5s ease;
+  }
+
+  .dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dash-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
+  .dash-title span {
+    background: linear-gradient(110deg, var(--c1), var(--c2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .dash-subtitle { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+
+  .back-btn {
+    padding: 8px 16px;
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .back-btn:hover { border-color: var(--c1); color: var(--text); }
+
+  /* ── STAT CARDS ────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card:nth-child(1)::before { background: var(--c1); }
+  .stat-card:nth-child(2)::before { background: var(--c2); }
+  .stat-card:nth-child(3)::before { background: var(--c3); }
+  .stat-card:nth-child(4)::before { background: var(--c4); }
+  .stat-card:nth-child(5)::before { background: var(--c5); }
+  .stat-card:nth-child(6)::before { background: var(--c6); }
+
+  .stat-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+  /* ── TWO-COL GRID ──────────────────────────────── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── PANELS ────────────────────────────────────── */
+  .panel {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title::before {
+    content: '';
+    display: block;
+    width: 4px; height: 14px;
+    border-radius: 2px;
+  }
+
+  .panel:nth-child(1) .panel-title::before { background: var(--c1); }
+  .panel:nth-child(2) .panel-title::before { background: var(--c2); }
+
+  /* ── GENRE BARS ────────────────────────────────── */
+  .genre-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .genre-name { font-size: 0.8rem; min-width: 100px; color: var(--text); flex-shrink: 0; }
+  .genre-track { flex: 1; height: 8px; background: var(--s2); border-radius: 4px; overflow: hidden; }
+
+  .genre-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1);
+    width: 0%;
+  }
+
+  .genre-count { font-size: 0.75rem; color: var(--muted); min-width: 32px; text-align: right; }
+
+  /* ── ARTIST LIST ───────────────────────────────── */
+  .artist-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 11px;
+  }
+
+  .artist-rank {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted);
+    width: 18px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .artist-name { font-size: 0.85rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .artist-bar-wrap { width: 80px; height: 6px; background: var(--s2); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .artist-bar { height: 100%; border-radius: 3px; background: var(--c3); transition: width 0.8s ease; width: 0%; }
+  .artist-count { font-size: 0.73rem; color: var(--muted); flex-shrink: 0; width: 28px; text-align: right; }
+
+  /* ── WORD CLOUD ────────────────────────────────── */
+  #wordCloud {
+    width: 100%;
+    border-radius: 10px;
+    display: block;
+  }
+
+  /* ── DECADE CHART ──────────────────────────────── */
+  .decade-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 90px;
+    padding: 0 2px;
+  }
+
+  .decade-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+  .decade-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+
+  .decade-bar {
+    width: 100%;
+    background: linear-gradient(180deg, var(--c2), var(--c1));
+    border-radius: 4px 4px 0 0;
+    min-height: 3px;
+    transition: height 0.8s ease;
+    height: 0%;
+  }
+
+  .decade-label { font-size: 0.65rem; color: var(--muted); white-space: nowrap; }
+
+  /* ── TRACKS TABLE ──────────────────────────────── */
+  .track-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .track-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--s2);
+    border-radius: 8px;
+    transition: background 0.15s;
+  }
+
+  .track-row:hover { background: var(--dim); }
+
+  .track-no { font-size: 0.72rem; color: var(--muted); width: 20px; text-align: right; flex-shrink: 0; }
+  .track-info-col { flex: 1; min-width: 0; }
+  .track-row-title { font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track-row-sub { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track-dur { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+
+  /* ── GATED DONUT ───────────────────────────────── */
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  #donutCanvas { flex-shrink: 0; }
+
+  .donut-legend { display: flex; flex-direction: column; gap: 10px; }
+
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── FACT STRIP ────────────────────────────────── */
+  .fact-strip {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+
+  .facts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 4px;
+  }
+
+  .fact-item {
+    padding: 14px;
+    background: var(--s2);
+    border-radius: 12px;
+    font-size: 0.82rem;
+  }
+
+  .fact-label { color: var(--muted); font-size: 0.72rem; margin-bottom: 4px; }
+  .fact-val { font-weight: 700; color: var(--text); }
+
+  /* ── FULL-WIDTH PANEL ──────────────────────────── */
+  .panel-full {
+    margin-bottom: 20px;
+  }
+
+  /* ── ANIMATIONS ────────────────────────────────── */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── INPUT SCREEN ─────────────────────────────────── -->
+<div id="inputScreen">
+  <div class="input-wrap">
+    <div class="input-logo">
+      <h1>Catalogue Dashboard</h1>
+      <p>Enter a <code style="color:var(--c1);font-size:0.9em">/catalogue</code> endpoint URL to explore it visually.</p>
+    </div>
+
+    <input type="url" id="catInput" placeholder="https://yoursite.com/catalogue"
+      style="width:100%;padding:16px;background:var(--s1);border:1px solid var(--border);border-radius:14px;color:var(--text);font-size:1rem;outline:none;transition:border-color 0.2s;margin-bottom:4px"
+      onkeydown="if(event.key==='Enter')parseCatalogue()">
+
+    <div id="perr" class="perr"></div>
+    <button class="parse-btn" onclick="parseCatalogue()">→ &nbsp;Analyse Catalogue</button>
+  </div>
+</div>
+
+<!-- ── DASHBOARD ─────────────────────────────────────── -->
+<div id="dashboard">
+  <div class="dash-header">
+    <div>
+      <div class="dash-title"><span id="instName">Catalogue</span> Dashboard</div>
+      <div class="dash-subtitle" id="instMeta">—</div>
+    </div>
+    <button class="back-btn" onclick="goBack()">← New catalogue</button>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid" id="statGrid"></div>
+
+  <!-- Facts strip -->
+  <div class="fact-strip panel-full">
+    <div class="panel-title" style="margin-bottom:14px"><span>✦ Fun Facts</span></div>
+    <div class="facts-grid" id="factsGrid"></div>
+  </div>
+
+  <!-- Genre + Artist -->
+  <div class="grid-2">
+    <div class="panel" id="genrePanel">
+      <div class="panel-title">Genre Breakdown</div>
+      <div id="genreList"></div>
+    </div>
+    <div class="panel" id="artistPanel">
+      <div class="panel-title">Top Artists</div>
+      <div id="artistList"></div>
+    </div>
+  </div>
+
+  <!-- Decades + Gated donut -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Tracks by Decade</div>
+      <div class="decade-chart" id="decadeChart"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Playable vs Gated</div>
+      <div class="donut-wrap">
+        <canvas id="donutCanvas" width="110" height="110"></canvas>
+        <div class="donut-legend" id="donutLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Word cloud -->
+  <div class="panel panel-full" style="margin-bottom:20px">
+    <div class="panel-title">Title Word Cloud</div>
+    <canvas id="wordCloud" height="220"></canvas>
+  </div>
+
+  <!-- Longest + Shortest tracks -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Longest Tracks</div>
+      <div class="track-list" id="longestList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Most Tracks per Album</div>
+      <div class="track-list" id="albumList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let catData = null;
+
+  /* ─── parse & route ─────────────────────────────── */
+  async function parseCatalogue() {
+    const url = document.getElementById('catInput').value.trim();
+    const err = document.getElementById('perr');
+    err.style.display = 'none';
+
+    if (!url.match(/^https?:\/\//)) {
+      err.textContent = 'Please enter a valid https:// URL.';
+      err.style.display = 'block';
+      return;
+    }
+
+    const btn = document.querySelector('.parse-btn');
+    btn.textContent = 'Fetching…';
+    btn.disabled = true;
+
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      catData = await r.json();
+      if (!catData.releases) throw new Error('No "releases" key in response.');
+    } catch (e) {
+      err.textContent = e.message;
+      err.style.display = 'block';
+      btn.textContent = '→  Analyse Catalogue';
+      btn.disabled = false;
+      return;
+    }
+
+    btn.textContent = '→  Analyse Catalogue';
+    btn.disabled = false;
+    document.getElementById('inputScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display  = 'block';
+    buildDashboard(catData);
+  }
+
+  function goBack() {
+    document.getElementById('dashboard').style.display  = 'none';
+    document.getElementById('inputScreen').style.display = '';
+  }
+
+  /* ─── helpers ───────────────────────────────────── */
+  function fmt(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+  function fmtH(s) {
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  const GENRE_COLORS = [
+    '#a78bfa','#38bdf8','#34d399','#fb923c',
+    '#f472b6','#facc15','#818cf8','#2dd4bf',
+  ];
+
+  const STOPWORDS = new Set([
+    'the','a','an','and','or','but','in','on','at','to','for',
+    'of','with','by','from','as','is','was','are','were','be',
+    'been','have','has','had','do','does','did','will','would',
+    'can','could','should','may','might','shall','not','no','so',
+    'if','when','then','than','that','this','it','its','i','my',
+    'me','we','you','your','he','she','they','their','them',
+    'what','which','who','how','all','more','up','out','get',
+    'just','like','into','over','after','before','through',
+    '&','feat','ft','vs','remix','edit','mix',
+  ]);
+
+  /* ─── build ─────────────────────────────────────── */
+  function buildDashboard(data) {
+    const inst = data.instance || {};
+    document.getElementById('instName').textContent = inst.name || 'Catalogue';
+    document.getElementById('instMeta').textContent =
+      [inst.url, data.generatedAt ? `Generated ${new Date(data.generatedAt).toLocaleDateString()}` : null]
+        .filter(Boolean).join(' · ');
+
+    /* flatten tracks */
+    const allTracks = [];
+    for (const rel of data.releases || []) {
+      for (const t of rel.tracks || []) {
+        allTracks.push({ ...t, _rel: rel });
+      }
+    }
+
+    const playable = allTracks.filter(t => t.audioUrl && !t.gated);
+    const gated    = allTracks.filter(t => t.gated);
+    const withDur  = allTracks.filter(t => t.durationSeconds);
+    const totalSec = withDur.reduce((s,t) => s + t.durationSeconds, 0);
+    const avgSec   = withDur.length ? Math.round(totalSec / withDur.length) : 0;
+    const releases = data.releases || [];
+
+    const artistMap = {};
+    for (const rel of releases) {
+      const a = rel.artist || 'Unknown';
+      artistMap[a] = (artistMap[a] || 0) + (rel.tracks?.length || 0);
+    }
+
+    /* stat cards */
+    const stats = [
+      { label: 'Tracks',     value: allTracks.length,  sub: `${playable.length} playable` },
+      { label: 'Albums',     value: releases.length,    sub: `${Object.keys(artistMap).length} artists` },
+      { label: 'Artists',    value: Object.keys(artistMap).length, sub: 'unique' },
+      { label: 'Total Time', value: fmtH(totalSec),    sub: `${allTracks.length} tracks` },
+      { label: 'Avg Length', value: fmt(avgSec),        sub: 'per track' },
+      { label: 'Gated',      value: gated.length,       sub: `${allTracks.length ? Math.round(gated.length/allTracks.length*100) : 0}% of catalogue` },
+    ];
+    const sg = document.getElementById('statGrid');
+    sg.innerHTML = '';
+    for (const s of stats) {
+      sg.innerHTML += `
+        <div class="stat-card">
+          <div class="stat-label">${s.label}</div>
+          <div class="stat-value">${s.value}</div>
+          <div class="stat-sub">${s.sub}</div>
+        </div>`;
+    }
+
+    /* genres */
+    const genreMap = {};
+    for (const t of allTracks) {
+      const g = t.genre || t._rel.genre || 'Unknown';
+      genreMap[g] = (genreMap[g] || 0) + 1;
+    }
+    const genresSorted = Object.entries(genreMap).sort((a,b) => b[1]-a[1]);
+    const maxGenre = genresSorted[0]?.[1] || 1;
+    const gl = document.getElementById('genreList');
+    gl.innerHTML = '';
+    genresSorted.slice(0, 10).forEach(([g, c], i) => {
+      const color = GENRE_COLORS[i % GENRE_COLORS.length];
+      const pct = Math.round(c / maxGenre * 100);
+      gl.innerHTML += `
+        <div class="genre-row">
+          <div class="genre-name">${g}</div>
+          <div class="genre-track">
+            <div class="genre-fill" data-pct="${pct}" style="background:${color}"></div>
+          </div>
+          <div class="genre-count">${c}</div>
+        </div>`;
+    });
+
+    /* artists */
+    const artistsSorted = Object.entries(artistMap).sort((a,b) => b[1]-a[1]);
+    const maxArtist = artistsSorted[0]?.[1] || 1;
+    const al = document.getElementById('artistList');
+    al.innerHTML = '';
+    artistsSorted.slice(0, 10).forEach(([a, c], i) => {
+      al.innerHTML += `
+        <div class="artist-row">
+          <div class="artist-rank">${i+1}</div>
+          <div class="artist-name" title="${a}">${a}</div>
+          <div class="artist-bar-wrap">
+            <div class="artist-bar" data-pct="${Math.round(c/maxArtist*100)}"></div>
+          </div>
+          <div class="artist-count">${c}</div>
+        </div>`;
+    });
+
+    /* decades */
+    const decadeMap = {};
+    for (const rel of releases) {
+      const yr = rel.year;
+      if (!yr) continue;
+      const decade = Math.floor(yr / 10) * 10;
+      decadeMap[decade] = (decadeMap[decade] || 0) + (rel.tracks?.length || 0);
+    }
+    const decades = Object.entries(decadeMap).sort((a,b) => +a[0] - +b[0]);
+    const maxDecade = Math.max(...decades.map(d => d[1]), 1);
+    const dc = document.getElementById('decadeChart');
+    dc.innerHTML = '';
+    for (const [d, c] of decades) {
+      const pct = Math.round(c / maxDecade * 100);
+      dc.innerHTML += `
+        <div class="decade-col">
+          <div class="decade-bar-wrap">
+            <div class="decade-bar" data-pct="${pct}" style="height:0px" title="${c} tracks"></div>
+          </div>
+          <div class="decade-label">${d}s</div>
+        </div>`;
+    }
+
+    /* donut chart */
+    drawDonut(playable.length, gated.length, allTracks.length - playable.length - gated.length);
+
+    /* fun facts */
+    const facts = [];
+    const sorted = [...allTracks].filter(t => t.durationSeconds).sort((a,b) => b.durationSeconds-a.durationSeconds);
+    if (sorted.length) {
+      const lon = sorted[0];
+      facts.push({ label: 'Longest track', val: `${lon.title} — ${fmt(lon.durationSeconds)}` });
+      const sh = sorted[sorted.length-1];
+      facts.push({ label: 'Shortest track', val: `${sh.title} — ${fmt(sh.durationSeconds)}` });
+    }
+    if (decades.length) {
+      const busiest = decades.reduce((a,b) => b[1]>a[1]?b:a);
+      facts.push({ label: 'Busiest decade', val: `${busiest[0]}s with ${busiest[1]} tracks` });
+    }
+    if (artistsSorted.length) {
+      facts.push({ label: 'Most prolific artist', val: `${artistsSorted[0][0]} (${artistsSorted[0][1]} tracks)` });
+    }
+    const multiTrack = releases.filter(r => (r.tracks?.length||0) > 1);
+    if (multiTrack.length) {
+      const avg = Math.round(allTracks.length / releases.length * 10)/10;
+      facts.push({ label: 'Avg tracks per album', val: `${avg} tracks` });
+    }
+    if (totalSec > 0) {
+      facts.push({ label: 'Enough music for', val: `${Math.floor(totalSec/3600)} hr ${Math.floor((totalSec%3600)/60)} min of listening` });
+    }
+
+    const fg = document.getElementById('factsGrid');
+    fg.innerHTML = '';
+    for (const f of facts) {
+      fg.innerHTML += `
+        <div class="fact-item">
+          <div class="fact-label">${f.label}</div>
+          <div class="fact-val">${f.val}</div>
+        </div>`;
+    }
+
+    /* longest tracks list */
+    const ll = document.getElementById('longestList');
+    ll.innerHTML = '';
+    sorted.slice(0,5).forEach((t,i) => {
+      ll.innerHTML += `
+        <div class="track-row">
+          <div class="track-no">${i+1}</div>
+          <div class="track-info-col">
+            <div class="track-row-title" title="${t.title}">${t.title}</div>
+            <div class="track-row-sub">${t._rel.artist}</div>
+          </div>
+          <div class="track-dur">${fmt(t.durationSeconds)}</div>
+        </div>`;
+    });
+
+    /* albums by track count */
+    const relSorted = [...releases].sort((a,b)=>(b.tracks?.length||0)-(a.tracks?.length||0));
+    const abl = document.getElementById('albumList');
+    abl.innerHTML = '';
+    relSorted.slice(0,5).forEach((rel,i) => {
+      abl.innerHTML += `
+        <div class="track-row">
+          <div class="track-no">${i+1}</div>
+          <div class="track-info-col">
+            <div class="track-row-title" title="${rel.title}">${rel.title}</div>
+            <div class="track-row-sub">${rel.artist}</div>
+          </div>
+          <div class="track-dur">${rel.tracks?.length||0} trk</div>
+        </div>`;
+    });
+
+    /* word cloud */
+    const words = buildWordMap(allTracks);
+    requestAnimationFrame(() => {
+      drawWordCloud(words);
+      animateBars();
+    });
+  }
+
+  /* ─── word cloud ─────────────────────────────────── */
+  function buildWordMap(tracks) {
+    const freq = {};
+    for (const t of tracks) {
+      const words = (t.title || '').toLowerCase()
+        .replace(/[^a-z0-9\s'-]/g,'').split(/\s+/);
+      for (const w of words) {
+        const clean = w.replace(/^'+|'+$/g,'');
+        if (clean.length >= 3 && !STOPWORDS.has(clean)) {
+          freq[clean] = (freq[clean]||0)+1;
+        }
+      }
+    }
+    return Object.entries(freq)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,60)
+      .map(([text,count])=>({text,count}));
+  }
+
+  function drawWordCloud(words) {
+    const canvas = document.getElementById('wordCloud');
+    const dpr    = window.devicePixelRatio || 1;
+    const W      = canvas.parentElement.clientWidth;
+    const H      = 220;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    if (!words.length) return;
+    const maxC = words[0].count;
+
+    const placed = [];
+
+    const checkOverlap = (x, y, w, h) => {
+      for (const p of placed) {
+        if (x < p.x+p.w+6 && x+w+6 > p.x && y < p.y+p.h+4 && y+h+4 > p.y) return true;
+      }
+      return false;
+    };
+
+    for (const word of words) {
+      const size   = 11 + (word.count / maxC) * 30;
+      const weight = word.count / maxC > 0.5 ? 800 : 600;
+      ctx.font     = `${weight} ${size}px system-ui`;
+      const tw     = ctx.measureText(word.text).width;
+      const th     = size;
+
+      let px, py, found = false;
+      // Sunflower/Fermat spiral placement
+      for (let n = 0; n < 600 && !found; n++) {
+        const r     = Math.sqrt(n) * 14;
+        const theta = n * 2.4;
+        px = W/2 + Math.cos(theta) * r - tw/2;
+        py = H/2 + Math.sin(theta) * r + th/3;
+
+        if (px < 4 || px+tw > W-4 || py-th < 0 || py > H) continue;
+        if (!checkOverlap(px, py-th, tw, th)) { found = true; }
+      }
+      if (!found) continue;
+
+      const hue = (word.count * 53 + words.indexOf(word) * 30) % 360;
+      const sat = 60 + (word.count / maxC) * 30;
+      const lit = 62 + (word.count / maxC) * 18;
+      ctx.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
+      ctx.fillText(word.text, px, py);
+      placed.push({ x: px, y: py-th, w: tw, h: th });
+    }
+  }
+
+  /* ─── donut chart ───────────────────────────────── */
+  function drawDonut(playable, gated, other) {
+    const canvas = document.getElementById('donutCanvas');
+    const ctx = canvas.getContext('2d');
+    const cx = 55, cy = 55, r = 42, inner = 28;
+
+    const total   = playable + gated + other;
+    const slices  = [
+      { v: playable, color: '#34d399', label: 'Playable' },
+      { v: gated,    color: '#f472b6', label: 'Gated' },
+      { v: other,    color: '#374151', label: 'No audio' },
+    ].filter(s => s.v > 0);
+
+    let angle = -Math.PI / 2;
+    ctx.clearRect(0, 0, 110, 110);
+
+    for (const s of slices) {
+      const sweep = (s.v / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, angle, angle + sweep);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+      angle += sweep;
+    }
+
+    // Donut hole
+    ctx.beginPath();
+    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.fillStyle = '#13131f';
+    ctx.fill();
+
+    // Center text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 14px system-ui';
+    ctx.fillStyle = '#e8e8f5';
+    ctx.fillText(total, cx, cy - 7);
+    ctx.font = '9px system-ui';
+    ctx.fillStyle = '#52526a';
+    ctx.fillText('tracks', cx, cy + 8);
+
+    // Legend
+    const leg = document.getElementById('donutLegend');
+    leg.innerHTML = '';
+    for (const s of slices) {
+      const pct = Math.round(s.v / total * 100);
+      leg.innerHTML += `
+        <div class="legend-item">
+          <div class="legend-dot" style="background:${s.color}"></div>
+          <span>${s.label} <strong>${pct}%</strong></span>
+        </div>`;
+    }
+  }
+
+  /* ─── animate bars ──────────────────────────────── */
+  function animateBars() {
+    requestAnimationFrame(() => {
+      // Genre bars
+      for (const el of document.querySelectorAll('.genre-fill[data-pct]')) {
+        el.style.width = el.dataset.pct + '%';
+      }
+      // Artist bars
+      for (const el of document.querySelectorAll('.artist-bar[data-pct]')) {
+        el.style.width = el.dataset.pct + '%';
+      }
+      // Decade bars
+      for (const el of document.querySelectorAll('.decade-bar[data-pct]')) {
+        const pct = +el.dataset.pct;
+        el.style.height = Math.max(3, pct * 0.9) + 'px';
+      }
+    });
+  }
+
+  // Resize word cloud on window resize
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (catData) {
+        const allTracks = [];
+        for (const rel of catData.releases || []) {
+          for (const t of rel.tracks || []) allTracks.push({ ...t, _rel: rel });
+        }
+        drawWordCloud(buildWordMap(allTracks));
+      }
+    }, 200);
+  });
+
+  (function () {
+    const inp = document.getElementById('catInput');
+    if (inp && location.protocol !== 'file:') {
+      inp.value = location.origin + '/catalogue';
+    }
+  })();
+</script>
+</body>
+</html>
