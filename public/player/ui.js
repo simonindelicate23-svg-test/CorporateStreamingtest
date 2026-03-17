@@ -208,11 +208,13 @@ function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
-  toast.className = type === 'error' ? 'toast toast--error' : 'toast';
+  toast.className = type === 'error' ? 'toast toast--error'
+    : type === 'welcome' ? 'toast toast--welcome'
+    : 'toast';
   toast.textContent = message;
   container.appendChild(toast);
-  // Remove after animation (2.4s delay + 0.28s fade = ~2.7s)
-  setTimeout(() => toast.remove(), 2750);
+  // welcome toasts stay visible longer (5.5s animation + 0.35s fade ≈ 6s)
+  setTimeout(() => toast.remove(), type === 'welcome' ? 6000 : 2750);
 }
 
 // ── Skeleton placeholder cards ────────────────────────────────────
@@ -1607,11 +1609,18 @@ function renderTracks(album) {
   }
   albumTracks.forEach((track, index) => {
     const isPaid = track.paid === true;
+    const isSubscribed = !!getAccessToken();
     const li = document.createElement('li');
-    li.className = isPaid ? 'track-item paid' : 'track-item';
+    li.className = isPaid
+      ? (isSubscribed ? 'track-item paid is-subscribed' : 'track-item paid')
+      : 'track-item';
     li.dataset.id = track._id;
     const prefix = resolvedAlbum?.allTracks || resolvedAlbum?.pseudoType ? `${index + 1}.` : track.trackNumber ? `${track.trackNumber}.` : '';
-    const lockIcon = (isPaid && paymentConfig?.paymentsEnabled !== false) ? '<span class="track-lock" aria-label="Members only">&#128274;</span>' : '';
+    const lockIcon = (isPaid && paymentConfig?.paymentsEnabled !== false)
+      ? isSubscribed
+        ? '<span class="track-star" aria-label="Members track" title="Members track — you have full access">★</span>'
+        : '<span class="track-lock" aria-label="Members only" title="Subscribe to unlock">&#128274;</span>'
+      : '';
     li.innerHTML = `<div>${prefix}${lockIcon}</div><div>${track.trackName}</div>`;
     li.addEventListener('click', () => playTrack(track));
     dom.tracksList.appendChild(li);
@@ -1901,9 +1910,56 @@ function primeAdjacentTracks(track) {
   if (nextTrack) primeNextTrackAudio(nextTrack);
 }
 
+function activateSubscribedState() {
+  // Nav button → non-interactive "Subscribed ✓" badge
+  const navBtn = document.getElementById('navSubscribe');
+  if (navBtn) {
+    navBtn.classList.remove('hidden');
+    navBtn.classList.add('is-subscribed');
+    navBtn.textContent = 'Subscribed \u2713';
+    navBtn.setAttribute('aria-label', 'You have a full-access subscription');
+  }
+  // Convert any rendered lock icons to star (premium indicator)
+  document.querySelectorAll('.track-lock').forEach(el => {
+    el.className = 'track-star';
+    el.textContent = '\u2605';
+    el.setAttribute('aria-label', 'Members track');
+    el.setAttribute('title', 'Members track \u2014 you have full access');
+  });
+  // Remove the dim from paid track items
+  document.querySelectorAll('.track-item.paid').forEach(el => el.classList.add('is-subscribed'));
+}
+
 function showPaywallModal(track) {
   const modal = document.getElementById('paywall-modal');
   if (!modal) return;
+
+  if (getAccessToken()) {
+    // Already subscribed — show confirmation instead of payment flow
+    const iconEl = document.getElementById('paywall-icon');
+    const titleEl = document.getElementById('paywall-title');
+    const bodyEl = document.getElementById('paywall-body');
+    if (iconEl) iconEl.textContent = '\u2713';
+    if (titleEl) titleEl.textContent = "You're subscribed!";
+    if (bodyEl) bodyEl.textContent = 'You have full access to the entire catalogue. Enjoy the music!';
+    document.getElementById('paywall-payment-flow').hidden = true;
+    document.getElementById('paywall-subscribed-view').hidden = false;
+    document.getElementById('paywall-dismiss').hidden = true;
+    modal.hidden = false;
+    document.getElementById('paywall-subscribed-ok')?.focus();
+    return;
+  }
+
+  // Ensure payment flow is shown (reset in case previously opened in subscribed state)
+  const paymentFlow = document.getElementById('paywall-payment-flow');
+  const subscribedView = document.getElementById('paywall-subscribed-view');
+  const dismissBtn = document.getElementById('paywall-dismiss');
+  if (paymentFlow) paymentFlow.hidden = false;
+  if (subscribedView) subscribedView.hidden = true;
+  if (dismissBtn) dismissBtn.hidden = false;
+  const iconEl = document.getElementById('paywall-icon');
+  if (iconEl) iconEl.innerHTML = '&#128274;';
+
   pendingTrack = track;
   const body = document.getElementById('paywall-body');
   if (body) {
@@ -2307,6 +2363,10 @@ function bindEvents() {
     paywallDismiss.addEventListener('click', closePaywall);
     paywallModal.addEventListener('click', (event) => { if (event.target === paywallModal) closePaywall(); });
   }
+  document.getElementById('paywall-subscribed-ok')?.addEventListener('click', () => {
+    const modal = document.getElementById('paywall-modal');
+    if (modal) modal.hidden = true;
+  });
 }
 
 // ── Payment / subscription flow ───────────────────────────────────
@@ -2350,9 +2410,14 @@ function renderPayPalButton() {
         const { token } = await res.json();
         setAccessToken(token);
         document.getElementById('paywall-modal').hidden = true;
+        activateSubscribedState();
+        showToast('Welcome! You now have full access to the entire catalogue.', 'welcome');
         if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
       } catch (err) {
-        if (errorEl) { errorEl.textContent = `Could not confirm access: ${err.message}`; errorEl.hidden = false; }
+        if (errorEl) {
+          errorEl.textContent = 'Your subscription was received but access confirmation failed. Please use "Restore access" below or refresh the page.';
+          errorEl.hidden = false;
+        }
       }
     },
     onError: (err) => {
@@ -2373,11 +2438,14 @@ async function initPayments() {
     paymentConfig = await res.json();
     if (!paymentConfig.paymentsEnabled) return;
 
-    // Show the Subscribe button in the nav
+    // Show the Subscribe button in the nav (or subscribed badge if already active)
     const navBtn = document.getElementById('navSubscribe');
     if (navBtn) {
       navBtn.classList.remove('hidden');
       navBtn.addEventListener('click', () => showPaywallModal(null));
+    }
+    if (getAccessToken()) {
+      activateSubscribedState();
     }
 
     // Pre-fill the price display so it's ready when the modal first opens
@@ -2406,9 +2474,11 @@ async function initPayments() {
         setAccessToken(token);
         document.getElementById('paywall-modal').hidden = true;
         msgEl.hidden = true;
+        activateSubscribedState();
+        showToast('Access restored \u2014 welcome back! Full catalogue unlocked.', 'welcome');
         if (pendingTrack) { const t = pendingTrack; pendingTrack = null; playTrack(t); }
       } catch (err) {
-        msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments → Subscriptions.`;
+        msgEl.textContent = `Could not verify: ${err.message}. Find your Subscription ID in your PayPal account under Payments \u2192 Subscriptions.`;
       }
     });
 

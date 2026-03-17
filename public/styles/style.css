@@ -1070,6 +1070,51 @@ body.dark-mode .paywall-modal__card {
   }
 }
 
+.nav-subscribe.is-subscribed {
+  background: #2a7a4b;
+  cursor: default;
+  pointer-events: none;
+  filter: none;
+  transform: none;
+  opacity: 0.92;
+}
+
+/* ── Track star icon (members track, subscribed user) ─────── */
+.track-star {
+  font-size: 0.8rem;
+  line-height: 1;
+  opacity: 0.75;
+  color: #c8972a;
+}
+
+.track-item.paid.is-subscribed {
+  opacity: 1;
+}
+
+/* ── Paywall modal — subscribed confirmation view ─────────── */
+.paywall-modal__subscribed-view {
+  margin-bottom: 20px;
+}
+
+.paywall-modal__subscribed-msg {
+  font-size: 0.95rem;
+  color: var(--eyebrow, #555);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+/* ── Welcome toast ────────────────────────────────────────── */
+.toast--welcome {
+  background: #2a7a4b;
+  font-size: 0.95rem;
+  padding: 12px 22px;
+  max-width: 320px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.4;
+  animation: toast-in 0.25s ease both, toast-out 0.35s ease 5.5s both;
+}
+
 .player-pane {
   background: var(--panel-surface);
   border-radius: 18px;

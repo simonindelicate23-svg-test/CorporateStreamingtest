@@ -318,29 +318,38 @@
     <!-- Paywall / subscription modal -->
     <div id="paywall-modal" class="paywall-modal" aria-modal="true" role="dialog" aria-labelledby="paywall-title" hidden>
       <div class="paywall-modal__card">
-        <div class="paywall-modal__icon">&#128274;</div>
+        <div class="paywall-modal__icon" id="paywall-icon">&#128274;</div>
         <h2 class="paywall-modal__title" id="paywall-title">Members only</h2>
         <p class="paywall-modal__body" id="paywall-body">Subscribe to unlock the full catalogue.</p>
 
-        <!-- Primary: subscription -->
-        <div class="paywall-modal__sub-section">
-          <p class="paywall-modal__price" id="paywall-price" hidden></p>
-          <!-- PayPal JS SDK renders the Subscribe button here -->
-          <div id="paywall-paypal-btn"></div>
-          <p class="paywall-modal__sub-hint">Cancel anytime from your PayPal account.</p>
-          <p class="paywall-modal__loading" id="paywall-loading" hidden>Loading payment options…</p>
-          <p class="paywall-modal__error" id="paywall-error" hidden></p>
+        <!-- Subscribed confirmation view — shown in place of payment flow when access is active -->
+        <div id="paywall-subscribed-view" class="paywall-modal__subscribed-view" hidden>
+          <p class="paywall-modal__subscribed-msg">You have full access to the entire catalogue. Enjoy the music!</p>
+          <button class="paywall-modal__cta" id="paywall-subscribed-ok">Continue listening</button>
         </div>
 
-        <!-- Restore: for returning subscribers whose token has been cleared -->
-        <details class="paywall-modal__restore">
-          <summary>Already subscribed? Restore access</summary>
-          <div class="paywall-modal__restore-form">
-            <input id="paywall-restore-id" type="text" placeholder="Paste your PayPal Subscription ID (I-…)" autocomplete="off" spellcheck="false" />
-            <button id="paywall-restore-submit" type="button">Verify &amp; restore</button>
-            <p id="paywall-restore-msg" class="paywall-modal__restore-msg" hidden></p>
+        <!-- Payment flow — hidden when user is already subscribed -->
+        <div id="paywall-payment-flow">
+          <!-- Primary: subscription -->
+          <div class="paywall-modal__sub-section">
+            <p class="paywall-modal__price" id="paywall-price" hidden></p>
+            <!-- PayPal JS SDK renders the Subscribe button here -->
+            <div id="paywall-paypal-btn"></div>
+            <p class="paywall-modal__sub-hint">Cancel anytime from your PayPal account.</p>
+            <p class="paywall-modal__loading" id="paywall-loading" hidden>Loading payment options…</p>
+            <p class="paywall-modal__error" id="paywall-error" hidden></p>
           </div>
-        </details>
+
+          <!-- Restore: for returning subscribers whose token has been cleared -->
+          <details class="paywall-modal__restore">
+            <summary>Already subscribed? Restore access</summary>
+            <div class="paywall-modal__restore-form">
+              <input id="paywall-restore-id" type="text" placeholder="Paste your PayPal Subscription ID (I-…)" autocomplete="off" spellcheck="false" />
+              <button id="paywall-restore-submit" type="button">Verify &amp; restore</button>
+              <p id="paywall-restore-msg" class="paywall-modal__restore-msg" hidden></p>
+            </div>
+          </details>
+        </div>
 
         <button class="paywall-modal__dismiss" id="paywall-dismiss">Maybe later</button>
       </div>
