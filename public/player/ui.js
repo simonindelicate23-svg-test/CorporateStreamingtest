@@ -2407,9 +2407,12 @@ async function initPayments() {
       }
     });
 
-    // Load the SDK in the background — the button renders lazily on first modal open
+    // Load the SDK in the background — the button renders lazily on first modal open.
+    // Also call renderPayPalButton() after load in case the modal was already open.
     if (paymentConfig.clientId) {
-      loadPayPalSDK(paymentConfig.clientId).catch(err => console.warn('PayPal SDK load failed', err));
+      loadPayPalSDK(paymentConfig.clientId)
+        .then(() => renderPayPalButton())
+        .catch(err => console.warn('PayPal SDK load failed', err));
     }
   } catch (err) {
     console.warn('Payment init failed', err);
