@@ -215,11 +215,32 @@ function isPublishedTrack(track) {
 }
 
 function matchesTrackId(track, trackParam) {
-  const rawId = extractTrackId(trackParam);
-  if (!rawId) return false;
+  if (!trackParam) return false;
   const id = String(track?._id || '');
-  if (id === rawId) return true;
-  if (ObjectId.isValid(rawId) && ObjectId.isValid(id)) return String(new ObjectId(id)) === String(new ObjectId(rawId));
+  const param = String(trackParam);
+
+  // Build candidates to try, in order of specificity:
+  // 1. Exact match (e.g. ?track= query param passes the raw ID)
+  // 2. Two-part compound ID: generated IDs are always "base36ts-base36rand".
+  //    URL path segments append a slug: "base36ts-base36rand-slug-words",
+  //    so take the first two hyphen-separated parts.
+  // 3. Single-part ID (legacy MongoDB ObjectIds have no hyphens; slug-appended
+  //    form is "objectid-slug-words" so parts[0] is the ID).
+  const parts = param.split('-');
+  const candidates = new Set([
+    param,
+    parts.length >= 2 ? `${parts[0]}-${parts[1]}` : null,
+    parts[0],
+  ].filter(Boolean));
+
+  for (const rawId of candidates) {
+    if (id === rawId) return true;
+    try {
+      if (ObjectId.isValid(rawId) && ObjectId.isValid(id)) {
+        if (String(new ObjectId(id)) === String(new ObjectId(rawId))) return true;
+      }
+    } catch (_) {}
+  }
   return false;
 }
 

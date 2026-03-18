@@ -1828,17 +1828,10 @@ function buildShareUrl(track, albumParam) {
 }
 
 async function copyShareLink() {
-  // For tracks, use the /s/:trackId route — direct ID lookup, no slug matching,
-  // works regardless of how the album name is stored in the database.
-  // For album-only (no track playing), fall back to the slug URL.
-  const trackId = state.currentTrack?._id;
-  const url = trackId
-    ? `${window.location.origin}/s/${trackId}`
-    : (() => {
-        const albumParam = state.currentAlbumId || state.currentAlbum;
-        const su = buildShareUrl(null, albumParam);
-        return su?.pathname ? su.toString() : window.location.href;
-      })();
+  const track = state.currentTrack;
+  const albumParam = state.currentAlbumId || state.currentAlbum;
+  const su = buildShareUrl(track || null, track ? null : albumParam);
+  const url = su?.pathname ? su.toString() : window.location.href;
 
   const title = state.currentTrack?.trackName || document.title;
 
@@ -1886,7 +1879,7 @@ function getPathRouteParams() {
 
 function extractTrackId(trackParam) {
   if (!trackParam) return null;
-  return String(trackParam).split('-')[0] || null;
+  return String(trackParam) || null;
 }
 
 function resolveTrackUrl(track) {
@@ -2037,7 +2030,7 @@ function playTrack(track, { autoplay = true } = {}) {
   scheduleIdle(() => {
     primeAdjacentTracks(track);
     if (document.visibilityState !== 'hidden') {
-      history.replaceState(null, '', `/s/${track._id}`);
+      history.replaceState(null, '', buildShareUrl(track).pathname);
       refreshDocumentMetadata({ track });
     }
   });
@@ -2383,7 +2376,7 @@ function bindEvents() {
   // while hidden to avoid broken history entries.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && state.currentTrack) {
-      history.replaceState(null, '', `/s/${state.currentTrack._id}`);
+      history.replaceState(null, '', buildShareUrl(state.currentTrack).pathname);
       refreshDocumentMetadata({ track: state.currentTrack });
       syncPlayState();
     }
@@ -2594,7 +2587,13 @@ export async function init() {
     const albumFromParam = findAlbum(albumParam);
 
     if (sharedTrackId) {
-      const sharedTrack = state.tracks.find(track => String(track._id) === String(sharedTrackId));
+      const _parts = sharedTrackId.split('-');
+      const sharedTrack = state.tracks.find(track => {
+        const id = String(track._id);
+        return id === sharedTrackId ||
+          (_parts.length >= 2 && id === `${_parts[0]}-${_parts[1]}`) ||
+          id === _parts[0];
+      });
       if (sharedTrack) {
         setAlbum(albumFromParam || sharedTrack.albumId || sharedTrack.albumName);
         playTrack(sharedTrack, { autoplay: false });

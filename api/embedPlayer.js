@@ -8,26 +8,30 @@ const EMBED_HEADERS = {
   'Content-Security-Policy': "frame-ancestors *",
 };
 
-function extractTrackId(trackParam) {
-  if (!trackParam) return null;
-  return String(trackParam).split('-')[0];
-}
-
 function absoluteUrl(origin, url) {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function matchesTrackId(track, rawId) {
-  if (!rawId) return false;
+function matchesTrackId(track, trackParam) {
+  if (!trackParam) return false;
   const id = String(track?._id || '');
-  if (id === rawId) return true;
-  try {
-    if (ObjectId.isValid(rawId) && ObjectId.isValid(id)) {
-      return String(new ObjectId(id)) === String(new ObjectId(rawId));
-    }
-  } catch (_) {}
+  const param = String(trackParam);
+  const parts = param.split('-');
+  const candidates = new Set([
+    param,
+    parts.length >= 2 ? `${parts[0]}-${parts[1]}` : null,
+    parts[0],
+  ].filter(Boolean));
+  for (const rawId of candidates) {
+    if (id === rawId) return true;
+    try {
+      if (ObjectId.isValid(rawId) && ObjectId.isValid(id)) {
+        if (String(new ObjectId(id)) === String(new ObjectId(rawId))) return true;
+      }
+    } catch (_) {}
+  }
   return false;
 }
 
@@ -57,7 +61,7 @@ exports.handler = async event => {
     return { statusCode: 500, headers: EMBED_HEADERS, body: errorPage('Could not load track data.') };
   }
 
-  const rawId = extractTrackId(trackParam);
+  const rawId = trackParam;
   const track = tracks.find(t => t.published !== false && matchesTrackId(t, rawId));
 
   if (!track) {
