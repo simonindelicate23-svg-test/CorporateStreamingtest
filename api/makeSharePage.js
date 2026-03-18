@@ -180,8 +180,8 @@ function buildSlugPath(origin, track, albumParam) {
   return `${origin}/`;
 }
 
-function buildAlbumMeta(track = {}, origin, albumParam) {
-  if (!track.albumName) return null;
+function buildAlbumMeta(track, origin, albumParam) {
+  if (!track?.albumName) return null;
   const canonicalAlbumSlug = slugify(track.albumName);
   const redirectUrl = buildRedirect(origin, { album: canonicalAlbumSlug });
   const rawImage = track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE;
@@ -201,8 +201,8 @@ function buildAlbumMeta(track = {}, origin, albumParam) {
   };
 }
 
-function buildTrackMeta(track = {}, origin, albumParam) {
-  if (!track.trackName) return null;
+function buildTrackMeta(track, origin, albumParam) {
+  if (!track?.trackName) return null;
   const canonicalAlbumSlug = slugify(track.albumName || albumParam || '');
   const redirectUrl = buildRedirect(origin, {
     track: track._id,
@@ -463,7 +463,7 @@ exports.handler = async event => {
       statusCode: 200,
       headers: {
         'Content-Type': 'text/html; charset=UTF-8',
-        'Cache-Control': 'public, max-age=0, s-maxage=300',
+        'Cache-Control': 'no-store',
       },
       body: html,
     };
