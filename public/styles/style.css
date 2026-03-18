@@ -198,6 +198,12 @@ h3 {
   align-items: center;
 }
 
+.nav-icons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -1081,6 +1087,17 @@ body.dark-mode .paywall-modal__card {
   .nav-subscribe {
     padding: 7px 11px;
     font-size: 0.76rem;
+  }
+
+  /* Stack subscribe above the icon row so it doesn't overflow the navbar width */
+  .nav-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .nav-icons {
+    gap: 6px;
   }
 }
 
