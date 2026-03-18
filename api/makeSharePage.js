@@ -3,7 +3,8 @@ const { loadTracks } = require('./lib/legacyTracksStore');
 const { loadSiteSettings } = require('./lib/siteSettingsStore');
 
 const FALLBACK_DESCRIPTION = 'Listen online via this self-hosted music player.';
-const DEFAULT_IMAGE = '/img/icons8-music-album-64.png';
+// og_image.jpg is a proper-sized image; the 64px icon is too small for social cards
+const DEFAULT_IMAGE = '/img/og_image.jpg';
 
 function slugify(text = '') {
   return text
@@ -67,6 +68,9 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
   const imageAlt = meta.imageAlt || title;
   const canonical = meta.url;
   const type = meta.type || 'website';
+  const embedUrl = meta.embedUrl || null;
+  // Use Twitter player card when we have an embeddable player; otherwise large image card
+  const twitterCard = embedUrl ? 'player' : 'summary_large_image';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -83,16 +87,62 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
     ${image ? `<meta property="og:image" content="${image}" />` : ''}
     ${image ? `<meta property="og:image:secure_url" content="${image}" />` : ''}
     ${image ? `<meta property="og:image:alt" content="${imageAlt}" />` : ''}
-    <meta name="twitter:card" content="summary_large_image" />
+    ${embedUrl ? `<meta property="og:video" content="${embedUrl}" />` : ''}
+    ${embedUrl ? `<meta property="og:video:type" content="text/html" />` : ''}
+    ${embedUrl ? `<meta property="og:video:width" content="480" />` : ''}
+    ${embedUrl ? `<meta property="og:video:height" content="152" />` : ''}
+    <meta name="twitter:card" content="${twitterCard}" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
     ${image ? `<meta name="twitter:image" content="${image}" />` : ''}
     ${image ? `<meta name="twitter:image:alt" content="${imageAlt}" />` : ''}
+    ${embedUrl ? `<meta name="twitter:player" content="${embedUrl}" />` : ''}
+    ${embedUrl ? `<meta name="twitter:player:width" content="480" />` : ''}
+    ${embedUrl ? `<meta name="twitter:player:height" content="152" />` : ''}
     ${canonical ? `<link rel="canonical" href="${canonical}" />` : ''}
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: #111;
+        color: #eee;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 40px 24px;
+        text-align: center;
+        gap: 20px;
+      }
+      .cover {
+        width: 200px;
+        height: 200px;
+        border-radius: 12px;
+        object-fit: cover;
+        box-shadow: 0 8px 40px rgba(0,0,0,.6);
+      }
+      h1 { font-size: 22px; font-weight: 700; line-height: 1.3; max-width: 480px; }
+      .sub { font-size: 15px; color: #aaa; max-width: 480px; }
+      .listen {
+        display: inline-block;
+        padding: 12px 32px;
+        background: #fff;
+        color: #111;
+        border-radius: 24px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+        margin-top: 4px;
+      }
+      .listen:hover { background: #e0e0e0; }
+    </style>
   </head>
   <body>
-    <p>Redirecting you to the player…</p>
-    ${redirectUrl ? `<a href="${redirectUrl}">Continue to the player</a>` : ''}
+    ${image ? `<img class="cover" src="${image}" alt="${imageAlt}" />` : ''}
+    <h1>${title}</h1>
+    <p class="sub">${description}</p>
+    ${redirectUrl ? `<a class="listen" href="${redirectUrl}">Listen now</a>` : ''}
     ${redirectUrl ? `<script>window.location.replace('${redirectUrl}');</script>` : ''}
   </body>
 </html>`;
@@ -144,6 +194,10 @@ function buildTrackMeta(track = {}, origin, albumParam) {
     album: canonicalAlbumSlug,
   });
 
+  // Only expose embed player for free tracks that have an audio URL
+  const audioSrc = track.mp3Url || track.audioUrl || null;
+  const embedUrl = (!track.paid && audioSrc) ? `${origin}/embed/${track._id}` : null;
+
   return {
     title: `${track.trackName}${track.artistName ? ` — ${track.artistName}` : ''}`,
     description: track.albumName ? `${track.trackName} from ${track.albumName}.` : track.trackName,
@@ -152,6 +206,7 @@ function buildTrackMeta(track = {}, origin, albumParam) {
     type: 'music.song',
     url: buildSlugPath(origin, track, albumParam || canonicalAlbumSlug),
     redirectUrl,
+    embedUrl,
   };
 }
 
@@ -206,7 +261,6 @@ function fetchAlbumLeadTrack(tracks, albumParam) {
 
 exports.handler = async event => {
   const origin = buildOrigin(event);
-  const requestUrl = event.rawUrl || buildRedirect(origin);
   const { trackParam, albumParam } = extractRequestParams(event);
 
   try {
@@ -228,8 +282,10 @@ exports.handler = async event => {
 
     const html = buildShareHtml(meta, meta.redirectUrl || meta.url, siteSettings);
 
+    // Always return 200 — platforms (Discord, Twitter, Slack) will not render
+    // an embed for any non-200 response, even when the HTML contains valid OG tags.
     return {
-      statusCode: track || albumTrack ? 200 : 404,
+      statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=UTF-8' },
       body: html,
     };
@@ -238,7 +294,7 @@ exports.handler = async event => {
     const fallbackUrl = buildRedirect(origin, { track: trackParam, album: albumParam });
     const html = buildShareHtml({ title: 'Music Streaming Player', description: FALLBACK_DESCRIPTION }, fallbackUrl, {});
     return {
-      statusCode: 500,
+      statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=UTF-8' },
       body: html,
     };
