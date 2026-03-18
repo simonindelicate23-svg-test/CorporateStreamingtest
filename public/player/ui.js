@@ -1833,8 +1833,22 @@ async function copyShareLink() {
   const shareUrl = buildShareUrl(state.currentTrack, albumParam);
 
   if (!shareUrl || !shareUrl.pathname) return;
+
+  const url = shareUrl.toString();
+  const title = state.currentTrack?.trackName || document.title;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, url });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // user dismissed the share sheet
+      // share failed — fall through to clipboard
+    }
+  }
+
   try {
-    await navigator.clipboard.writeText(shareUrl.toString());
+    await navigator.clipboard.writeText(url);
     showToast('Link copied');
     if (dom.copyLinkButton) {
       dom.copyLinkButton.classList.add('copied');
