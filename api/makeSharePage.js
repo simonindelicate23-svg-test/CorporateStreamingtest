@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const { loadTracks } = require('./lib/legacyTracksStore');
+const { loadShareIndex } = require('./lib/shareIndexStore');
 const { loadSiteSettings } = require('./lib/siteSettingsStore');
 
 const FALLBACK_DESCRIPTION = 'Listen online via this self-hosted music player.';
@@ -351,23 +352,56 @@ exports.handler = async event => {
   const { trackParam, albumParam } = extractRequestParams(event);
 
   try {
-    const [trackData, siteSettings] = await Promise.all([loadTracks(), loadSiteSettings().catch(() => ({}))]);
-    const { tracks } = trackData;
+    const [trackData, shareIndex, siteSettings] = await Promise.all([
+      loadTracks().catch(() => ({ tracks: [] })),
+      loadShareIndex().catch(() => ({})),
+      loadSiteSettings().catch(() => ({})),
+    ]);
+    const tracks = trackData?.tracks || [];
 
     const track = fetchTrack(tracks, trackParam);
     const albumTrack = track ? null : fetchAlbumLeadTrack(tracks, albumParam);
-    const pseudoEntry = (!track && !albumTrack && albumParam) ? findPseudoAlbum(siteSettings, albumParam) : null;
 
-    if (albumParam && !trackParam && !albumTrack && !pseudoEntry) {
+    // Share index album lookup — O(1), uses the same proven source as share.js.
+    // Falls back to the loadTracks()-based search above for real albums, and to
+    // siteSettings.pseudoAlbums for virtual collections.
+    const albumIndexEntry = (!track && !albumTrack && albumParam)
+      ? (shareIndex[`album:${albumParam}`] || shareIndex[`album:${slugify(albumParam)}`] || null)
+      : null;
+    const pseudoEntry = (!track && !albumTrack && !albumIndexEntry && albumParam)
+      ? findPseudoAlbum(siteSettings, albumParam)
+      : null;
+
+    if (albumParam && !trackParam && !albumTrack && !albumIndexEntry && !pseudoEntry) {
       const albumNames = [...new Set(tracks.slice(0, 5).map(t => t.albumName).filter(Boolean))];
-      console.warn(`makeSharePage: no track matched albumParam="${albumParam}". First album names in store: ${JSON.stringify(albumNames)}`);
+      console.warn(`makeSharePage: no album matched albumParam="${albumParam}". Track store size=${tracks.length}. First album names: ${JSON.stringify(albumNames)}`);
     }
 
     const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
 
+    // Build album meta from share index entry (avoids loadTracks() dependency)
+    const albumIndexMeta = albumIndexEntry ? (() => {
+      const rawImage = albumIndexEntry.image || DEFAULT_IMAGE;
+      const isDefault = rawImage === DEFAULT_IMAGE;
+      return {
+        title: albumIndexEntry.albumName,
+        description: albumIndexEntry.artistName
+          ? `${albumIndexEntry.albumName} by ${albumIndexEntry.artistName}.`
+          : `${albumIndexEntry.albumName}.`,
+        image: absoluteUrl(origin, rawImage),
+        imageAlt: albumIndexEntry.imageAlt || albumIndexEntry.albumName,
+        imageWidth: isDefault ? 1200 : 1000,
+        imageHeight: isDefault ? 630 : 1000,
+        type: 'music.album',
+        url: buildSlugPath(origin, null, albumParam),
+        redirectUrl: buildRedirect(origin, { album: albumIndexEntry.albumId || albumParam }),
+      };
+    })() : null;
+
     const meta =
       buildTrackMeta(track, origin, albumParam) ||
       buildAlbumMeta(albumTrack, origin, albumParam) ||
+      albumIndexMeta ||
       (pseudoEntry ? buildPseudoAlbumMeta(pseudoEntry, tracks, origin, albumParam) : null) || {
         title: siteTitle,
         description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,

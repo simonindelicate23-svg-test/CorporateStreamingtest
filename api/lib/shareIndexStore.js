@@ -211,6 +211,11 @@ const writeToFile = async (index) => {
 
 const DEFAULT_IMAGE = '/img/og_image.jpg';
 
+function slugify(text) {
+  return String(text || '').toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-');
+}
+
 function buildEntry(track) {
   const audioSrc = track.mp3Url || track.audioUrl || null;
   const title = `${track.trackName}${track.artistName ? ` \u2014 ${track.artistName}` : ''}`;
@@ -233,11 +238,40 @@ function buildEntry(track) {
 
 function buildIndex(tracks) {
   const index = {};
+  // Album groups — first published track wins for artwork/artist
+  const albumGroups = {};
+
   for (const track of tracks) {
     if (track.published === false) continue;
     if (!track._id) continue;
     index[String(track._id)] = buildEntry(track);
+
+    if (track.albumName) {
+      const key = track.albumName;
+      if (!albumGroups[key]) {
+        albumGroups[key] = {
+          albumName: track.albumName,
+          albumId: track.albumId || slugify(track.albumName),
+          artistName: track.artistName || null,
+          image: track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE,
+          imageAlt: track.artistName
+            ? `${track.albumName} by ${track.artistName} \u2014 album art`
+            : `${track.albumName} \u2014 album art`,
+        };
+      }
+    }
   }
+
+  // Album entries — keyed by "album:<albumId>" and "album:<albumNameSlug>"
+  // so makeSharePage can do O(1) lookups without loading the full track list.
+  for (const group of Object.values(albumGroups)) {
+    const entry = { type: 'album', ...group };
+    const idKey = `album:${group.albumId}`;
+    const slugKey = `album:${slugify(group.albumName)}`;
+    index[idKey] = entry;
+    if (slugKey !== idKey) index[slugKey] = entry;
+  }
+
   return index;
 }
 
