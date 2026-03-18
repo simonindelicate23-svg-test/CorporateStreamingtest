@@ -1828,13 +1828,18 @@ function buildShareUrl(track, albumParam) {
 }
 
 async function copyShareLink() {
-  const albumParam = state.currentTrack?.albumId || state.currentAlbumId || slugifyAlbumName(state.currentTrack?.albumName || state.currentAlbum);
+  // For tracks, use the /s/:trackId route — direct ID lookup, no slug matching,
+  // works regardless of how the album name is stored in the database.
+  // For album-only (no track playing), fall back to the slug URL.
+  const trackId = state.currentTrack?._id;
+  const url = trackId
+    ? `${window.location.origin}/s/${trackId}`
+    : (() => {
+        const albumParam = state.currentAlbumId || state.currentAlbum;
+        const su = buildShareUrl(null, albumParam);
+        return su?.pathname ? su.toString() : window.location.href;
+      })();
 
-  const shareUrl = buildShareUrl(state.currentTrack, albumParam);
-
-  if (!shareUrl || !shareUrl.pathname) return;
-
-  const url = shareUrl.toString();
   const title = state.currentTrack?.trackName || document.title;
 
   if (navigator.share) {
@@ -1864,6 +1869,11 @@ async function copyShareLink() {
 function getPathRouteParams() {
   const segments = window.location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   if (!segments.length) return { album: null, track: null };
+
+  // /s/:trackId — simple share URL format
+  if (segments[0] === 's' && segments[1]) {
+    return { album: null, track: segments[1] };
+  }
 
   const albumIndex = segments.indexOf('album');
   const trackIndex = segments.indexOf('track');
@@ -2027,8 +2037,7 @@ function playTrack(track, { autoplay = true } = {}) {
   scheduleIdle(() => {
     primeAdjacentTracks(track);
     if (document.visibilityState !== 'hidden') {
-      const shareUrl = buildShareUrl(track, track.albumId || state.currentAlbumId || slugifyAlbumName(track.albumName));
-      if (shareUrl?.pathname) history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
+      history.replaceState(null, '', `/s/${track._id}`);
       refreshDocumentMetadata({ track });
     }
   });
@@ -2374,8 +2383,7 @@ function bindEvents() {
   // while hidden to avoid broken history entries.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && state.currentTrack) {
-      const shareUrl = buildShareUrl(state.currentTrack, state.currentTrack.albumId || state.currentAlbumId || slugifyAlbumName(state.currentTrack.albumName));
-      if (shareUrl?.pathname) history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
+      history.replaceState(null, '', `/s/${state.currentTrack._id}`);
       refreshDocumentMetadata({ track: state.currentTrack });
       syncPlayState();
     }
