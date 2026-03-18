@@ -350,6 +350,7 @@ function buildPseudoAlbumMeta(entry, tracks, origin, albumParam) {
 exports.handler = async event => {
   const origin = buildOrigin(event);
   const { trackParam, albumParam } = extractRequestParams(event);
+  const debugMode = (event.queryStringParameters || {}).debug === '1';
 
   try {
     const [trackData, shareIndex, siteSettings] = await Promise.all([
@@ -376,6 +377,28 @@ exports.handler = async event => {
       const albumNames = [...new Set(tracks.slice(0, 5).map(t => t.albumName).filter(Boolean))];
       console.warn(`makeSharePage: no album matched albumParam="${albumParam}". Track store size=${tracks.length}. First album names: ${JSON.stringify(albumNames)}`);
     }
+
+    // Diagnostic endpoint: visit ?debug=1 to see raw store state
+    if (debugMode) {
+      const albumNames = [...new Set(tracks.map(t => t.albumName).filter(Boolean))];
+      const albumSlugs = albumNames.map(n => ({ name: n, slug: slugify(n), id: tracks.find(t => t.albumName === n)?.albumId || null }));
+      const shareIndexAlbumKeys = Object.keys(shareIndex).filter(k => k.startsWith('album:'));
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          albumParam,
+          trackParam,
+          tracksLoaded: tracks.length,
+          albumTrackFound: !!albumTrack,
+          albumIndexEntryFound: !!albumIndexEntry,
+          shareIndexAlbumKeys,
+          albumsInStore: albumSlugs,
+          slugify_albumParam: slugify(albumParam || ''),
+        }, null, 2),
+      };
+    }
+
 
     const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
 
