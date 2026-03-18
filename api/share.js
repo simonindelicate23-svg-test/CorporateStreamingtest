@@ -38,8 +38,11 @@ function absoluteUrl(origin, url) {
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function sharePageHtml({ origin, rawId, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle }) {
+function sharePageHtml({ origin, rawId, title, description, image, imageAlt, imageWidth, imageHeight, embedUrl, playerUrl, siteTitle }) {
   const twitterCard = embedUrl ? 'player' : 'summary_large_image';
+  const imageType = image
+    ? (/\.png(\?|$)/i.test(image) ? 'image/png' : /\.webp(\?|$)/i.test(image) ? 'image/webp' : /\.gif(\?|$)/i.test(image) ? 'image/gif' : 'image/jpeg')
+    : null;
   // og:url MUST be this page — pointing it at player.html causes Facebook/LinkedIn
   // to re-scrape player.html and use its generic tags, ignoring ours entirely.
   const canonicalUrl = rawId ? `${origin}/s/${rawId}` : origin;
@@ -58,6 +61,9 @@ function sharePageHtml({ origin, rawId, title, description, image, imageAlt, emb
   <meta property="og:url" content="${canonicalUrl}" />
   ${image ? `<meta property="og:image" content="${image}" />` : ''}
   ${image ? `<meta property="og:image:secure_url" content="${image}" />` : ''}
+  ${image ? `<meta property="og:image:type" content="${imageType}" />` : ''}
+  ${imageWidth ? `<meta property="og:image:width" content="${imageWidth}" />` : ''}
+  ${imageHeight ? `<meta property="og:image:height" content="${imageHeight}" />` : ''}
   ${image ? `<meta property="og:image:alt" content="${imageAlt}" />` : ''}
   ${embedUrl ? `<meta property="og:video" content="${embedUrl}" />` : ''}
   ${embedUrl ? `<meta property="og:video:type" content="text/html" />` : ''}
@@ -168,21 +174,29 @@ exports.handler = async event => {
 
   let title, description, image, imageAlt, embedUrl;
 
+  let imageWidth, imageHeight;
+
   if (entry) {
     title       = entry.title;
     description = entry.description;
     image       = absoluteUrl(origin, entry.image);
     imageAlt    = entry.imageAlt;
     embedUrl    = (!entry.paid && entry.hasAudio) ? `${origin}/embed/${rawId}` : null;
+    // Album art is square; default og_image is 1200×630
+    const isDefault = entry.image === DEFAULT_IMAGE;
+    imageWidth  = isDefault ? 1200 : 1000;
+    imageHeight = isDefault ? 630 : 1000;
   } else {
     title       = siteTitle;
     description = siteSettings.shareDescription || FALLBACK_DESCRIPTION;
     image       = absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE);
     imageAlt    = siteTitle;
     embedUrl    = null;
+    imageWidth  = 1200;
+    imageHeight = 630;
   }
 
-  const html = sharePageHtml({ origin, rawId, title, description, image, imageAlt, embedUrl, playerUrl, siteTitle });
+  const html = sharePageHtml({ origin, rawId, title, description, image, imageAlt, imageWidth, imageHeight, embedUrl, playerUrl, siteTitle });
 
   return {
     statusCode: 200,

@@ -66,6 +66,12 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
   const description = meta.description || siteSettings.shareDescription || FALLBACK_DESCRIPTION;
   const image = meta.image;
   const imageAlt = meta.imageAlt || title;
+  const imageWidth = meta.imageWidth || null;
+  const imageHeight = meta.imageHeight || null;
+  // Provide og:image:type so Discord (and others) don't need to probe the URL
+  const imageType = image
+    ? (/\.png(\?|$)/i.test(image) ? 'image/png' : /\.webp(\?|$)/i.test(image) ? 'image/webp' : /\.gif(\?|$)/i.test(image) ? 'image/gif' : 'image/jpeg')
+    : null;
   const canonical = meta.url;
   const type = meta.type || 'website';
   const embedUrl = meta.embedUrl || null;
@@ -86,6 +92,9 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
     ${canonical ? `<meta property="og:url" content="${canonical}" />` : ''}
     ${image ? `<meta property="og:image" content="${image}" />` : ''}
     ${image ? `<meta property="og:image:secure_url" content="${image}" />` : ''}
+    ${image ? `<meta property="og:image:type" content="${imageType}" />` : ''}
+    ${imageWidth ? `<meta property="og:image:width" content="${imageWidth}" />` : ''}
+    ${imageHeight ? `<meta property="og:image:height" content="${imageHeight}" />` : ''}
     ${image ? `<meta property="og:image:alt" content="${imageAlt}" />` : ''}
     ${embedUrl ? `<meta property="og:video" content="${embedUrl}" />` : ''}
     ${embedUrl ? `<meta property="og:video:type" content="text/html" />` : ''}
@@ -174,12 +183,17 @@ function buildAlbumMeta(track = {}, origin, albumParam) {
   if (!track.albumName) return null;
   const canonicalAlbumSlug = slugify(track.albumName);
   const redirectUrl = buildRedirect(origin, { album: canonicalAlbumSlug });
+  const rawImage = track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE;
+  const isDefault = rawImage === DEFAULT_IMAGE;
 
   return {
     title: track.albumName,
     description: track.artistName ? `${track.albumName} by ${track.artistName}.` : `${track.albumName}.`,
-    image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
+    image: absoluteUrl(origin, rawImage),
     imageAlt: track.artistName ? `${track.albumName} by ${track.artistName} — album art` : `${track.albumName} — album art`,
+    // Default og_image.jpg is 1200×630; album art is always square
+    imageWidth: isDefault ? 1200 : 1000,
+    imageHeight: isDefault ? 630 : 1000,
     type: 'music.album',
     url: buildSlugPath(origin, null, albumParam || canonicalAlbumSlug),
     redirectUrl,
@@ -198,11 +212,16 @@ function buildTrackMeta(track = {}, origin, albumParam) {
   const audioSrc = track.mp3Url || track.audioUrl || null;
   const embedUrl = (!track.paid && audioSrc) ? `${origin}/embed/${track._id}` : null;
 
+  const rawImage = track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE;
+  const isDefault = rawImage === DEFAULT_IMAGE;
+
   return {
     title: `${track.trackName}${track.artistName ? ` — ${track.artistName}` : ''}`,
     description: track.albumName ? `${track.trackName} from ${track.albumName}.` : track.trackName,
-    image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
+    image: absoluteUrl(origin, rawImage),
     imageAlt: track.albumName ? `${track.albumName} — album art` : `${track.trackName} — album art`,
+    imageWidth: isDefault ? 1200 : 1000,
+    imageHeight: isDefault ? 630 : 1000,
     type: 'music.song',
     url: buildSlugPath(origin, track, albumParam || canonicalAlbumSlug),
     redirectUrl,
@@ -291,12 +310,34 @@ exports.handler = async event => {
     const track = fetchTrack(tracks, trackParam);
     const albumTrack = track ? null : fetchAlbumLeadTrack(tracks, albumParam);
 
+    if (albumParam && !trackParam && !albumTrack) {
+      const albumNames = [...new Set(tracks.slice(0, 5).map(t => t.albumName).filter(Boolean))];
+      console.warn(`makeSharePage: no track matched albumParam="${albumParam}". First album names in store: ${JSON.stringify(albumNames)}`);
+    }
+
+    // When we have an albumParam but couldn't match any track, build a partial
+    // album meta from the slug itself so the embed shows something useful.
+    const siteTitle = siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player';
+    const albumFallback = (!track && !albumTrack && albumParam) ? {
+      title: albumParam.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,
+      image: absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE),
+      imageWidth: 1200,
+      imageHeight: 630,
+      type: 'music.album',
+      url: buildSlugPath(origin, null, albumParam),
+      redirectUrl: buildRedirect(origin, { album: albumParam }),
+    } : null;
+
     const meta =
       buildTrackMeta(track, origin, albumParam) ||
-      buildAlbumMeta(albumTrack, origin, albumParam) || {
-        title: siteSettings.siteTitle || siteSettings.brandName || 'Music Streaming Player',
+      buildAlbumMeta(albumTrack, origin, albumParam) ||
+      albumFallback || {
+        title: siteTitle,
         description: siteSettings.shareDescription || FALLBACK_DESCRIPTION,
         image: absoluteUrl(origin, siteSettings.ogImage || DEFAULT_IMAGE),
+        imageWidth: 1200,
+        imageHeight: 630,
         url: buildSlugPath(origin, track || albumTrack, albumParam),
         redirectUrl: buildRedirect(origin, { track: trackParam, album: albumParam }),
       };
