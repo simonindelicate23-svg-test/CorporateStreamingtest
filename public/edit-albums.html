@@ -419,12 +419,38 @@
       /* ── Upload helpers ───────────────────────────────────────── */
       const CHUNK_SIZE = 3 * 1024 * 1024;
       const CHUNK_THRESHOLD = 4 * 1024 * 1024;
+      const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
 
       const readSliceAsBase64 = (blob) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result).split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(blob);
+      });
+
+      // null = unknown, true = R2 presign confirmed, false = FTP/unavailable
+      let _presignAvailable = null;
+      // Resolves once the background probe completes (or immediately if skipped).
+      // Initialised to a resolved promise so uploadFileToMediaHost is safe to call
+      // even if DOMContentLoaded hasn't fired yet for some reason.
+      let _presignProbe = Promise.resolve();
+
+      // Fire the storage-backend probe after deferred scripts have loaded
+      // (common.js is defer, so AdminDataStore isn't available until DOMContentLoaded).
+      // By the time the user selects a file the probe has settled, so for FTP users
+      // _presignAvailable is already false and no extra round-trip disrupts the
+      // Lambda instance routing that the chunked upload path depends on.
+      window.addEventListener('DOMContentLoaded', () => {
+        const tok = AdminDataStore.getToken();
+        if (!tok) return;
+        _presignProbe = fetch('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Token': tok },
+          body: JSON.stringify({ action: 'presign', fileName: '_probe_.bin', folder: '_probe_' }),
+        }).then(res => {
+          if (res.ok || res.status === 401) return;
+          _presignAvailable = false;
+        }).catch(() => { /* network error — leave as null */ });
       });
 
       async function uploadFileToMediaHost(file, folder, onProgress) {
@@ -439,6 +465,50 @@
           return result;
         }
 
+        // Wait for the background probe before deciding the upload path.
+        // For FTP: probe already set _presignAvailable = false → chunked path runs
+        //          with zero extra round-trips, exactly as before today's changes.
+        // For R2:  probe returned ok → _presignAvailable still null → inline presign
+        //          fires below to get the per-file signed URL, then direct PUT to R2.
+        await _presignProbe;
+
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+        // ── R2 path: direct browser→R2 via presigned URL ─────────────────────
+        if (!IMAGE_EXTS.has(ext) && _presignAvailable !== false) {
+          const presignRes = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'presign', fileName: file.name, folder }),
+          });
+          if (presignRes.ok) {
+            const { presignedUrl, publicUrl } = await presignRes.json().catch(() => ({}));
+            if (presignedUrl && publicUrl) {
+              if (onProgress) onProgress(0, 1);
+              let putRes;
+              try {
+                putRes = await fetch(presignedUrl, {
+                  method: 'PUT',
+                  body: file,
+                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                });
+              } catch (_corsErr) {
+                throw new Error(
+                  `Upload to R2 failed — CORS policy missing or incorrect. ` +
+                  `Open your R2 bucket → Settings → CORS Policy and allow PUT from ${location.origin}.`
+                );
+              }
+              if (!putRes.ok) throw new Error(`Upload to R2 failed (${putRes.status}).`);
+              _presignAvailable = true;
+              if (onProgress) onProgress(1, 1);
+              return publicUrl;
+            }
+          } else {
+            _presignAvailable = false;
+          }
+        }
+
+        // ── FTP / Netlify-proxied path (unchanged from before today) ──────────
         if (file.size <= CHUNK_THRESHOLD) {
           const contentBase64 = await readSliceAsBase64(file);
           const result = await postChunk({ fileName: file.name, contentBase64, folder });
