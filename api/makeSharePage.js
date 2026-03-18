@@ -64,6 +64,7 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
   const title = meta.title || siteTitle;
   const description = meta.description || siteSettings.shareDescription || FALLBACK_DESCRIPTION;
   const image = meta.image;
+  const imageAlt = meta.imageAlt || title;
   const canonical = meta.url;
   const type = meta.type || 'website';
 
@@ -81,10 +82,12 @@ function buildShareHtml(meta = {}, redirectUrl, siteSettings = {}) {
     ${canonical ? `<meta property="og:url" content="${canonical}" />` : ''}
     ${image ? `<meta property="og:image" content="${image}" />` : ''}
     ${image ? `<meta property="og:image:secure_url" content="${image}" />` : ''}
+    ${image ? `<meta property="og:image:alt" content="${imageAlt}" />` : ''}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
     ${image ? `<meta name="twitter:image" content="${image}" />` : ''}
+    ${image ? `<meta name="twitter:image:alt" content="${imageAlt}" />` : ''}
     ${canonical ? `<link rel="canonical" href="${canonical}" />` : ''}
   </head>
   <body>
@@ -126,6 +129,7 @@ function buildAlbumMeta(track = {}, origin, albumParam) {
     title: track.albumName,
     description: track.artistName ? `${track.albumName} by ${track.artistName}.` : `${track.albumName}.`,
     image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
+    imageAlt: track.artistName ? `${track.albumName} by ${track.artistName} — album art` : `${track.albumName} — album art`,
     type: 'music.album',
     url: buildSlugPath(origin, null, albumParam || canonicalAlbumSlug),
     redirectUrl,
@@ -144,6 +148,7 @@ function buildTrackMeta(track = {}, origin, albumParam) {
     title: `${track.trackName}${track.artistName ? ` — ${track.artistName}` : ''}`,
     description: track.albumName ? `${track.trackName} from ${track.albumName}.` : track.trackName,
     image: absoluteUrl(origin, track.albumArtworkUrl || track.artworkUrl || DEFAULT_IMAGE),
+    imageAlt: track.albumName ? `${track.albumName} — album art` : `${track.trackName} — album art`,
     type: 'music.song',
     url: buildSlugPath(origin, track, albumParam || canonicalAlbumSlug),
     redirectUrl,
