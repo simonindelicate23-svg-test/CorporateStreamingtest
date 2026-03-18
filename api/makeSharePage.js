@@ -44,11 +44,6 @@ function extractRequestParams(event) {
   return { trackParam, albumParam };
 }
 
-function extractTrackId(trackParam) {
-  if (!trackParam) return null;
-  return String(trackParam).split('-')[0];
-}
-
 function buildOrigin(event) {
   const protocol = event.headers?.['x-forwarded-proto'] || 'https';
   const host = event.headers?.host || event.headers?.['x-forwarded-host'] || 'localhost';

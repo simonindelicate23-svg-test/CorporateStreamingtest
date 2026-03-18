@@ -43,7 +43,8 @@ async function readFtp() {
     const chunks = [];
     const sink = new Writable({ write(c, _, cb) { chunks.push(Buffer.from(c)); cb(); } });
     await client.downloadTo(sink, getRemotePath());
-    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '[]') || [];
+    const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     if (e.code === 550 || /not found/i.test(e.message || '')) return [];
     throw e;
@@ -88,7 +89,8 @@ async function readR2() {
     }));
     const chunks = [];
     for await (const c of res.Body) chunks.push(c);
-    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '[]') || [];
+    const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     if (e.name === 'NoSuchKey' || e.$metadata?.httpStatusCode === 404) return [];
     throw e;
@@ -108,7 +110,9 @@ async function writeR2(records) {
 // ── Local file ────────────────────────────────────────────────────
 async function readFile() {
   try {
-    return JSON.parse(await fs.promises.readFile(getFilePath(), 'utf8') || '[]') || [];
+    const raw = await fs.promises.readFile(getFilePath(), 'utf8');
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     if (e.code === 'ENOENT') return [];
     throw e;
