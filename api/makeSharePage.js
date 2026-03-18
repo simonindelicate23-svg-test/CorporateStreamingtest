@@ -354,8 +354,8 @@ exports.handler = async event => {
 
   try {
     const [trackData, shareIndex, siteSettings] = await Promise.all([
-      loadTracks().catch(() => ({ tracks: [] })),
-      loadShareIndex().catch(() => ({})),
+      loadTracks().catch((err) => { console.error('makeSharePage: loadTracks failed:', err?.message || err); return { tracks: [] }; }),
+      loadShareIndex().catch((err) => { console.error('makeSharePage: loadShareIndex failed:', err?.message || err); return {}; }),
       loadSiteSettings().catch(() => ({})),
     ]);
     const tracks = trackData?.tracks || [];
@@ -437,14 +437,21 @@ exports.handler = async event => {
 
     const html = buildShareHtml(meta, meta.redirectUrl || meta.url, siteSettings);
 
-    // Always return 200 — platforms (Discord, Twitter, Slack) will not render
-    // an embed for any non-200 response, even when the HTML contains valid OG tags.
-    // no-store: prevent Netlify CDN from caching stale OG data across deploys.
+    // Only cache responses where we found real album/track data.
+    // Fallback responses (generic title, no og:type override) must not be cached
+    // because they may result from a transient storage failure — caching them would
+    // cause the CDN to serve stale generic metadata for several minutes even after
+    // the underlying issue resolves.
+    const foundData = !!(track || albumTrack || albumIndexEntry || pseudoEntry);
+    const cacheControl = foundData
+      ? 'public, max-age=0, s-maxage=300'
+      : 'no-store';
+
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'text/html; charset=UTF-8',
-        'Cache-Control': 'public, max-age=0, s-maxage=300',
+        'Cache-Control': cacheControl,
       },
       body: html,
     };
