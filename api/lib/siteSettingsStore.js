@@ -77,6 +77,7 @@ const defaults = {
   pwaScreenshot1: '',
   pwaScreenshot2: '',
   pwaInstallPrompt: true,
+  catalogueImportEnabled: false,
 };
 
 async function readFtp() {

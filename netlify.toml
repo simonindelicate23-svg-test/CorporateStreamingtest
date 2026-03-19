@@ -25,6 +25,11 @@
   status = 200
 
 [[redirects]]
+  from = "/import-catalogue"
+  to = "/.netlify/functions/importCatalogue"
+  status = 200
+
+[[redirects]]
   from = "/album/:albumId"
   to = "/.netlify/functions/makeSharePage?album=:albumId"
   status = 200

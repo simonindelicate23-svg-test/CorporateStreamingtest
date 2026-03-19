@@ -38,7 +38,7 @@ function slugify(value = '') {
     .replace(/^-+|-+$/g, '');
 }
 
-function buildFeed(tracks, settings, feedUrl) {
+function buildFeed(tracks, settings, feedUrl, importEnabled) {
   const byRelease = new Map();
 
   for (const track of tracks) {
@@ -68,6 +68,10 @@ function buildFeed(tracks, settings, feedUrl) {
       // Gated tracks: expose metadata but not the audio URL
       audioUrl: track.paid ? undefined : (track.mp3Url || undefined),
       gated: track.paid ? true : undefined,
+      // importAudioUrl is only set when the admin has explicitly enabled catalogue importing.
+      // It exposes the raw mp3Url for all tracks (including gated) so another instance can
+      // transfer the files directly to its own storage during a catalogue migration.
+      importAudioUrl: importEnabled ? (track.mp3Url || undefined) : undefined,
       artworkUrl: track.artworkUrl && track.artworkUrl !== release.artworkUrl
         ? track.artworkUrl
         : undefined,
@@ -101,6 +105,7 @@ function buildFeed(tracks, settings, feedUrl) {
   return {
     feedVersion: FEED_VERSION,
     generatedAt: new Date().toISOString(),
+    importEnabled: importEnabled || undefined,
     instance: {
       name: settings.siteTitle || settings.brandName || undefined,
       description: settings.metaDescription || undefined,
@@ -136,7 +141,8 @@ exports.handler = async (event) => {
       });
     }
 
-    const feed = buildFeed(tracks || [], settings, feedUrl);
+    const importEnabled = settings.catalogueImportEnabled === true;
+    const feed = buildFeed(tracks || [], settings, feedUrl, importEnabled);
 
     return json(200, feed, { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' });
   } catch (error) {

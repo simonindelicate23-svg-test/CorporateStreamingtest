@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Import Catalogue — Admin</title>
+    <link rel="stylesheet" href="/styles/admin.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/admin/common.js" defer></script>
+    <style>
+      /* ── Layout ───────────────────────────────────────────────── */
+      .import-page { max-width: 760px; }
+
+      /* ── Warning banner ───────────────────────────────────────── */
+      .warning-banner {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        background: #fffbf0;
+        border: 1px solid #f5c842;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 28px;
+      }
+      .warning-banner__icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        line-height: 1.2;
+      }
+      .warning-banner__body { flex: 1; }
+      .warning-banner__body strong {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.92rem;
+        margin-bottom: 6px;
+      }
+      .warning-banner__body p {
+        font-size: 0.82rem;
+        color: #555;
+        margin: 4px 0 0;
+        line-height: 1.5;
+      }
+      .advanced-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        background: #f5c842;
+        color: #7a5c00;
+        border-radius: 4px;
+        padding: 1px 6px;
+      }
+
+      /* ── Steps ────────────────────────────────────────────────── */
+      .step-card {
+        background: var(--surface, #f9f9f7);
+        border: 1px solid var(--border, #e0e0da);
+        border-radius: 10px;
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+      .step-card__title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #888;
+        margin-bottom: 14px;
+      }
+      .step-card input[type="url"],
+      .step-card input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 9px 12px;
+        font-size: 0.9rem;
+        border: 1px solid var(--border, #ddd);
+        border-radius: 7px;
+        background: #fff;
+        margin-bottom: 12px;
+      }
+      .step-card input[type="url"]:focus,
+      .step-card input[type="text"]:focus {
+        outline: 2px solid var(--accent, #6366f1);
+        border-color: transparent;
+      }
+
+      /* ── Preview results ──────────────────────────────────────── */
+      .preview-summary {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .preview-stat {
+        background: #fff;
+        border: 1px solid var(--border, #e0e0da);
+        border-radius: 8px;
+        padding: 12px 18px;
+        text-align: center;
+        min-width: 110px;
+      }
+      .preview-stat__value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--text-primary, #1a1a1a);
+      }
+      .preview-stat__label {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 4px;
+      }
+      .preview-stat--warn .preview-stat__value { color: #d97706; }
+      .preview-stat--ok .preview-stat__value { color: #16a34a; }
+
+      .release-list {
+        list-style: none;
+        padding: 0;
+        margin: 14px 0 0;
+        font-size: 0.85rem;
+        border: 1px solid var(--border, #e0e0da);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .release-list li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border, #e0e0da);
+      }
+      .release-list li:last-child { border-bottom: none; }
+      .release-list__art {
+        width: 36px;
+        height: 36px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
+        background: #eee;
+      }
+      .release-list__info { flex: 1; min-width: 0; }
+      .release-list__title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .release-list__artist { color: #888; font-size: 0.8rem; }
+      .release-list__badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        border-radius: 4px;
+        padding: 2px 7px;
+        white-space: nowrap;
+      }
+      .release-list__badge--new { background: #dcfce7; color: #15803d; }
+      .release-list__badge--skip { background: #f1f5f9; color: #64748b; }
+
+      /* ── Progress log ─────────────────────────────────────────── */
+      .progress-log {
+        background: #1a1a1a;
+        color: #e2e8f0;
+        font-family: monospace;
+        font-size: 0.8rem;
+        border-radius: 8px;
+        padding: 14px 16px;
+        max-height: 280px;
+        overflow-y: auto;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+      .log-ok  { color: #86efac; }
+      .log-err { color: #fca5a5; }
+      .log-dim { color: #94a3b8; }
+
+      /* ── Status ───────────────────────────────────────────────── */
+      .status { padding: 10px 14px; border-radius: 7px; font-size: 0.85rem; margin-bottom: 16px; display: none; }
+      .status.ok    { background: #f0fdf4; border: 1px solid #86efac; color: #166534; display: block; }
+      .status.error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; display: block; }
+
+      button.primary {
+        background: var(--accent, #6366f1);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        padding: 9px 20px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.primary:not(:disabled):hover { filter: brightness(1.1); }
+      button.secondary {
+        background: transparent;
+        color: var(--text-primary, #1a1a1a);
+        border: 1px solid var(--border, #ddd);
+        border-radius: 7px;
+        padding: 9px 18px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-right: 8px;
+      }
+      button.secondary:hover { background: var(--surface, #f5f5f0); }
+
+      .button-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+      .source-attribution {
+        font-size: 0.78rem;
+        color: #888;
+        margin-top: 8px;
+      }
+      .source-attribution strong { color: #444; }
+    </style>
+  </head>
+  <body>
+    <div data-admin-header></div>
+    <div data-admin-tabs></div>
+
+    <div class="admin-content import-page">
+      <div class="admin-page-header">
+        <div>
+          <h1 class="admin-page-title">Import Catalogue</h1>
+          <p class="meta">Migrate tracks and files from another deployment directly into this instance's R2 storage.</p>
+        </div>
+      </div>
+
+      <!-- ── Warning banner ───────────────────────────────────── -->
+      <div class="warning-banner">
+        <div class="warning-banner__icon">&#9888;&#65039;</div>
+        <div class="warning-banner__body">
+          <strong><span class="advanced-badge">Advanced</span> Read before you proceed</strong>
+          <p>This tool copies all tracks and audio files from another instance into <em>this</em> deployment. Files are transferred server-to-server (source URL → this R2 bucket) — nothing passes through your local machine or the source Netlify functions.</p>
+          <p>Duplicate tracks are detected by ID and skipped automatically, so re-running is safe. This instance must have R2 (or Backblaze B2) configured. The <strong>source</strong> instance must have both "Expose catalogue API" <em>and</em> "Allow catalogue importing" enabled in its Site Settings.</p>
+          <p>Once the import is complete, turn off "Allow catalogue importing" on the source instance to stop exposing audio URLs publicly.</p>
+        </div>
+      </div>
+
+      <!-- ── Step 1: source URL ────────────────────────────────── -->
+      <div class="step-card" id="step1">
+        <div class="step-card__title">Step 1 — Source instance URL</div>
+        <input type="url" id="sourceUrl" placeholder="https://your-old-site.netlify.app" autocomplete="off" spellcheck="false" />
+        <div id="status1" class="status"></div>
+        <div class="button-row">
+          <button class="primary" id="previewBtn">Check source &amp; preview</button>
+        </div>
+      </div>
+
+      <!-- ── Step 2: preview ───────────────────────────────────── -->
+      <div class="step-card" id="step2" style="display:none;">
+        <div class="step-card__title">Step 2 — Preview</div>
+        <div id="previewContent"></div>
+        <div id="status2" class="status"></div>
+        <div class="button-row">
+          <button class="secondary" id="backBtn">&#8592; Back</button>
+          <button class="primary" id="importBtn">Import all new tracks</button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: results ───────────────────────────────────── -->
+      <div class="step-card" id="step3" style="display:none;">
+        <div class="step-card__title">Step 3 — Results</div>
+        <div id="resultsContent"></div>
+        <div class="button-row">
+          <button class="secondary" id="resetBtn">Start another import</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let previewData = null;
+
+      function showStatus(elId, message, isError) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.textContent = message;
+        el.className = `status ${isError ? 'error' : 'ok'}`;
+      }
+
+      function clearStatus(elId) {
+        const el = document.getElementById(elId);
+        if (el) { el.textContent = ''; el.className = 'status'; }
+      }
+
+      // ── Preview ─────────────────────────────────────────────────
+      document.getElementById('previewBtn').addEventListener('click', async () => {
+        clearStatus('status1');
+        const sourceUrl = document.getElementById('sourceUrl').value.trim();
+        if (!sourceUrl) return showStatus('status1', 'Please enter the source site URL.', true);
+
+        const btn = document.getElementById('previewBtn');
+        btn.disabled = true;
+        btn.textContent = 'Checking…';
+
+        try {
+          const data = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'preview', sourceUrl }),
+          });
+          previewData = data;
+          renderPreview(data);
+          document.getElementById('step1').style.display = 'none';
+          document.getElementById('step2').style.display = '';
+        } catch (err) {
+          showStatus('status1', err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Check source & preview';
+        }
+      });
+
+      function renderPreview(data) {
+        const inst = data.sourceInstance || {};
+        const container = document.getElementById('previewContent');
+        const hasNew = data.tracksToImport > 0;
+
+        const summaryHtml = `
+          <div class="source-attribution">
+            Source: <strong>${escHtml(inst.name || inst.url || 'Unknown')}</strong>
+            ${inst.url ? `&mdash; <a href="${escHtml(inst.url)}" target="_blank" rel="noopener">${escHtml(inst.url)}</a>` : ''}
+          </div>
+          <div class="preview-summary" style="margin-top:12px;">
+            <div class="preview-stat ${hasNew ? 'preview-stat--ok' : ''}">
+              <div class="preview-stat__value">${data.tracksToImport}</div>
+              <div class="preview-stat__label">New tracks</div>
+            </div>
+            <div class="preview-stat ${data.duplicatesSkipped > 0 ? 'preview-stat--warn' : ''}">
+              <div class="preview-stat__value">${data.duplicatesSkipped}</div>
+              <div class="preview-stat__label">Duplicates (skipped)</div>
+            </div>
+            <div class="preview-stat">
+              <div class="preview-stat__value">${data.totalTracksInSource}</div>
+              <div class="preview-stat__label">Total in source</div>
+            </div>
+          </div>`;
+
+        const releasesHtml = (data.releases || []).map((r) => {
+          const badge = r.newTracks > 0
+            ? `<span class="release-list__badge release-list__badge--new">${r.newTracks} new</span>`
+            : `<span class="release-list__badge release-list__badge--skip">all duplicates</span>`;
+          const art = r.artworkUrl
+            ? `<img class="release-list__art" src="${escHtml(r.artworkUrl)}" alt="" loading="lazy" />`
+            : `<div class="release-list__art"></div>`;
+          return `<li>${art}<div class="release-list__info"><div class="release-list__title">${escHtml(r.title || '—')}</div><div class="release-list__artist">${escHtml(r.artist || '—')} &middot; ${r.trackCount} track${r.trackCount !== 1 ? 's' : ''}</div></div>${badge}</li>`;
+        }).join('');
+
+        const noNewWarning = !hasNew
+          ? `<p style="color:#d97706;font-size:0.85rem;margin-top:12px;">No new tracks to import — all tracks from the source already exist in this catalogue.</p>`
+          : '';
+
+        container.innerHTML = summaryHtml + `<ul class="release-list">${releasesHtml}</ul>` + noNewWarning;
+        document.getElementById('importBtn').disabled = !hasNew;
+      }
+
+      // ── Back ─────────────────────────────────────────────────────
+      document.getElementById('backBtn').addEventListener('click', () => {
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step1').style.display = '';
+      });
+
+      // ── Import ───────────────────────────────────────────────────
+      document.getElementById('importBtn').addEventListener('click', async () => {
+        clearStatus('status2');
+        const sourceUrl = document.getElementById('sourceUrl').value.trim();
+
+        const btn = document.getElementById('importBtn');
+        btn.disabled = true;
+        btn.textContent = 'Importing… (this may take a while for large catalogues)';
+
+        try {
+          const result = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'import', sourceUrl }),
+          });
+          renderResults(result);
+          document.getElementById('step2').style.display = 'none';
+          document.getElementById('step3').style.display = '';
+        } catch (err) {
+          showStatus('status2', `Import failed: ${err.message}`, true);
+          btn.disabled = false;
+          btn.textContent = 'Import all new tracks';
+        }
+      });
+
+      // ── Results ──────────────────────────────────────────────────
+      function renderResults(result) {
+        const container = document.getElementById('resultsContent');
+        const lines = [];
+
+        lines.push(`<span class="log-ok">Import complete.</span>`);
+        lines.push('');
+        lines.push(`<span class="log-ok">  ✓ Imported : ${result.imported}</span>`);
+        lines.push(`<span class="log-dim">  ⊘ Skipped  : ${result.skipped} (duplicates)</span>`);
+        if (result.failed > 0) lines.push(`<span class="log-err">  ✗ Failed   : ${result.failed}</span>`);
+        lines.push('');
+
+        if (result.importedTracks && result.importedTracks.length > 0) {
+          lines.push('<span class="log-dim">Imported tracks:</span>');
+          result.importedTracks.forEach((t) => {
+            lines.push(`  <span class="log-ok">✓</span> ${escHtml(t.title || t.id)}  <span class="log-dim">[${escHtml(t.album || '')}]</span>`);
+          });
+          lines.push('');
+        }
+
+        if (result.failedTracks && result.failedTracks.length > 0) {
+          lines.push('<span class="log-err">Failed tracks:</span>');
+          result.failedTracks.forEach((t) => {
+            lines.push(`  <span class="log-err">✗ ${escHtml(t.title || t.id)}: ${escHtml(t.error)}</span>`);
+          });
+          lines.push('');
+        }
+
+        lines.push('<span class="log-dim">Remember to disable "Allow catalogue importing" on the source instance now.</span>');
+
+        container.innerHTML = `<div class="progress-log">${lines.join('\n')}</div>`;
+      }
+
+      // ── Reset ────────────────────────────────────────────────────
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        previewData = null;
+        document.getElementById('sourceUrl').value = '';
+        clearStatus('status1');
+        clearStatus('status2');
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('step1').style.display = '';
+        document.getElementById('importBtn').disabled = false;
+        document.getElementById('importBtn').textContent = 'Import all new tracks';
+      });
+
+      // ── Utilities ────────────────────────────────────────────────
+      function escHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        AdminDataStore.mountHeader();
+        AdminDataStore.mountTabs();
+      });
+    </script>
+  </body>
+</html>
