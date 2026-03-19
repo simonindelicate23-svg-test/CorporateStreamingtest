@@ -1,5 +1,6 @@
 const { fetchTrackDurationSeconds } = require('./audioUtils');
 const { loadTracks, saveTracks, withTrackIds } = require('./lib/legacyTracksStore');
+const { saveShareIndex } = require('./lib/shareIndexStore');
 const { isAdmin } = require('./lib/auth');
 
 const json = (statusCode, payload, extraHeaders = {}) => ({
@@ -222,6 +223,7 @@ exports.handler = async (event) => {
       const built = incomingTracks.map((track) => toTrackDocument(album, track));
       tracks.push(...built);
       const result = await saveTracks(tracks);
+      saveShareIndex(tracks).catch(err => console.error('saveShareIndex failed', err));
       return json(200, { message: 'Tracks added', count: built.length, store: result.store, path: result.path });
     }
 
@@ -232,6 +234,7 @@ exports.handler = async (event) => {
       if (index < 0) return json(404, { message: 'Track not found' });
       tracks[index] = applyTrackUpdates(tracks[index], body.updates || body);
       const result = await saveTracks(tracks);
+      saveShareIndex(tracks).catch(err => console.error('saveShareIndex failed', err));
       return json(200, { message: 'Track updated', store: result.store, path: result.path });
     }
 
@@ -242,6 +245,7 @@ exports.handler = async (event) => {
       if (index < 0) return json(404, { message: 'Track not found' });
       tracks.splice(index, 1);
       const result = await saveTracks(tracks);
+      saveShareIndex(tracks).catch(err => console.error('saveShareIndex failed', err));
       return json(200, { message: 'Track deleted', store: result.store, path: result.path });
     }
 
@@ -258,6 +262,7 @@ exports.handler = async (event) => {
       });
       if (!removed) return json(404, { message: 'Album not found or has no tracks' });
       const result = await saveTracks(remaining);
+      saveShareIndex(remaining).catch(err => console.error('saveShareIndex failed', err));
       return json(200, { message: 'Album deleted', removed, store: result.store, path: result.path });
     }
 
@@ -300,6 +305,7 @@ exports.handler = async (event) => {
       const response = { albumName: effectiveAlbumName, updatedFields: Object.keys(updates) };
       if (body.populateDurations) response.durationUpdate = await populateAlbumDurations(tracks, effectiveAlbumName);
       const result = await saveTracks(tracks);
+      saveShareIndex(tracks).catch(err => console.error('saveShareIndex failed', err));
       return json(200, { ...response, store: result.store, path: result.path });
     }
 

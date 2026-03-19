@@ -144,21 +144,101 @@
         }
       }
 
+      const CHUNK_SIZE = 3 * 1024 * 1024;       // 3 MB per chunk
+      const CHUNK_THRESHOLD = 4 * 1024 * 1024;  // use chunked above 4 MB
+      const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
+
+      const readSliceAsBase64 = (blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // null = unknown, true = R2 presign confirmed, false = FTP/unavailable
+      let _presignAvailable = null;
+      let _presignProbe = Promise.resolve();
+
+      window.addEventListener('DOMContentLoaded', () => {
+        const tok = AdminDataStore.getToken();
+        if (!tok) return;
+        _presignProbe = fetch('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Token': tok },
+          body: JSON.stringify({ action: 'presign', fileName: '_probe_.bin', folder: '_probe_' }),
+        }).then(res => {
+          if (res.ok || res.status === 401) return;
+          _presignAvailable = false;
+        }).catch(() => {});
+      });
+
       async function uploadFileToMediaHost(file, folder) {
         const endpoint = '/.netlify/functions/uploadMedia';
         const token = AdminDataStore.getToken();
-        const b64 = await new Promise((res, rej) => {
-          const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
-        });
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
-          body: JSON.stringify({ fileName: file.name, contentBase64: b64, folder }),
-        });
-        const result = await parseUploadResponse(response);
-        if (!response.ok) throw new Error(buildUploadErrorMessage(result, 'Upload failed'));
-        if (!result?.url) throw new Error('No URL returned from upload');
-        return result.url;
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) };
+
+        async function postChunk(payload) {
+          const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+          const result = await parseUploadResponse(res);
+          if (!res.ok) throw new Error(buildUploadErrorMessage(result, `Upload failed (${res.status})`));
+          return result;
+        }
+
+        await _presignProbe;
+
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+        // R2 path: presigned URL — browser uploads directly, bypassing Netlify body limit
+        if (!IMAGE_EXTS.has(ext) && _presignAvailable !== false) {
+          const presignRes = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'presign', fileName: file.name, folder }),
+          });
+          if (presignRes.ok) {
+            const { presignedUrl, publicUrl } = await presignRes.json().catch(() => ({}));
+            if (presignedUrl && publicUrl) {
+              let putRes;
+              try {
+                putRes = await fetch(presignedUrl, {
+                  method: 'PUT',
+                  body: file,
+                  headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                });
+              } catch (_corsErr) {
+                throw new Error(
+                  `Upload to R2 failed — CORS policy missing or incorrect. ` +
+                  `Open your R2 bucket → Settings → CORS Policy and allow PUT from ${location.origin}.`
+                );
+              }
+              if (!putRes.ok) throw new Error(`Upload to R2 failed (${putRes.status}).`);
+              _presignAvailable = true;
+              return publicUrl;
+            }
+          } else {
+            _presignAvailable = false;
+          }
+        }
+
+        // FTP / small-file path: send base64 via Netlify function
+        if (file.size <= CHUNK_THRESHOLD) {
+          const contentBase64 = await readSliceAsBase64(file);
+          const result = await postChunk({ fileName: file.name, contentBase64, folder });
+          if (!result?.url) throw new Error('No URL returned from upload');
+          return result.url;
+        }
+
+        // Chunked path: split large files to stay within Netlify's 6 MB body limit
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        let lastResult;
+        for (let i = 0; i < totalChunks; i++) {
+          const slice = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+          const chunkBase64 = await readSliceAsBase64(slice);
+          lastResult = await postChunk({ fileName: file.name, folder, uploadId, chunkIndex: i, totalChunks, chunkBase64 });
+        }
+        if (!lastResult?.url) throw new Error('No URL returned after final chunk');
+        return lastResult.url;
       }
 
       function updateArtworkPreview(url) {

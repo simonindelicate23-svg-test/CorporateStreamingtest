@@ -1828,13 +1828,25 @@ function buildShareUrl(track, albumParam) {
 }
 
 async function copyShareLink() {
-  const albumParam = state.currentTrack?.albumId || state.currentAlbumId || slugifyAlbumName(state.currentTrack?.albumName || state.currentAlbum);
+  const track = state.currentTrack;
+  const albumParam = state.currentAlbumId || state.currentAlbum;
+  const su = buildShareUrl(track || null, track ? null : albumParam);
+  const url = su?.pathname ? su.toString() : window.location.href;
 
-  const shareUrl = buildShareUrl(state.currentTrack, albumParam);
+  const title = state.currentTrack?.trackName || document.title;
 
-  if (!shareUrl || !shareUrl.pathname) return;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, url });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // user dismissed the share sheet
+      // share failed — fall through to clipboard
+    }
+  }
+
   try {
-    await navigator.clipboard.writeText(shareUrl.toString());
+    await navigator.clipboard.writeText(url);
     showToast('Link copied');
     if (dom.copyLinkButton) {
       dom.copyLinkButton.classList.add('copied');
@@ -1851,6 +1863,11 @@ function getPathRouteParams() {
   const segments = window.location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   if (!segments.length) return { album: null, track: null };
 
+  // /s/:trackId — simple share URL format
+  if (segments[0] === 's' && segments[1]) {
+    return { album: null, track: segments[1] };
+  }
+
   const albumIndex = segments.indexOf('album');
   const trackIndex = segments.indexOf('track');
 
@@ -1862,7 +1879,7 @@ function getPathRouteParams() {
 
 function extractTrackId(trackParam) {
   if (!trackParam) return null;
-  return String(trackParam).split('-')[0] || null;
+  return String(trackParam) || null;
 }
 
 function resolveTrackUrl(track) {
@@ -2013,8 +2030,7 @@ function playTrack(track, { autoplay = true } = {}) {
   scheduleIdle(() => {
     primeAdjacentTracks(track);
     if (document.visibilityState !== 'hidden') {
-      const shareUrl = buildShareUrl(track, track.albumId || state.currentAlbumId || slugifyAlbumName(track.albumName));
-      if (shareUrl?.pathname) history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
+      history.replaceState(null, '', buildShareUrl(track).pathname);
       refreshDocumentMetadata({ track });
     }
   });
@@ -2360,8 +2376,7 @@ function bindEvents() {
   // while hidden to avoid broken history entries.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && state.currentTrack) {
-      const shareUrl = buildShareUrl(state.currentTrack, state.currentTrack.albumId || state.currentAlbumId || slugifyAlbumName(state.currentTrack.albumName));
-      if (shareUrl?.pathname) history.replaceState(null, '', shareUrl.pathname + shareUrl.search);
+      history.replaceState(null, '', buildShareUrl(state.currentTrack).pathname);
       refreshDocumentMetadata({ track: state.currentTrack });
       syncPlayState();
     }
@@ -2572,7 +2587,13 @@ export async function init() {
     const albumFromParam = findAlbum(albumParam);
 
     if (sharedTrackId) {
-      const sharedTrack = state.tracks.find(track => String(track._id) === String(sharedTrackId));
+      const _parts = sharedTrackId.split('-');
+      const sharedTrack = state.tracks.find(track => {
+        const id = String(track._id);
+        return id === sharedTrackId ||
+          (_parts.length >= 2 && id === `${_parts[0]}-${_parts[1]}`) ||
+          id === _parts[0];
+      });
       if (sharedTrack) {
         setAlbum(albumFromParam || sharedTrack.albumId || sharedTrack.albumName);
         playTrack(sharedTrack, { autoplay: false });

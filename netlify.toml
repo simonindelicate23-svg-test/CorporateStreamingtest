@@ -44,6 +44,16 @@
   to = "/.netlify/functions/makeSharePage?track=:trackId"
   status = 200
 
+[[redirects]]
+  from = "/embed/:trackId"
+  to = "/.netlify/functions/embedPlayer?track=:trackId"
+  status = 200
+
+[[redirects]]
+  from = "/s/:trackId"
+  to = "/.netlify/functions/share?track=:trackId"
+  status = 200
+
 [[headers]]
   for = "/player.html"
   [headers.values]
