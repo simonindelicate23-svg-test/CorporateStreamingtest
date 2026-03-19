@@ -51,6 +51,32 @@
       .api-toggle-text strong { display: block; font-size: 0.9rem; color: var(--text-primary, #1a1a1a); }
       .api-toggle-text span { font-size: 0.8rem; color: var(--text-secondary, #666); }
 
+      /* ── Catalogue import sub-panel ───────────────────────────── */
+      .import-sub-panel {
+        margin-top: 10px;
+        margin-left: 24px;
+        border-left: 3px solid var(--border, #ddd);
+        padding-left: 16px;
+      }
+      .import-sub-panel .api-toggle-bar {
+        background: var(--surface-warn, #fffbf0);
+        border-color: var(--border-warn, #f5c842);
+        margin-bottom: 0;
+      }
+      .import-advanced-badge {
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: #f5c842;
+        color: #7a5c00;
+        border-radius: 4px;
+        padding: 1px 6px;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+
       /* ── Colour editor two-column layout ─────────────────────── */
       .colour-editor-layout {
         display: grid;
@@ -239,6 +265,20 @@
             <div class="api-toggle-text">
               <strong>Expose catalogue API</strong>
               <span>Allow aggregators to discover and index your tracks via the public catalogue feed.</span>
+            </div>
+          </div>
+
+          <!-- ── Catalogue import sub-option (only visible when catalogue API is on) ── -->
+          <div class="import-sub-panel" id="importSubPanel" style="display:none;">
+            <div class="api-toggle-bar">
+              <label class="toggle-switch" for="catalogueImportEnabled" title="Allow catalogue importing">
+                <input type="checkbox" id="catalogueImportEnabled" />
+                <span class="toggle-slider"></span>
+              </label>
+              <div class="api-toggle-text">
+                <strong><span class="import-advanced-badge">Advanced</span>Allow catalogue importing</strong>
+                <span>Exposes audio file URLs in the catalogue feed so another deployment can migrate your full catalogue (tracks + files) directly into its own R2 or Backblaze bucket. Only enable this temporarily during a migration — turn it off again when done.</span>
+              </div>
             </div>
           </div>
 
@@ -979,6 +1019,8 @@
         updateColourPreview();
         refreshPwaIconPreview();
         document.getElementById('discoveryOptIn').checked = settings.discoveryOptIn === true;
+        document.getElementById('catalogueImportEnabled').checked = settings.catalogueImportEnabled === true;
+        updateImportSubPanel();
         _settingsLoaded = true;
       }
 
@@ -1019,7 +1061,10 @@
         const submitBtn = event.target.querySelector('button[type="submit"]:not(#saveButtonTop)');
         [saveBtn, submitBtn].forEach((b) => { if (b) b.disabled = true; });
 
-        const patch = { discoveryOptIn: document.getElementById('discoveryOptIn').checked };
+        const patch = {
+          discoveryOptIn: document.getElementById('discoveryOptIn').checked,
+          catalogueImportEnabled: document.getElementById('catalogueImportEnabled').checked,
+        };
         fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
           if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') acc[key] = raw !== 'false';
@@ -1047,6 +1092,16 @@
         if (details) details.hidden = !enabled;
       }
       document.getElementById('paymentsEnabled')?.addEventListener('change', updatePaymentVisibility);
+
+      function updateImportSubPanel() {
+        const panel = document.getElementById('importSubPanel');
+        if (!panel) return;
+        const on = document.getElementById('discoveryOptIn')?.checked;
+        panel.style.display = on ? '' : 'none';
+        // If the catalogue API is turned off, also clear the import toggle
+        if (!on) document.getElementById('catalogueImportEnabled').checked = false;
+      }
+      document.getElementById('discoveryOptIn')?.addEventListener('change', updateImportSubPanel);
 
       window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
