@@ -10,7 +10,8 @@
     { href: 'edit.html', label: 'Track Directory' },
     { href: 'edit-albums.html', label: 'Edit Releases' },
     { href: 'admin-pseudo-albums.html', label: 'Pseudo Albums' },
-    { href: 'admin-artwork.html', label: 'Artwork Manager' }
+    { href: 'admin-artwork.html', label: 'Artwork Manager' },
+    { href: 'admin-import.html', label: 'Import Catalogue' },
   ];
 
   function normalizePage(pathname) {

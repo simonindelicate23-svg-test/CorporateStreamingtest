@@ -929,6 +929,15 @@ function updateMediaSessionPositionState() {
   }
 }
 
+function resetMediaSessionPositionState() {
+  if (!mediaSessionSupported || !navigator.mediaSession.setPositionState) return;
+  try {
+    navigator.mediaSession.setPositionState({ duration: 0, playbackRate: 1, position: 0 });
+  } catch (err) {
+    // ignore — some browsers may not support a zero-duration reset
+  }
+}
+
 function syncMediaSessionPlaybackState() {
   if (!mediaSessionSupported) return;
   const isPlaying = Boolean(state.audio && !state.audio.paused && !state.audio.ended);
@@ -974,9 +983,11 @@ function ensureMediaSessionHandlers() {
 
   navigator.mediaSession.setActionHandler('seekto', event => {
     if (!state.audio || typeof event?.seekTime !== 'number') return;
-    state.audio.currentTime = Math.min(Math.max(event.seekTime, 0), state.audio.duration || 0);
+    const clampedTime = Math.min(Math.max(event.seekTime, 0), state.audio.duration || 0);
     if (event.fastSeek && 'fastSeek' in state.audio) {
-      state.audio.fastSeek(event.seekTime);
+      state.audio.fastSeek(clampedTime);
+    } else {
+      state.audio.currentTime = clampedTime;
     }
     updateMediaSessionPositionState();
   });
@@ -1810,6 +1821,7 @@ function updatePlayerMeta(track) {
     setTimeout(() => applyColorPalette(_paletteTrack, _paletteArtSrc), 150);
   }
   updateMediaSessionMetadata(track);
+  resetMediaSessionPositionState();
 }
 
 function buildShareUrl(track, albumParam) {
@@ -2341,6 +2353,7 @@ function bindEvents() {
     }
   });
   state.audio.addEventListener('loadedmetadata', updateTime);
+  state.audio.addEventListener('durationchange', updateTime);
   state.audio.addEventListener('ended', () => {
     if (state.queue?.repeatEnabled) {
       state.audio.currentTime = 0;
