@@ -104,7 +104,8 @@ function releaseArtworkKey(release) {
 
 // ── Core import logic ──────────────────────────────────────────────────────
 
-async function fetchSourceFeed(sourceUrl) {
+// requireImportEnabled: true for file-transfer import, false for metadata-only link
+async function fetchSourceFeed(sourceUrl, { requireImportEnabled = true } = {}) {
   let origin;
   try {
     origin = new URL(sourceUrl).origin;
@@ -115,7 +116,11 @@ async function fetchSourceFeed(sourceUrl) {
   const catalogueUrl = `${origin}/catalogue`;
   let response;
   try {
-    response = await fetch(catalogueUrl, { headers: { Accept: 'application/json' } });
+    // no-cache ensures we bypass any CDN/proxy and get a fresh response,
+    // which is critical when the source just enabled catalogueImportEnabled.
+    response = await fetch(catalogueUrl, {
+      headers: { Accept: 'application/json', 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
   } catch (err) {
     throw Object.assign(
       new Error(`Could not reach ${catalogueUrl}: ${err.message}`),
@@ -138,7 +143,7 @@ async function fetchSourceFeed(sourceUrl) {
 
   const feed = await response.json();
 
-  if (!feed.importEnabled) {
+  if (requireImportEnabled && !feed.importEnabled) {
     throw Object.assign(
       new Error(
         'Source catalogue does not have import mode enabled. ' +
@@ -169,13 +174,6 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
   if (!isAdmin(event)) return json(401, { error: 'Unauthorized' });
 
-  if (!hasR2Config()) {
-    return json(400, {
-      error: 'R2 (or an S3-compatible bucket) must be configured on this instance to use catalogue import.',
-      hint: 'Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL.',
-    });
-  }
-
   let body;
   try {
     body = JSON.parse(event.body || '{}');
@@ -183,14 +181,24 @@ exports.handler = async (event) => {
     return json(400, { error: 'Invalid JSON body' });
   }
 
+  const isFileTransferAction = body.action === 'import' || body.action === 'preview';
+  if (isFileTransferAction && !hasR2Config()) {
+    return json(400, {
+      error: 'R2 (or an S3-compatible bucket) must be configured on this instance to use catalogue import.',
+      hint: 'Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL.',
+    });
+  }
+
   const { action, sourceUrl } = body;
   if (!action || !sourceUrl) return json(400, { error: 'action and sourceUrl are required' });
-  if (!['preview', 'import'].includes(action)) return json(400, { error: 'action must be "preview" or "import"' });
+  if (!['preview', 'import'].includes(action)) {
+    return json(400, { error: 'action must be "preview" or "import"' });
+  }
 
   // ── Fetch + validate source ──────────────────────────────────────────────
   let sourceFeed;
   try {
-    sourceFeed = await fetchSourceFeed(sourceUrl);
+    sourceFeed = await fetchSourceFeed(sourceUrl, { requireImportEnabled: true });
   } catch (err) {
     return json(err.status || 500, { error: err.message });
   }

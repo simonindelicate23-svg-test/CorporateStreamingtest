@@ -144,7 +144,12 @@ exports.handler = async (event) => {
     const importEnabled = settings.catalogueImportEnabled === true;
     const feed = buildFeed(tracks || [], settings, feedUrl, importEnabled);
 
-    return json(200, feed, { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' });
+    // When import mode is active, audio URLs are present in the response.
+    // Don't let a CDN cache a response that contains them.
+    const cacheHeader = importEnabled
+      ? 'private, no-store'
+      : 'public, max-age=300, stale-while-revalidate=60';
+    return json(200, feed, { 'Cache-Control': cacheHeader });
   } catch (error) {
     console.error('catalogue feed error', error);
     return json(500, { error: 'Failed to generate catalogue feed' });

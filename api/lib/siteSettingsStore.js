@@ -78,6 +78,7 @@ const defaults = {
   pwaScreenshot2: '',
   pwaInstallPrompt: true,
   catalogueImportEnabled: false,
+  linkedCatalogues: [],
 };
 
 async function readFtp() {

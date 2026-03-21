@@ -199,6 +199,55 @@
       button.secondary:hover { background: var(--surface, #f5f5f0); }
 
       .button-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+      /* ── Link section divider ─────────────────────────────────── */
+      .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 32px 0 24px;
+        color: #bbb;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .section-divider::before, .section-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border, #e0e0da);
+      }
+
+      /* ── Position radio group ─────────────────────────────────── */
+      .position-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .position-option {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 14px;
+        border: 1px solid var(--border, #ddd);
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        user-select: none;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .position-option input[type="radio"] { margin: 0; accent-color: var(--accent, #6366f1); }
+      .position-option:has(input:checked) {
+        border-color: var(--accent, #6366f1);
+        background: #f0f0ff;
+      }
+      .position-option__desc {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 2px;
+      }
+
       .source-attribution {
         font-size: 0.78rem;
         color: #888;
@@ -258,6 +307,65 @@
         <div class="button-row">
           <button class="secondary" id="resetBtn">Start another import</button>
         </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <div class="section-divider">or — include by reference</div>
+
+      <!-- ── Linked catalogues manager ────────────────────────────
+           URLs stored in siteSettings.linkedCatalogues.
+           Merged at request time — no data written to tracks.json.
+           Remove an entry and it disappears on the next page load.
+      ────────────────────────────────────────────────────────────── -->
+      <div class="step-card">
+        <div class="step-card__title">Linked catalogues <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.78rem;color:#888;">(live, reversible)</span></div>
+        <p style="font-size:0.83rem;color:#555;margin:0 0 10px;">
+          Include tracks from another instance without copying any files. Audio plays directly from the source. Removing a linked catalogue takes effect immediately — nothing is written to your track store.
+        </p>
+        <p style="font-size:0.8rem;color:#555;margin:0 0 16px;">
+          The source only needs <strong>Expose catalogue API</strong> enabled. Gated tracks will appear without audio.
+        </p>
+
+        <!-- Current linked catalogues list -->
+        <div id="linkedList" style="margin-bottom:16px;"></div>
+
+        <div id="linkStatus" class="status"></div>
+
+        <!-- Add new linked catalogue -->
+        <details id="addLinkDetails" style="margin-top:4px;">
+          <summary style="font-size:0.85rem;font-weight:600;cursor:pointer;padding:6px 0;user-select:none;">+ Add linked catalogue</summary>
+          <div style="margin-top:12px;">
+            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Source URL</label>
+            <input type="url" id="newLinkUrl" placeholder="https://other-site.netlify.app" autocomplete="off" spellcheck="false" style="margin-bottom:12px;" />
+            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;">Position</label>
+            <div class="position-group">
+              <label class="position-option">
+                <input type="radio" name="newLinkPosition" value="before" />
+                <div>
+                  <div>Before</div>
+                  <div class="position-option__desc">Shown ahead of your tracks</div>
+                </div>
+              </label>
+              <label class="position-option">
+                <input type="radio" name="newLinkPosition" value="after" checked />
+                <div>
+                  <div>After</div>
+                  <div class="position-option__desc">Shown after your tracks</div>
+                </div>
+              </label>
+              <label class="position-option">
+                <input type="radio" name="newLinkPosition" value="mix" />
+                <div>
+                  <div>Mix in</div>
+                  <div class="position-option__desc">Sorted alphabetically together</div>
+                </div>
+              </label>
+            </div>
+            <div class="button-row" style="margin-top:10px;">
+              <button class="primary" id="addLinkBtn">Add</button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -421,6 +529,113 @@
         document.getElementById('importBtn').textContent = 'Import all new tracks';
       });
 
+      // ── Linked catalogues manager ────────────────────────────────
+      // Reads/writes siteSettings.linkedCatalogues directly.
+      // No backend import action needed — just siteSettings GET/POST.
+
+      const POSITION_LABEL = { before: 'Before', after: 'After', mix: 'Mix in' };
+
+      async function loadLinkedCatalogues() {
+        const settings = await AdminDataStore.requestJson('/.netlify/functions/siteSettings');
+        return Array.isArray(settings.linkedCatalogues) ? settings.linkedCatalogues : [];
+      }
+
+      async function saveLinkedCatalogues(list) {
+        const existing = await AdminDataStore.requestJson('/.netlify/functions/siteSettings');
+        await AdminDataStore.requestJson('/.netlify/functions/siteSettings', {
+          method: 'POST',
+          body: JSON.stringify({ ...existing, linkedCatalogues: list }),
+        });
+        AdminDataStore.invalidateCache(['site-settings']);
+      }
+
+      function renderLinkedList(list) {
+        const container = document.getElementById('linkedList');
+        if (!list.length) {
+          container.innerHTML = '<p style="font-size:0.83rem;color:#999;margin:0;">No linked catalogues yet.</p>';
+          return;
+        }
+        container.innerHTML = list.map((lc, i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border:1px solid var(--border,#e0e0da);border-radius:8px;margin-bottom:8px;background:#fff;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(lc.url)}</div>
+              <div style="font-size:0.75rem;color:#888;margin-top:2px;">
+                Position: <strong>${escHtml(POSITION_LABEL[lc.position] || lc.position || 'After')}</strong>
+                &nbsp;&middot;&nbsp;
+                <label style="cursor:pointer;">
+                  <input type="checkbox" data-lc-index="${i}" data-lc-field="enabled" ${lc.enabled === false ? '' : 'checked'} style="margin:0 3px 0 0;vertical-align:middle;" />
+                  Enabled
+                </label>
+              </div>
+            </div>
+            <button class="secondary" data-remove-index="${i}" style="flex-shrink:0;padding:5px 12px;font-size:0.8rem;color:#c0392b;border-color:#f5c6c6;">Remove</button>
+          </div>`).join('');
+
+        // Toggle enabled
+        container.querySelectorAll('input[data-lc-field="enabled"]').forEach((cb) => {
+          cb.addEventListener('change', async () => {
+            clearStatus('linkStatus');
+            try {
+              const list = await loadLinkedCatalogues();
+              list[Number(cb.dataset.lcIndex)].enabled = cb.checked;
+              await saveLinkedCatalogues(list);
+            } catch (err) {
+              showStatus('linkStatus', `Could not save: ${err.message}`, true);
+            }
+          });
+        });
+
+        // Remove
+        container.querySelectorAll('button[data-remove-index]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            clearStatus('linkStatus');
+            btn.disabled = true;
+            try {
+              const list = await loadLinkedCatalogues();
+              list.splice(Number(btn.dataset.removeIndex), 1);
+              await saveLinkedCatalogues(list);
+              renderLinkedList(list);
+              showStatus('linkStatus', 'Linked catalogue removed. Changes take effect on the next player load.');
+            } catch (err) {
+              showStatus('linkStatus', `Could not remove: ${err.message}`, true);
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+
+      // Add new linked catalogue
+      document.getElementById('addLinkBtn').addEventListener('click', async () => {
+        const url = document.getElementById('newLinkUrl').value.trim();
+        if (!url) return showStatus('linkStatus', 'Please enter a URL.', true);
+        try { new URL(url); } catch { return showStatus('linkStatus', 'Invalid URL.', true); }
+
+        const position = document.querySelector('input[name="newLinkPosition"]:checked')?.value || 'after';
+        clearStatus('linkStatus');
+        const btn = document.getElementById('addLinkBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        try {
+          const list = await loadLinkedCatalogues();
+          if (list.some((lc) => lc.url === url)) {
+            showStatus('linkStatus', 'That URL is already linked.', true);
+            return;
+          }
+          list.push({ url, position, enabled: true });
+          await saveLinkedCatalogues(list);
+          renderLinkedList(list);
+          document.getElementById('newLinkUrl').value = '';
+          document.getElementById('addLinkDetails').removeAttribute('open');
+          showStatus('linkStatus', 'Linked catalogue added. It will appear in the player on the next load.');
+        } catch (err) {
+          showStatus('linkStatus', `Could not save: ${err.message}`, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Add';
+        }
+      });
+
       // ── Utilities ────────────────────────────────────────────────
       function escHtml(str) {
         return String(str || '')
@@ -430,9 +645,15 @@
           .replace(/"/g, '&quot;');
       }
 
-      window.addEventListener('DOMContentLoaded', () => {
+      window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
+        try {
+          const list = await loadLinkedCatalogues();
+          renderLinkedList(list);
+        } catch (_err) {
+          renderLinkedList([]);
+        }
       });
     </script>
   </body>
