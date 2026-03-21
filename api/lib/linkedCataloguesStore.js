@@ -105,8 +105,7 @@ async function getLinkedGroups() {
 
   const results = await Promise.allSettled(
     entries.map(async (lc) => {
-      const origin = new URL(lc.url).origin;
-      const tracks = await _fetchWithCache(`${origin}/catalogue`);
+      const tracks = await _fetchWithCache(lc.url);
       return { tracks, position: lc.position || 'after' };
     })
   );
