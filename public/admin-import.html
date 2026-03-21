@@ -199,6 +199,55 @@
       button.secondary:hover { background: var(--surface, #f5f5f0); }
 
       .button-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+      /* ── Link section divider ─────────────────────────────────── */
+      .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 32px 0 24px;
+        color: #bbb;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .section-divider::before, .section-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border, #e0e0da);
+      }
+
+      /* ── Position radio group ─────────────────────────────────── */
+      .position-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .position-option {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 14px;
+        border: 1px solid var(--border, #ddd);
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        user-select: none;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .position-option input[type="radio"] { margin: 0; accent-color: var(--accent, #6366f1); }
+      .position-option:has(input:checked) {
+        border-color: var(--accent, #6366f1);
+        background: #f0f0ff;
+      }
+      .position-option__desc {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 2px;
+      }
+
       .source-attribution {
         font-size: 0.78rem;
         color: #888;
@@ -258,6 +307,65 @@
         <div class="button-row">
           <button class="secondary" id="resetBtn">Start another import</button>
         </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <div class="section-divider">or — include by reference</div>
+
+      <!-- ── Link section ─────────────────────────────────────────
+           Fetches track metadata from another catalogue and adds it
+           to this one using the source's original audio URLs.
+           No files are copied; audio plays directly from the source.
+      ────────────────────────────────────────────────────────────── -->
+      <div class="step-card">
+        <div class="step-card__title">Include catalogue by reference <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.78rem;color:#888;">(no file transfer)</span></div>
+        <p style="font-size:0.83rem;color:#555;margin:0 0 14px;">
+          Pulls track listings from another instance and adds them to your catalogue. Audio is streamed directly from the source — no files are copied to your storage. The source only needs "Expose catalogue API" enabled, not "Allow catalogue importing".
+        </p>
+        <p style="font-size:0.8rem;color:#d97706;background:#fffbf0;border:1px solid #f5c842;border-radius:6px;padding:8px 12px;margin:0 0 16px;">
+          Note: gated (paid) tracks in the source catalogue will appear without audio until unlocked on the source instance. Audio plays from the source — if the source goes offline, those tracks will stop working.
+        </p>
+
+        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Source catalogue URL</label>
+        <input type="url" id="linkSourceUrl" placeholder="https://other-site.netlify.app" autocomplete="off" spellcheck="false" />
+
+        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;margin-top:4px;">Position in catalogue</label>
+        <div class="position-group">
+          <label class="position-option">
+            <input type="radio" name="linkPosition" value="before" />
+            <div>
+              <div>List before</div>
+              <div class="position-option__desc">Inserted ahead of existing tracks</div>
+            </div>
+          </label>
+          <label class="position-option">
+            <input type="radio" name="linkPosition" value="after" checked />
+            <div>
+              <div>List after</div>
+              <div class="position-option__desc">Appended after existing tracks</div>
+            </div>
+          </label>
+          <label class="position-option">
+            <input type="radio" name="linkPosition" value="mix" />
+            <div>
+              <div>Mix in</div>
+              <div class="position-option__desc">Sorted alphabetically with your content</div>
+            </div>
+          </label>
+        </div>
+
+        <div id="linkStatus" class="status"></div>
+
+        <!-- preview result (shown after checking) -->
+        <div id="linkPreviewContent" style="display:none;margin-bottom:14px;"></div>
+
+        <div class="button-row">
+          <button class="primary" id="linkPreviewBtn">Check source</button>
+          <button class="primary" id="linkIncludeBtn" style="display:none;">Include in catalogue</button>
+          <button class="secondary" id="linkResetBtn" style="display:none;">Clear</button>
+        </div>
+
+        <div id="linkResultContent" style="display:none;margin-top:16px;"></div>
       </div>
     </div>
 
@@ -419,6 +527,125 @@
         document.getElementById('step1').style.display = '';
         document.getElementById('importBtn').disabled = false;
         document.getElementById('importBtn').textContent = 'Import all new tracks';
+      });
+
+      // ── Link: check source ───────────────────────────────────────
+      document.getElementById('linkPreviewBtn').addEventListener('click', async () => {
+        const linkSourceUrl = document.getElementById('linkSourceUrl').value.trim();
+        if (!linkSourceUrl) return showStatus('linkStatus', 'Please enter the source catalogue URL.', true);
+
+        clearStatus('linkStatus');
+        document.getElementById('linkPreviewContent').style.display = 'none';
+        document.getElementById('linkIncludeBtn').style.display = 'none';
+        document.getElementById('linkResetBtn').style.display = 'none';
+        document.getElementById('linkResultContent').style.display = 'none';
+
+        const btn = document.getElementById('linkPreviewBtn');
+        btn.disabled = true;
+        btn.textContent = 'Checking…';
+
+        try {
+          const data = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'link-preview', sourceUrl: linkSourceUrl }),
+          });
+          renderLinkPreview(data);
+          document.getElementById('linkPreviewContent').style.display = '';
+          if (data.tracksToLink > 0) document.getElementById('linkIncludeBtn').style.display = '';
+          document.getElementById('linkResetBtn').style.display = '';
+        } catch (err) {
+          showStatus('linkStatus', err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Check source';
+        }
+      });
+
+      function renderLinkPreview(data) {
+        const inst = data.sourceInstance || {};
+        const hasNew = data.tracksToLink > 0;
+        const container = document.getElementById('linkPreviewContent');
+
+        const gatedNote = data.gatedTracksWithoutAudio > 0
+          ? `<p style="font-size:0.8rem;color:#d97706;margin:8px 0 0;">${data.gatedTracksWithoutAudio} gated track${data.gatedTracksWithoutAudio !== 1 ? 's' : ''} will be included without audio (paid/locked on source).</p>`
+          : '';
+
+        const noNewNote = !hasNew
+          ? `<p style="color:#d97706;font-size:0.85rem;margin-top:8px;">No new tracks found — all tracks from the source already exist in this catalogue.</p>`
+          : '';
+
+        const releasesHtml = (data.releases || []).map((r) => {
+          const badge = r.newTracks > 0
+            ? `<span class="release-list__badge release-list__badge--new">${r.newTracks} new</span>`
+            : `<span class="release-list__badge release-list__badge--skip">all duplicates</span>`;
+          const art = r.artworkUrl
+            ? `<img class="release-list__art" src="${escHtml(r.artworkUrl)}" alt="" loading="lazy" />`
+            : `<div class="release-list__art"></div>`;
+          return `<li>${art}<div class="release-list__info"><div class="release-list__title">${escHtml(r.title || '—')}</div><div class="release-list__artist">${escHtml(r.artist || '—')} &middot; ${r.trackCount} track${r.trackCount !== 1 ? 's' : ''}</div></div>${badge}</li>`;
+        }).join('');
+
+        container.innerHTML = `
+          <div class="source-attribution">Source: <strong>${escHtml(inst.name || inst.url || 'Unknown')}</strong></div>
+          <div class="preview-summary" style="margin-top:10px;">
+            <div class="preview-stat ${hasNew ? 'preview-stat--ok' : ''}">
+              <div class="preview-stat__value">${data.tracksToLink}</div>
+              <div class="preview-stat__label">Tracks to link</div>
+            </div>
+            <div class="preview-stat ${data.duplicatesSkipped > 0 ? 'preview-stat--warn' : ''}">
+              <div class="preview-stat__value">${data.duplicatesSkipped}</div>
+              <div class="preview-stat__label">Duplicates (skipped)</div>
+            </div>
+          </div>
+          <ul class="release-list" style="margin-top:10px;">${releasesHtml}</ul>
+          ${gatedNote}${noNewNote}`;
+      }
+
+      // ── Link: include ────────────────────────────────────────────
+      document.getElementById('linkIncludeBtn').addEventListener('click', async () => {
+        const linkSourceUrl = document.getElementById('linkSourceUrl').value.trim();
+        const position = document.querySelector('input[name="linkPosition"]:checked')?.value || 'after';
+
+        clearStatus('linkStatus');
+        const btn = document.getElementById('linkIncludeBtn');
+        btn.disabled = true;
+        btn.textContent = 'Including…';
+
+        try {
+          const result = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'link', sourceUrl: linkSourceUrl, position }),
+          });
+          renderLinkResult(result);
+          document.getElementById('linkPreviewContent').style.display = 'none';
+          document.getElementById('linkIncludeBtn').style.display = 'none';
+          document.getElementById('linkResultContent').style.display = '';
+        } catch (err) {
+          showStatus('linkStatus', `Failed: ${err.message}`, true);
+          btn.disabled = false;
+          btn.textContent = 'Include in catalogue';
+        }
+      });
+
+      function renderLinkResult(result) {
+        const container = document.getElementById('linkResultContent');
+        const posLabel = { before: 'listed before existing tracks', after: 'appended after existing tracks', mix: 'mixed in alphabetically' };
+        const lines = [];
+        lines.push(`<span class="log-ok">Done. ${result.linked} track${result.linked !== 1 ? 's' : ''} included — ${posLabel[result.position] || result.position}.</span>`);
+        if (result.gatedWithoutAudio > 0) lines.push(`<span style="color:#fbbf24;">${result.gatedWithoutAudio} gated track${result.gatedWithoutAudio !== 1 ? 's' : ''} added without audio.</span>`);
+        if (result.skipped > 0) lines.push(`<span class="log-dim">${result.skipped} duplicate${result.skipped !== 1 ? 's' : ''} skipped.</span>`);
+        container.innerHTML = `<div class="progress-log">${lines.join('\n')}</div>`;
+      }
+
+      // ── Link: reset ──────────────────────────────────────────────
+      document.getElementById('linkResetBtn').addEventListener('click', () => {
+        document.getElementById('linkSourceUrl').value = '';
+        clearStatus('linkStatus');
+        document.getElementById('linkPreviewContent').style.display = 'none';
+        document.getElementById('linkIncludeBtn').style.display = 'none';
+        document.getElementById('linkResetBtn').style.display = 'none';
+        document.getElementById('linkResultContent').style.display = 'none';
+        document.getElementById('linkIncludeBtn').disabled = false;
+        document.getElementById('linkIncludeBtn').textContent = 'Include in catalogue';
       });
 
       // ── Utilities ────────────────────────────────────────────────
