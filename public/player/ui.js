@@ -853,13 +853,17 @@ function getEffectiveAudioUrl(streamUrl) {
 // the adjacent-track prime list changes, or ~30 s before the current track ends.
 function primeNextTrackAudio(track) {
   if (!track) return;
-  const url = resolveTrackUrl(track);
+  // Use the already-resolved direct URL when available so the browser's media
+  // cache is populated at the same URL that state.audio will use — meaning no
+  // redirect round-trip is needed when the track transitions in background.
+  const url = getEffectiveAudioUrl(resolveTrackUrl(track));
   if (!url || url === nextTrackAudioUrl) return; // already primed
 
   nextTrackAudioUrl = url;
   if (!nextTrackAudio) {
     nextTrackAudio = new Audio();
     nextTrackAudio.preload = 'auto';
+    nextTrackAudio.setAttribute('playsinline', '');
   }
   // Capture resolved URL when it becomes available
   const onCanPlay = () => {
@@ -2104,8 +2108,14 @@ function playTrack(track, { autoplay = true } = {}) {
     return;
   }
 
-  // Use the cached direct URL to skip the redirect round-trip when possible.
-  const src = getEffectiveAudioUrl(streamUrl);
+  // Prefer the URL that nextTrackAudio already has fully loaded (currentSrc is
+  // the post-redirect URL the browser has in its media cache).  Falling back to
+  // the resolved-URL cache, then the raw stream URL as a last resort.
+  const primed = (nextTrackAudio && nextTrackAudioUrl &&
+    (nextTrackAudioUrl === streamUrl || nextTrackAudioUrl === getEffectiveAudioUrl(streamUrl)))
+    ? (nextTrackAudio.currentSrc || null)
+    : null;
+  const src = primed || getEffectiveAudioUrl(streamUrl);
   // Clear any pending watchdog from the previous track before swapping src.
   clearTrackEndWatchdog();
   state.audio.src = src;
@@ -2438,13 +2448,17 @@ function bindEvents() {
   state.audio.addEventListener('durationchange', updateTime);
   state.audio.addEventListener('ended', () => {
     clearTrackEndWatchdog();
-    releaseWakeLock();
     if (state.queue?.repeatEnabled) {
       state.audio.currentTime = 0;
       state.audio.play().finally(syncPlayState);
       return;
     }
-    syncPlayState();
+    // Do NOT call syncPlayState() or releaseWakeLock() here before changeTrack.
+    // syncPlayState → syncMediaSessionPlaybackState would set playbackState='paused',
+    // which causes iOS to treat the next play() as a new session requiring a user
+    // gesture rather than a continuation of the active audio session.
+    // The 'pause' event fired by src reassignment in playTrack handles releaseWakeLock,
+    // and syncPlayState runs once 'play'/'playing' fire on the next track.
     changeTrack(1);
   });
   state.audio.addEventListener('play', () => {
