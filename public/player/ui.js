@@ -91,6 +91,16 @@ const resolvedUrlCache = new Map();
 // near-instant even when the page is backgrounded (screen off, tab hidden).
 let nextTrackAudio = null;
 let nextTrackAudioUrl = null;
+// Screen Wake Lock handle — held while audio is actively playing to discourage
+// the browser from throttling JavaScript execution on mobile.
+let wakeLock = null;
+// Whether the user intends playback to be active (survives brief OS-level pauses
+// between tracks so we can resume after mobile background suspension).
+let userWantsToPlay = false;
+// Safety-net timer: fires slightly after the expected track end and triggers the
+// next-track transition if the native `ended` event was silently swallowed by a
+// mobile browser while the page was backgrounded.
+let trackEndWatchdogTimer = null;
 const INITIAL_BACKGROUND = playerConfig?.initialBackgroundColor || '#f7f5f0';
 let SITE_BACKGROUND_COLOR = INITIAL_BACKGROUND;
 const INITIAL_OVERLAY_TONE = playerConfig?.initialOverlayTone || 'rgba(12, 12, 18, 0.92)';
@@ -950,12 +960,14 @@ function ensureMediaSessionHandlers() {
 
   navigator.mediaSession.setActionHandler('play', () => {
     if (state.audio?.paused) {
+      userWantsToPlay = true;
       state.audio.play().finally(syncPlayState);
     }
   });
 
   navigator.mediaSession.setActionHandler('pause', () => {
     if (!state.audio?.paused) {
+      userWantsToPlay = false;
       state.audio.pause();
       syncPlayState();
     }
@@ -994,12 +1006,77 @@ function ensureMediaSessionHandlers() {
 
   navigator.mediaSession.setActionHandler('stop', () => {
     if (!state.audio) return;
+    userWantsToPlay = false;
     state.audio.pause();
     state.audio.currentTime = 0;
     syncPlayState();
   });
 
   mediaSessionHandlersBound = true;
+}
+
+// ── Screen Wake Lock ──────────────────────────────────────────────────────────
+// Acquiring a wake lock keeps the screen lit, which also prevents browsers from
+// aggressively throttling JS timers while the page is "hidden-but-audible" on
+// many Android devices.  On iOS 16.4+ this API is also supported.
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    // If the OS releases the lock (e.g. power button), clear our reference so
+    // the next play() re-requests it.
+    wakeLock.addEventListener('release', () => { wakeLock = null; }, { once: true });
+  } catch (_) {
+    // Non-fatal — playback continues without the lock.
+    wakeLock = null;
+  }
+}
+
+function releaseWakeLock() {
+  if (!wakeLock) return;
+  wakeLock.release().catch(() => {});
+  wakeLock = null;
+}
+
+// ── Track-end watchdog ────────────────────────────────────────────────────────
+// iOS Safari and some Android browsers silently drop the `ended` event when the
+// page is backgrounded, leaving the player stalled forever on the last track.
+// We arm a setTimeout for slightly past the expected track end so we can kick
+// off the next-track transition ourselves if `ended` never arrives.
+
+function clearTrackEndWatchdog() {
+  if (trackEndWatchdogTimer !== null) {
+    clearTimeout(trackEndWatchdogTimer);
+    trackEndWatchdogTimer = null;
+  }
+}
+
+function armTrackEndWatchdog() {
+  clearTrackEndWatchdog();
+  const audio = state.audio;
+  if (!audio || !userWantsToPlay) return;
+  const duration = audio.duration;
+  const currentTime = audio.currentTime;
+  if (!isFinite(duration) || duration <= 0 || currentTime >= duration) return;
+  const remainingMs = (duration - currentTime) * 1000;
+  // Fire 1.5 s after the expected end as a backup.
+  trackEndWatchdogTimer = setTimeout(() => {
+    trackEndWatchdogTimer = null;
+    if (!state.audio || !userWantsToPlay) return;
+    const d = state.audio.duration;
+    const t = state.audio.currentTime;
+    if (!isFinite(d) || d <= 0) return;
+    // Only act when genuinely at/near the end; skip if the user seeked away.
+    if (!state.audio.ended && t < d - 2.0) return;
+    // Mirror the `ended` event handler logic.
+    if (state.queue?.repeatEnabled) {
+      state.audio.currentTime = 0;
+      state.audio.play().finally(syncPlayState);
+    } else {
+      syncPlayState();
+      changeTrack(1);
+    }
+  }, remainingMs + 1500);
 }
 
 function slugify(text = '') {
@@ -2029,6 +2106,8 @@ function playTrack(track, { autoplay = true } = {}) {
 
   // Use the cached direct URL to skip the redirect round-trip when possible.
   const src = getEffectiveAudioUrl(streamUrl);
+  // Clear any pending watchdog from the previous track before swapping src.
+  clearTrackEndWatchdog();
   state.audio.src = src;
 
   updatePlayerMeta(track);
@@ -2048,6 +2127,7 @@ function playTrack(track, { autoplay = true } = {}) {
   });
 
   if (autoplay) {
+    userWantsToPlay = true;
     const playPromise = state.audio.play();
     if (playPromise?.catch) {
       playPromise
@@ -2067,8 +2147,10 @@ function playTrack(track, { autoplay = true } = {}) {
 function togglePlay() {
   if (!state.audio.src) return;
   if (state.audio.paused) {
+    userWantsToPlay = true;
     state.audio.play().finally(syncPlayState);
   } else {
+    userWantsToPlay = false;
     state.audio.pause();
     syncPlayState();
   }
@@ -2355,6 +2437,8 @@ function bindEvents() {
   state.audio.addEventListener('loadedmetadata', updateTime);
   state.audio.addEventListener('durationchange', updateTime);
   state.audio.addEventListener('ended', () => {
+    clearTrackEndWatchdog();
+    releaseWakeLock();
     if (state.queue?.repeatEnabled) {
       state.audio.currentTime = 0;
       state.audio.play().finally(syncPlayState);
@@ -2363,10 +2447,29 @@ function bindEvents() {
     syncPlayState();
     changeTrack(1);
   });
-  state.audio.addEventListener('play', syncPlayState);
-  state.audio.addEventListener('playing', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('play', () => {
+    userWantsToPlay = true;
+    syncPlayState();
+  });
+  state.audio.addEventListener('playing', () => {
+    setBufferingState(false);
+    syncPlayState();
+    // Arm the watchdog every time playback (re)starts or resumes after buffering.
+    armTrackEndWatchdog();
+    requestWakeLock();
+  });
   state.audio.addEventListener('waiting', () => { setBufferingState(true); syncPlayState(); });
-  state.audio.addEventListener('pause', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('pause', () => {
+    setBufferingState(false);
+    syncPlayState();
+    // Clear the watchdog while paused so it doesn't fire during an intentional pause.
+    clearTrackEndWatchdog();
+    releaseWakeLock();
+  });
+  // Re-arm the watchdog whenever the user seeks so remaining-time stays accurate.
+  state.audio.addEventListener('seeked', () => {
+    if (!state.audio.paused && userWantsToPlay) armTrackEndWatchdog();
+  });
   state.audio.addEventListener('error', async () => {
     setBufferingState(false);
     syncPlayState();
@@ -2384,15 +2487,63 @@ function bindEvents() {
     }
   });
 
-  // When the page comes back to the foreground after being hidden (screen on,
-  // tab re-focused), sync the URL bar and document meta which were skipped
-  // while hidden to avoid broken history entries.
+  // When the page comes back to the foreground after being hidden, recover any
+  // playback state that was silently lost while the page was backgrounded.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.currentTrack) {
-      history.replaceState(null, '', buildShareUrl(state.currentTrack).pathname);
-      refreshDocumentMetadata({ track: state.currentTrack });
-      syncPlayState();
+    if (document.visibilityState === 'visible') {
+      if (state.currentTrack) {
+        // Case 1: the `ended` event was swallowed while we were hidden.
+        if (state.audio?.ended && userWantsToPlay) {
+          if (state.queue?.repeatEnabled) {
+            state.audio.currentTime = 0;
+            state.audio.play().catch(() => {});
+          } else {
+            changeTrack(1);
+          }
+          return;
+        }
+        // Case 2: the OS suspended the audio element mid-track.
+        if (userWantsToPlay && state.audio?.paused && !state.audio?.ended) {
+          state.audio.play().catch(() => {});
+        }
+        // Re-arm watchdog and re-request wake lock in case they lapsed.
+        if (userWantsToPlay && state.audio && !state.audio.paused) {
+          armTrackEndWatchdog();
+          requestWakeLock();
+        }
+        // Sync the URL bar and document meta (skipped while hidden to avoid
+        // broken history entries).
+        history.replaceState(null, '', buildShareUrl(state.currentTrack).pathname);
+        refreshDocumentMetadata({ track: state.currentTrack });
+        syncPlayState();
+      }
+    } else {
+      // Page is being hidden — wake lock will be released by the OS; clear our
+      // reference so requestWakeLock() re-acquires it when we come back.
+      wakeLock = null;
     }
+  });
+
+  // Handle back-forward cache restoration (common when swiping between apps on
+  // mobile).  `pageshow` fires with event.persisted=true when the page is
+  // rehydrated from bfcache rather than freshly loaded.
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    if (state.audio?.ended && userWantsToPlay) {
+      changeTrack(1);
+    } else if (userWantsToPlay && state.audio?.paused && !state.audio?.ended) {
+      state.audio.play().catch(() => {});
+    }
+    if (userWantsToPlay && state.audio && !state.audio.paused) {
+      armTrackEndWatchdog();
+      requestWakeLock();
+    }
+    syncPlayState();
+  });
+
+  window.addEventListener('pagehide', () => {
+    // Release the wake lock cleanly so the OS doesn't hold it past our lifetime.
+    releaseWakeLock();
   });
 
   // Paywall modal dismiss
@@ -2567,8 +2718,18 @@ export async function init() {
   updateAlbumGalleryHeading(!state.currentAlbum);
   if (!state.audio) {
     state.audio = new Audio();
-    state.audio.preload = 'metadata';
+    // 'auto' buffers the full track so playback can continue even if the network
+    // briefly drops while the page is backgrounded.
+    state.audio.preload = 'auto';
+    // Prevent iOS from hijacking the element into a native full-screen player,
+    // which interferes with in-page JS control.
+    state.audio.setAttribute('playsinline', '');
     state.audio.volume = Number(dom.volumeSlider?.value ?? 1);
+  }
+  // Tell the OS this is a music player (affects audio routing and CPU scheduling
+  // on Chrome for Android 116+).
+  if ('audioSession' in navigator) {
+    try { navigator.audioSession.type = 'playback'; } catch (_) {}
   }
   ensureMediaSessionHandlers();
   if (!artworkEventsBound && dom.artwork) {
