@@ -865,8 +865,14 @@ function primeNextTrackAudio(track) {
     nextTrackAudio.preload = 'auto';
     nextTrackAudio.setAttribute('playsinline', '');
   }
-  // Capture resolved URL when it becomes available
+  // Capture resolved URL when it becomes available.
+  // Guard: rapid calls to primeNextTrackAudio leave stale { once: true } listeners
+  // on the element. When the *next* load fires canplaythrough, every stale listener
+  // sees nextTrackAudio.currentSrc for the *new* track and would cache that URL
+  // under the *old* stream URL — poisoning the cache so a later playTrack call
+  // plays the wrong audio file. The nextTrackAudioUrl check detects staleness.
   const onCanPlay = () => {
+    if (nextTrackAudioUrl !== url) return;
     const resolved = nextTrackAudio.currentSrc;
     if (resolved && resolved !== url) resolvedUrlCache.set(url, resolved);
   };
