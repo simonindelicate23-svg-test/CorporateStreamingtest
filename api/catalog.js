@@ -2,6 +2,7 @@ const { fetchTrackDurationSeconds } = require('./audioUtils');
 const { loadTracks, saveTracks, withTrackIds } = require('./lib/legacyTracksStore');
 const { saveShareIndex } = require('./lib/shareIndexStore');
 const { isAdmin } = require('./lib/auth');
+const { getLinkedGroups, mergeWithLinked } = require('./lib/linkedCataloguesStore');
 
 const json = (statusCode, payload, extraHeaders = {}) => ({
   statusCode,
@@ -186,25 +187,32 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'GET') {
       const params = event.queryStringParameters || {};
       const resource = String(params.resource || 'bundle').toLowerCase();
+      const adminView = isAdmin(event);
+
+      // Linked catalogues are merged only for public (non-admin) requests.
+      // Admin views (Track Directory, Edit Releases) only show local tracks.
+      const viewTracks = adminView
+        ? tracks
+        : mergeWithLinked(tracks, await getLinkedGroups().catch(() => []));
+
       if (resource === 'track') {
         const requestedId = String(params.id || '').trim();
-        const found = tracks.find((track) => normalizeTrackId(track) === requestedId);
+        const found = viewTracks.find((track) => normalizeTrackId(track) === requestedId);
         if (!found) return json(404, { message: 'Track not found' });
         // Return the full track (including mp3Url) to authenticated admins so
         // the edit page can display and compare the current audio URL.
-        if (isAdmin(event)) return json(200, found);
+        if (adminView) return json(200, found);
         return json(200, toPublicTrack(found), READ_CACHE_HEADERS);
       }
-      if (resource === 'tracks') return json(200, tracks.map(toPublicTrack), isAdmin(event) ? {} : READ_CACHE_HEADERS);
+      if (resource === 'tracks') return json(200, viewTracks.map(toPublicTrack), adminView ? {} : READ_CACHE_HEADERS);
       if (resource === 'albums') {
         // Admins see all albums (including fully-unpublished ones) so the
         // edit-albums dropdown doesn't hide releases after a bulk-unpublish.
-        const adminView = isAdmin(event);
-        const albums = getAlbumsFromTracks(tracks, { includeUnpublished: adminView });
+        const albums = getAlbumsFromTracks(viewTracks, { includeUnpublished: adminView });
         return json(200, albums, adminView ? {} : READ_CACHE_HEADERS);
       }
-      const publicTracks = tracks.map(toPublicTrack);
-      return json(200, { tracks: publicTracks, albums: getAlbumsFromTracks(tracks) }, READ_CACHE_HEADERS);
+      const publicTracks = viewTracks.map(toPublicTrack);
+      return json(200, { tracks: publicTracks, albums: getAlbumsFromTracks(viewTracks) }, READ_CACHE_HEADERS);
     }
 
     if (event.httpMethod !== 'POST') return json(405, { message: 'Method not allowed' });

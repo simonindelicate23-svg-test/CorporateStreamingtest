@@ -91,6 +91,16 @@ const resolvedUrlCache = new Map();
 // near-instant even when the page is backgrounded (screen off, tab hidden).
 let nextTrackAudio = null;
 let nextTrackAudioUrl = null;
+// Screen Wake Lock handle — held while audio is actively playing to discourage
+// the browser from throttling JavaScript execution on mobile.
+let wakeLock = null;
+// Whether the user intends playback to be active (survives brief OS-level pauses
+// between tracks so we can resume after mobile background suspension).
+let userWantsToPlay = false;
+// Safety-net timer: fires slightly after the expected track end and triggers the
+// next-track transition if the native `ended` event was silently swallowed by a
+// mobile browser while the page was backgrounded.
+let trackEndWatchdogTimer = null;
 const INITIAL_BACKGROUND = playerConfig?.initialBackgroundColor || '#f7f5f0';
 let SITE_BACKGROUND_COLOR = INITIAL_BACKGROUND;
 const INITIAL_OVERLAY_TONE = playerConfig?.initialOverlayTone || 'rgba(12, 12, 18, 0.92)';
@@ -843,16 +853,26 @@ function getEffectiveAudioUrl(streamUrl) {
 // the adjacent-track prime list changes, or ~30 s before the current track ends.
 function primeNextTrackAudio(track) {
   if (!track) return;
-  const url = resolveTrackUrl(track);
+  // Use the already-resolved direct URL when available so the browser's media
+  // cache is populated at the same URL that state.audio will use — meaning no
+  // redirect round-trip is needed when the track transitions in background.
+  const url = getEffectiveAudioUrl(resolveTrackUrl(track));
   if (!url || url === nextTrackAudioUrl) return; // already primed
 
   nextTrackAudioUrl = url;
   if (!nextTrackAudio) {
     nextTrackAudio = new Audio();
     nextTrackAudio.preload = 'auto';
+    nextTrackAudio.setAttribute('playsinline', '');
   }
-  // Capture resolved URL when it becomes available
+  // Capture resolved URL when it becomes available.
+  // Guard: rapid calls to primeNextTrackAudio leave stale { once: true } listeners
+  // on the element. When the *next* load fires canplaythrough, every stale listener
+  // sees nextTrackAudio.currentSrc for the *new* track and would cache that URL
+  // under the *old* stream URL — poisoning the cache so a later playTrack call
+  // plays the wrong audio file. The nextTrackAudioUrl check detects staleness.
   const onCanPlay = () => {
+    if (nextTrackAudioUrl !== url) return;
     const resolved = nextTrackAudio.currentSrc;
     if (resolved && resolved !== url) resolvedUrlCache.set(url, resolved);
   };
@@ -950,12 +970,14 @@ function ensureMediaSessionHandlers() {
 
   navigator.mediaSession.setActionHandler('play', () => {
     if (state.audio?.paused) {
+      userWantsToPlay = true;
       state.audio.play().finally(syncPlayState);
     }
   });
 
   navigator.mediaSession.setActionHandler('pause', () => {
     if (!state.audio?.paused) {
+      userWantsToPlay = false;
       state.audio.pause();
       syncPlayState();
     }
@@ -994,12 +1016,77 @@ function ensureMediaSessionHandlers() {
 
   navigator.mediaSession.setActionHandler('stop', () => {
     if (!state.audio) return;
+    userWantsToPlay = false;
     state.audio.pause();
     state.audio.currentTime = 0;
     syncPlayState();
   });
 
   mediaSessionHandlersBound = true;
+}
+
+// ── Screen Wake Lock ──────────────────────────────────────────────────────────
+// Acquiring a wake lock keeps the screen lit, which also prevents browsers from
+// aggressively throttling JS timers while the page is "hidden-but-audible" on
+// many Android devices.  On iOS 16.4+ this API is also supported.
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    // If the OS releases the lock (e.g. power button), clear our reference so
+    // the next play() re-requests it.
+    wakeLock.addEventListener('release', () => { wakeLock = null; }, { once: true });
+  } catch (_) {
+    // Non-fatal — playback continues without the lock.
+    wakeLock = null;
+  }
+}
+
+function releaseWakeLock() {
+  if (!wakeLock) return;
+  wakeLock.release().catch(() => {});
+  wakeLock = null;
+}
+
+// ── Track-end watchdog ────────────────────────────────────────────────────────
+// iOS Safari and some Android browsers silently drop the `ended` event when the
+// page is backgrounded, leaving the player stalled forever on the last track.
+// We arm a setTimeout for slightly past the expected track end so we can kick
+// off the next-track transition ourselves if `ended` never arrives.
+
+function clearTrackEndWatchdog() {
+  if (trackEndWatchdogTimer !== null) {
+    clearTimeout(trackEndWatchdogTimer);
+    trackEndWatchdogTimer = null;
+  }
+}
+
+function armTrackEndWatchdog() {
+  clearTrackEndWatchdog();
+  const audio = state.audio;
+  if (!audio || !userWantsToPlay) return;
+  const duration = audio.duration;
+  const currentTime = audio.currentTime;
+  if (!isFinite(duration) || duration <= 0 || currentTime >= duration) return;
+  const remainingMs = (duration - currentTime) * 1000;
+  // Fire 1.5 s after the expected end as a backup.
+  trackEndWatchdogTimer = setTimeout(() => {
+    trackEndWatchdogTimer = null;
+    if (!state.audio || !userWantsToPlay) return;
+    const d = state.audio.duration;
+    const t = state.audio.currentTime;
+    if (!isFinite(d) || d <= 0) return;
+    // Only act when genuinely at/near the end; skip if the user seeked away.
+    if (!state.audio.ended && t < d - 2.0) return;
+    // Mirror the `ended` event handler logic.
+    if (state.queue?.repeatEnabled) {
+      state.audio.currentTime = 0;
+      state.audio.play().finally(syncPlayState);
+    } else {
+      syncPlayState();
+      changeTrack(1);
+    }
+  }, remainingMs + 1500);
 }
 
 function slugify(text = '') {
@@ -1683,6 +1770,7 @@ function setAlbum(albumIdentifier) {
     currentId = startingTrack?._id ?? null;
   }
   state.queue.setItems(albumTracks, currentId);
+  state.queueAlbumId = albumId;
   warmTrackAssets(albumTracks, 3);
   if (album.allTracks && album.enableShuffle) {
     state.queue.shuffleEnabled = true;
@@ -1718,7 +1806,11 @@ function hideOverlay() {
 }
 
 function currentPseudoAlbum() {
-  const album = findAlbum(state.currentAlbumId || state.currentAlbum);
+  // queueAlbumId is set when the queue is built and is NOT cleared by navigation
+  // (goToWelcome clears currentAlbumId, but not queueAlbumId), so checking it
+  // first keeps the pseudo album context alive after the user swipes back to the
+  // gallery or the now-playing bar is tapped.
+  const album = findAlbum(state.queueAlbumId || state.currentAlbumId || state.currentAlbum);
   return (album?.pseudoType || album?.allTracks) ? album : null;
 }
 
@@ -1731,14 +1823,18 @@ function openNowPlayingOverlay() {
     const prevShuffle = state.queue?.shuffleEnabled ?? false;
     const prevRepeat = state.queue?.repeatEnabled ?? false;
     const prevCurrentId = state.queue?.currentId;
+    const prevQueueAlbumId = state.queueAlbumId;
     setAlbum(state.currentTrack.albumName);
-    // If shuffle was active over a broader set (e.g. "all songs"), restore it
+    // If shuffle was active over a broader set (e.g. "all songs"), restore it.
+    // Also restore queueAlbumId so currentPseudoAlbum() and ensureQueueForTrack
+    // keep using the pseudo album context on subsequent track changes.
     if (prevShuffle && prevItems.length > (state.queue?.items?.length ?? 0)) {
       state.queue.items = prevItems;
       state.queue.shuffleEnabled = true;
       state.queue.repeatEnabled = prevRepeat;
       state.queue.currentId = prevCurrentId;
       state.queue.buildShuffle(prevCurrentId);
+      state.queueAlbumId = prevQueueAlbumId;
       syncPlayModes();
     }
   }
@@ -1909,11 +2005,31 @@ function resolveTrackUrl(track) {
 function ensureQueueForTrack(track) {
   if (!state.queue) return;
   const albumContext =
-    findAlbum(state.currentAlbumId || state.currentAlbum) ||
+    findAlbum(state.queueAlbumId || state.currentAlbumId || state.currentAlbum) ||
     findAlbum(track.albumId || track.albumName);
   const albumTracks = tracksForAlbum(albumContext || track.albumName);
   if (albumTracks.length) {
-    state.queue.setItems(albumTracks, track._id);
+    // Only rebuild queue items when the track set actually changed.
+    // Calling setItems while shuffle is on resets the entire shuffled play
+    // order (Fisher-Yates + shuffleIndex = 0), which causes already-played
+    // tracks to repeat and makes "previous" always return null.
+    const currentItems = state.queue.items;
+    const itemsUnchanged =
+      albumTracks.length === currentItems.length &&
+      albumTracks.every((t, i) => t._id === currentItems[i]?._id);
+
+    if (itemsUnchanged) {
+      state.queue.currentId = track._id;
+      if (state.queue.shuffleEnabled) {
+        const idx = state.queue.shuffledItems.findIndex(t => t._id === track._id);
+        if (idx !== -1) state.queue.shuffleIndex = idx;
+      }
+    } else {
+      state.queue.setItems(albumTracks, track._id);
+      if (albumContext) {
+        state.queueAlbumId = albumContext.albumId || slugifyAlbumName(albumContext.albumName || '');
+      }
+    }
   } else {
     state.queue.enqueue(track);
     state.queue.setCurrent(track);
@@ -2027,8 +2143,16 @@ function playTrack(track, { autoplay = true } = {}) {
     return;
   }
 
-  // Use the cached direct URL to skip the redirect round-trip when possible.
-  const src = getEffectiveAudioUrl(streamUrl);
+  // Prefer the URL that nextTrackAudio already has fully loaded (currentSrc is
+  // the post-redirect URL the browser has in its media cache).  Falling back to
+  // the resolved-URL cache, then the raw stream URL as a last resort.
+  const primed = (nextTrackAudio && nextTrackAudioUrl &&
+    (nextTrackAudioUrl === streamUrl || nextTrackAudioUrl === getEffectiveAudioUrl(streamUrl)))
+    ? (nextTrackAudio.currentSrc || null)
+    : null;
+  const src = primed || getEffectiveAudioUrl(streamUrl);
+  // Clear any pending watchdog from the previous track before swapping src.
+  clearTrackEndWatchdog();
   state.audio.src = src;
 
   updatePlayerMeta(track);
@@ -2048,6 +2172,7 @@ function playTrack(track, { autoplay = true } = {}) {
   });
 
   if (autoplay) {
+    userWantsToPlay = true;
     const playPromise = state.audio.play();
     if (playPromise?.catch) {
       playPromise
@@ -2067,8 +2192,10 @@ function playTrack(track, { autoplay = true } = {}) {
 function togglePlay() {
   if (!state.audio.src) return;
   if (state.audio.paused) {
+    userWantsToPlay = true;
     state.audio.play().finally(syncPlayState);
   } else {
+    userWantsToPlay = false;
     state.audio.pause();
     syncPlayState();
   }
@@ -2355,18 +2482,43 @@ function bindEvents() {
   state.audio.addEventListener('loadedmetadata', updateTime);
   state.audio.addEventListener('durationchange', updateTime);
   state.audio.addEventListener('ended', () => {
+    clearTrackEndWatchdog();
     if (state.queue?.repeatEnabled) {
       state.audio.currentTime = 0;
       state.audio.play().finally(syncPlayState);
       return;
     }
-    syncPlayState();
+    // Do NOT call syncPlayState() or releaseWakeLock() here before changeTrack.
+    // syncPlayState → syncMediaSessionPlaybackState would set playbackState='paused',
+    // which causes iOS to treat the next play() as a new session requiring a user
+    // gesture rather than a continuation of the active audio session.
+    // The 'pause' event fired by src reassignment in playTrack handles releaseWakeLock,
+    // and syncPlayState runs once 'play'/'playing' fire on the next track.
     changeTrack(1);
   });
-  state.audio.addEventListener('play', syncPlayState);
-  state.audio.addEventListener('playing', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('play', () => {
+    userWantsToPlay = true;
+    syncPlayState();
+  });
+  state.audio.addEventListener('playing', () => {
+    setBufferingState(false);
+    syncPlayState();
+    // Arm the watchdog every time playback (re)starts or resumes after buffering.
+    armTrackEndWatchdog();
+    requestWakeLock();
+  });
   state.audio.addEventListener('waiting', () => { setBufferingState(true); syncPlayState(); });
-  state.audio.addEventListener('pause', () => { setBufferingState(false); syncPlayState(); });
+  state.audio.addEventListener('pause', () => {
+    setBufferingState(false);
+    syncPlayState();
+    // Clear the watchdog while paused so it doesn't fire during an intentional pause.
+    clearTrackEndWatchdog();
+    releaseWakeLock();
+  });
+  // Re-arm the watchdog whenever the user seeks so remaining-time stays accurate.
+  state.audio.addEventListener('seeked', () => {
+    if (!state.audio.paused && userWantsToPlay) armTrackEndWatchdog();
+  });
   state.audio.addEventListener('error', async () => {
     setBufferingState(false);
     syncPlayState();
@@ -2384,15 +2536,63 @@ function bindEvents() {
     }
   });
 
-  // When the page comes back to the foreground after being hidden (screen on,
-  // tab re-focused), sync the URL bar and document meta which were skipped
-  // while hidden to avoid broken history entries.
+  // When the page comes back to the foreground after being hidden, recover any
+  // playback state that was silently lost while the page was backgrounded.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.currentTrack) {
-      history.replaceState(null, '', buildShareUrl(state.currentTrack).pathname);
-      refreshDocumentMetadata({ track: state.currentTrack });
-      syncPlayState();
+    if (document.visibilityState === 'visible') {
+      if (state.currentTrack) {
+        // Case 1: the `ended` event was swallowed while we were hidden.
+        if (state.audio?.ended && userWantsToPlay) {
+          if (state.queue?.repeatEnabled) {
+            state.audio.currentTime = 0;
+            state.audio.play().catch(() => {});
+          } else {
+            changeTrack(1);
+          }
+          return;
+        }
+        // Case 2: the OS suspended the audio element mid-track.
+        if (userWantsToPlay && state.audio?.paused && !state.audio?.ended) {
+          state.audio.play().catch(() => {});
+        }
+        // Re-arm watchdog and re-request wake lock in case they lapsed.
+        if (userWantsToPlay && state.audio && !state.audio.paused) {
+          armTrackEndWatchdog();
+          requestWakeLock();
+        }
+        // Sync the URL bar and document meta (skipped while hidden to avoid
+        // broken history entries).
+        history.replaceState(null, '', buildShareUrl(state.currentTrack).pathname);
+        refreshDocumentMetadata({ track: state.currentTrack });
+        syncPlayState();
+      }
+    } else {
+      // Page is being hidden — wake lock will be released by the OS; clear our
+      // reference so requestWakeLock() re-acquires it when we come back.
+      wakeLock = null;
     }
+  });
+
+  // Handle back-forward cache restoration (common when swiping between apps on
+  // mobile).  `pageshow` fires with event.persisted=true when the page is
+  // rehydrated from bfcache rather than freshly loaded.
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    if (state.audio?.ended && userWantsToPlay) {
+      changeTrack(1);
+    } else if (userWantsToPlay && state.audio?.paused && !state.audio?.ended) {
+      state.audio.play().catch(() => {});
+    }
+    if (userWantsToPlay && state.audio && !state.audio.paused) {
+      armTrackEndWatchdog();
+      requestWakeLock();
+    }
+    syncPlayState();
+  });
+
+  window.addEventListener('pagehide', () => {
+    // Release the wake lock cleanly so the OS doesn't hold it past our lifetime.
+    releaseWakeLock();
   });
 
   // Paywall modal dismiss
@@ -2567,8 +2767,18 @@ export async function init() {
   updateAlbumGalleryHeading(!state.currentAlbum);
   if (!state.audio) {
     state.audio = new Audio();
-    state.audio.preload = 'metadata';
+    // 'auto' buffers the full track so playback can continue even if the network
+    // briefly drops while the page is backgrounded.
+    state.audio.preload = 'auto';
+    // Prevent iOS from hijacking the element into a native full-screen player,
+    // which interferes with in-page JS control.
+    state.audio.setAttribute('playsinline', '');
     state.audio.volume = Number(dom.volumeSlider?.value ?? 1);
+  }
+  // Tell the OS this is a music player (affects audio routing and CPU scheduling
+  // on Chrome for Android 116+).
+  if ('audioSession' in navigator) {
+    try { navigator.audioSession.type = 'playback'; } catch (_) {}
   }
   ensureMediaSessionHandlers();
   if (!artworkEventsBound && dom.artwork) {

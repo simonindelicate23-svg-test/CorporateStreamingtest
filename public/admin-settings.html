@@ -797,9 +797,144 @@
           </div>
         </div>
       </div>
+
+      <!-- ── Make Your Own Player ───────────────────────── -->
+      <div class="card" style="margin-top:24px;">
+        <div class="panel-title">
+          <div>
+            <h2 style="margin-bottom:4px;">Make your own player...</h2>
+            <p class="meta">Build a custom music player for your catalogue using any AI assistant.</p>
+          </div>
+        </div>
+        <p style="margin:12px 0 16px;">Want a player for your music with a bit more character? Now your site is up and running, you can expose your catalogue via the API toggle above and display your music on any site that knows how to fetch it. Build something however you like — go to any AI assistant (Claude, ChatGPT, or similar), paste the prompt below, and it'll have everything it needs to create a custom music player. Just keep this site running with the API exposed and go wild.</p>
+        <div style="position:relative;">
+          <pre id="diy-prompt" style="background:var(--surface-2,#f7f7f8);border:1px solid var(--border,rgba(0,0,0,0.08));border-radius:10px;padding:16px 48px 16px 16px;font-size:0.72rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;overflow:auto;max-height:260px;color:var(--text,#111);font-family:monospace;margin:0;">Build a single self-contained HTML file — no build tools, no frameworks, vanilla
+JS and inline CSS only — that browses and plays a music catalogue from this API.
+
+─────────────────────────────────────────────
+BEFORE YOU WRITE ANY CODE, ASK ME:
+─────────────────────────────────────────────
+
+"What visual style and feel would you like for this music player?"
+
+Encourage a free-form answer. Be creative with the design — don't default to a
+Spotify clone.
+
+─────────────────────────────────────────────
+BASE URL
+─────────────────────────────────────────────
+
+At the top of the html file, prominently declare:
+
+  const BASE_URL = 'https://YOUR-SITE-URL-HERE.netlify.app';
+
+The user will replace this string with their own site URL before opening the file.
+Add a comment making this obvious.
+
+─────────────────────────────────────────────
+API
+─────────────────────────────────────────────
+
+All endpoints are public — no auth, CORS open.
+
+GET {BASE_URL}/catalogue
+
+Returns everything needed in one call:
+
+{
+  "instance": {
+    "name": string,
+    "description": string,
+    "logoUrl": string
+  },
+  "releases": [
+    {
+      "id": string,
+      "title": string,
+      "artist": string,
+      "artworkUrl": string,
+      "genre": string,
+      "year": number,
+      "trackCount": number,
+      "tracks": [
+        {
+          "id": string,
+          "title": string,
+          "trackNumber": number,
+          "durationSeconds": number,
+          "audioUrl": string,     // direct mp3 URL — use as &lt;audio src&gt; for free tracks
+          "gated": boolean,       // true = paid/locked content
+          "artworkUrl": string,
+          "genre": string,
+          "year": number,
+          "description": string,
+          "medium": string        // "studio", "live", etc.
+        }
+      ]
+    }
+  ]
+}
+
+AUDIO PLAYBACK
+  Free tracks (gated: false): set &lt;audio src="${track.audioUrl}"&gt; directly.
+  Gated tracks (gated: true):  show a padlock, don't attempt playback.
+  No payment UI needed — just mark them as locked visually.
+
+SHARING
+  Each track has a shareable page at: {BASE_URL}/s/{track.id}
+  Include a copy-to-clipboard share button per track.
+
+─────────────────────────────────────────────
+FEATURES
+─────────────────────────────────────────────
+
+BROWSE
+  - Album cards: artwork, title, artist, year, track count.
+  - Click album to see its tracks and auto-select the first track
+  - "All Tracks" flat view as alternative.
+  - Search / filter by name, artist, genre.
+
+PLAYER BAR (persistent, bottom of screen)
+  - Artwork, track name, artist, album.
+  - Prev / play-pause / next, seek bar, volume, elapsed/total time.
+  - Playing an album queues its tracks in order.
+  - Keyboard: Space = play/pause, ← / → = prev/next.
+
+TRACK DETAIL (click a track)
+  - Large artwork, liner notes (description field), genre, year, medium.
+  - Share button.
+
+STATES
+  - Skeleton loaders while fetching.
+  - Friendly error message + retry if the API call fails.
+  - Responsive: works from 320 px to 1440 px+.
+
+─────────────────────────────────────────────
+CONSTRAINTS
+─────────────────────────────────────────────
+
+- Single .html file, all CSS and JS inline.
+- Native &lt;audio&gt; element only.
+- Use inline SVG for icons (no icon CDN dependency).
+- Format durations as m:ss.
+
+Produce the complete file in one code block, then briefly note your design choices.
+
+Encourage the user to test the site and to let you know if there are errors that need fixing. where possible, supply complete files for copying and do not assume technical or coding knowledge on the part of the user.</pre>
+          <button onclick="copyDiyPrompt(this)" style="position:absolute;top:10px;right:10px;padding:6px 12px;font-size:0.75rem;border:1px solid var(--border,rgba(0,0,0,0.12));border-radius:6px;background:var(--surface,#fff);color:var(--text,#111);cursor:pointer;line-height:1.4;">Copy</button>
+        </div>
+      </div>
     </div>
 
     <script>
+      function copyDiyPrompt(btn) {
+        const raw = document.getElementById('diy-prompt').innerText;
+        navigator.clipboard.writeText(raw).then(() => {
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+      }
+
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',

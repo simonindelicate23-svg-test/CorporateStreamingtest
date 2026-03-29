@@ -1,4 +1,5 @@
 const { loadTracks } = require('./lib/legacyTracksStore');
+const { findLinkedTrack } = require('./lib/linkedCataloguesStore');
 const { json } = require('./lib/http');
 const { verifyToken } = require('./lib/tokenAuth');
 
@@ -9,7 +10,12 @@ exports.handler = async (event) => {
   if (!trackId) return json(400, { message: 'trackId is required' });
 
   const { tracks } = await loadTracks();
-  const track = tracks.find((t) => String(t._id || '').trim() === trackId);
+  let track = tracks.find((t) => String(t._id || '').trim() === trackId);
+
+  // Fall back to linked catalogues if not found in the local store
+  if (!track) {
+    track = await findLinkedTrack(trackId).catch(() => null);
+  }
 
   if (!track || track.published === false) return json(404, { message: 'Track not found' });
   if (!track.mp3Url) return json(404, { message: 'Audio not available' });
