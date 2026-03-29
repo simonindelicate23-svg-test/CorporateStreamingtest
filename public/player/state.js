@@ -4,6 +4,7 @@ export const state = {
   currentTrack: null,
   currentAlbum: null,
   currentAlbumId: null,
+  queueAlbumId: null,
   audio: null,
   queue: null,
   filters: {

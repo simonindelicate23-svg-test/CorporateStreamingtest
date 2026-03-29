@@ -1764,6 +1764,7 @@ function setAlbum(albumIdentifier) {
     currentId = startingTrack?._id ?? null;
   }
   state.queue.setItems(albumTracks, currentId);
+  state.queueAlbumId = albumId;
   warmTrackAssets(albumTracks, 3);
   if (album.allTracks && album.enableShuffle) {
     state.queue.shuffleEnabled = true;
@@ -1799,7 +1800,11 @@ function hideOverlay() {
 }
 
 function currentPseudoAlbum() {
-  const album = findAlbum(state.currentAlbumId || state.currentAlbum);
+  // queueAlbumId is set when the queue is built and is NOT cleared by navigation
+  // (goToWelcome clears currentAlbumId, but not queueAlbumId), so checking it
+  // first keeps the pseudo album context alive after the user swipes back to the
+  // gallery or the now-playing bar is tapped.
+  const album = findAlbum(state.queueAlbumId || state.currentAlbumId || state.currentAlbum);
   return (album?.pseudoType || album?.allTracks) ? album : null;
 }
 
@@ -1812,14 +1817,18 @@ function openNowPlayingOverlay() {
     const prevShuffle = state.queue?.shuffleEnabled ?? false;
     const prevRepeat = state.queue?.repeatEnabled ?? false;
     const prevCurrentId = state.queue?.currentId;
+    const prevQueueAlbumId = state.queueAlbumId;
     setAlbum(state.currentTrack.albumName);
-    // If shuffle was active over a broader set (e.g. "all songs"), restore it
+    // If shuffle was active over a broader set (e.g. "all songs"), restore it.
+    // Also restore queueAlbumId so currentPseudoAlbum() and ensureQueueForTrack
+    // keep using the pseudo album context on subsequent track changes.
     if (prevShuffle && prevItems.length > (state.queue?.items?.length ?? 0)) {
       state.queue.items = prevItems;
       state.queue.shuffleEnabled = true;
       state.queue.repeatEnabled = prevRepeat;
       state.queue.currentId = prevCurrentId;
       state.queue.buildShuffle(prevCurrentId);
+      state.queueAlbumId = prevQueueAlbumId;
       syncPlayModes();
     }
   }
@@ -1990,11 +1999,31 @@ function resolveTrackUrl(track) {
 function ensureQueueForTrack(track) {
   if (!state.queue) return;
   const albumContext =
-    findAlbum(state.currentAlbumId || state.currentAlbum) ||
+    findAlbum(state.queueAlbumId || state.currentAlbumId || state.currentAlbum) ||
     findAlbum(track.albumId || track.albumName);
   const albumTracks = tracksForAlbum(albumContext || track.albumName);
   if (albumTracks.length) {
-    state.queue.setItems(albumTracks, track._id);
+    // Only rebuild queue items when the track set actually changed.
+    // Calling setItems while shuffle is on resets the entire shuffled play
+    // order (Fisher-Yates + shuffleIndex = 0), which causes already-played
+    // tracks to repeat and makes "previous" always return null.
+    const currentItems = state.queue.items;
+    const itemsUnchanged =
+      albumTracks.length === currentItems.length &&
+      albumTracks.every((t, i) => t._id === currentItems[i]?._id);
+
+    if (itemsUnchanged) {
+      state.queue.currentId = track._id;
+      if (state.queue.shuffleEnabled) {
+        const idx = state.queue.shuffledItems.findIndex(t => t._id === track._id);
+        if (idx !== -1) state.queue.shuffleIndex = idx;
+      }
+    } else {
+      state.queue.setItems(albumTracks, track._id);
+      if (albumContext) {
+        state.queueAlbumId = albumContext.albumId || slugifyAlbumName(albumContext.albumName || '');
+      }
+    }
   } else {
     state.queue.enqueue(track);
     state.queue.setCurrent(track);
