@@ -1079,11 +1079,13 @@ function armTrackEndWatchdog() {
     // Only act when genuinely at/near the end; skip if the user seeked away.
     if (!state.audio.ended && t < d - 2.0) return;
     // Mirror the `ended` event handler logic.
+    // Do NOT call syncPlayState() before changeTrack — same reason as the `ended`
+    // handler: it would set playbackState='paused', causing Android/iOS to treat
+    // the next play() as a new session requiring a user gesture.
     if (state.queue?.repeatEnabled) {
       state.audio.currentTime = 0;
       state.audio.play().finally(syncPlayState);
     } else {
-      syncPlayState();
       changeTrack(1);
     }
   }, remainingMs + 1500);
