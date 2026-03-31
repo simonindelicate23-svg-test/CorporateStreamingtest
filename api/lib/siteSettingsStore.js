@@ -45,7 +45,17 @@ const defaults = {
   supportSecondaryBody: 'Tips help fund hosting and future releases.',
   supportEmbedUrl: '',
   supportEmbedTitle: 'Support embed',
-  supportCards: [],
+  supportCards: [
+    {
+      heading: 'Visit the store',
+      body: 'Pick up music, merch, or downloads through the main store.',
+      url: 'https://example.com',
+      cta: 'Visit store',
+      imageUrl: '',
+      embedCode: '',
+      embedTitle: '',
+    },
+  ],
   aboutPageTitle: 'About this site',
   aboutPageEyebrow: 'Independent music player',
   aboutPageContent: '<section><h2>What is this website?</h2><p>This player is designed for direct publishing, direct listening, and easy self-hosting.</p></section>',

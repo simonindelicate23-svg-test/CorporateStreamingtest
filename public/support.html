@@ -149,6 +149,10 @@
       const ACCESS_TOKEN_LS_KEY = 'tmc-access-token';
       const ACCESS_TOKEN_COOKIE = 'tmc_access_token';
 
+      function getAccessToken() {
+        try { return localStorage.getItem(ACCESS_TOKEN_LS_KEY) || ''; } catch (_) { return ''; }
+      }
+
       function setAccessToken(token) {
         try { localStorage.setItem(ACCESS_TOKEN_LS_KEY, token); } catch (_) {}
         const maxAge = 60 * 60 * 24 * 365;
@@ -241,9 +245,126 @@
         return cards;
       }
 
+      function loadPayPalSDK(clientId) {
+        return new Promise((resolve, reject) => {
+          if (window.paypal) { resolve(); return; }
+          const script = document.createElement('script');
+          script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription`;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('PayPal SDK failed to load'));
+          document.head.appendChild(script);
+        });
+      }
+
+      function showSubscribedInCard(container) {
+        container.innerHTML = '';
+        const tick = document.createElement('div');
+        tick.style.cssText = 'font-size:3.2rem;color:#3a9e6e;line-height:1;margin-bottom:6px;';
+        tick.textContent = '✓';
+        container.appendChild(tick);
+        const msg = document.createElement('p');
+        msg.style.cssText = 'margin:0 0 4px;font-weight:700;font-size:1.05rem;color:#3a9e6e;';
+        msg.textContent = 'You\'re subscribed';
+        container.appendChild(msg);
+        const sub = document.createElement('p');
+        sub.style.cssText = 'margin:0;font-size:0.85rem;color:var(--text-secondary,#666);';
+        sub.textContent = 'You have full access on this browser.';
+        container.appendChild(sub);
+      }
+
+      async function appendSubscriptionCard(payConfig, grid) {
+        const card = document.createElement('article');
+        card.className = 'support-card';
+        card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;display:flex;flex-direction:column;gap:14px;';
+
+        if (payConfig.subscriptionLabel) {
+          const h2 = document.createElement('h2');
+          h2.style.margin = '0';
+          h2.textContent = payConfig.subscriptionLabel;
+          card.appendChild(h2);
+        }
+
+        if (payConfig.subscriptionPrice) {
+          const price = document.createElement('p');
+          price.style.cssText = 'margin:0;font-size:1.05rem;font-weight:600;color:var(--accent,#9a6bff);';
+          price.textContent = payConfig.subscriptionPrice;
+          card.appendChild(price);
+        }
+
+        const statusArea = document.createElement('div');
+        statusArea.id = 'subCardStatusArea';
+        statusArea.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;';
+        card.appendChild(statusArea);
+        grid.appendChild(card);
+
+        if (getAccessToken()) {
+          showSubscribedInCard(statusArea);
+          return;
+        }
+
+        const loadingMsg = document.createElement('p');
+        loadingMsg.style.cssText = 'font-size:0.85rem;color:var(--text-secondary,#888);margin:0;';
+        loadingMsg.textContent = 'Loading payment options…';
+        statusArea.appendChild(loadingMsg);
+
+        try {
+          await loadPayPalSDK(payConfig.clientId);
+          statusArea.innerHTML = '';
+
+          const btnDiv = document.createElement('div');
+          btnDiv.id = 'supportPayPalBtn';
+          btnDiv.style.cssText = 'width:100%;max-width:300px;';
+          statusArea.appendChild(btnDiv);
+
+          const hintP = document.createElement('p');
+          hintP.style.cssText = 'font-size:0.79rem;color:var(--text-secondary,#888);margin:0;';
+          hintP.textContent = 'Cancel anytime via PayPal.';
+          statusArea.appendChild(hintP);
+
+          const errorP = document.createElement('p');
+          errorP.id = 'subCardError';
+          errorP.style.cssText = 'font-size:0.85rem;color:#ef4444;margin:0;display:none;';
+          statusArea.appendChild(errorP);
+
+          window.paypal.Buttons({
+            style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+            createSubscription: async () => {
+              const res = await fetch('/.netlify/functions/createSubscription', { method: 'POST' });
+              if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create subscription');
+              return (await res.json()).subscriptionId;
+            },
+            onApprove: async (data) => {
+              try {
+                await verifyAndStore('subscription', data.subscriptionID);
+                showSubscribedInCard(statusArea);
+                document.getElementById('paymentSuccessSection').hidden = false;
+                history.replaceState(null, '', window.location.pathname);
+              } catch (_) {
+                const e = document.getElementById('subCardError');
+                if (e) { e.textContent = 'Access confirmation failed — paste your Subscription ID in the restore form below.'; e.style.display = ''; }
+              }
+            },
+            onError: () => {
+              const e = document.getElementById('subCardError');
+              if (e) { e.textContent = 'Something went wrong with PayPal. Please try again.'; e.style.display = ''; }
+            },
+          }).render('#supportPayPalBtn').catch(() => {
+            statusArea.innerHTML = '';
+            loadingMsg.textContent = 'Could not load payment options. Please refresh to try again.';
+            statusArea.appendChild(loadingMsg);
+          });
+        } catch (_) {
+          statusArea.innerHTML = '';
+          loadingMsg.textContent = 'Could not load payment options. Please refresh to try again.';
+          statusArea.appendChild(loadingMsg);
+        }
+      }
+
       function renderSupportCards(cards, container) {
         container.innerHTML = '';
-        cards.forEach(card => {
+        // Only render cards that have at least one content field populated
+        const withContent = cards.filter(c => c.heading || c.body || c.url || c.embedCode);
+        withContent.forEach(card => {
           const article = document.createElement('article');
           article.className = 'support-card';
           article.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;display:flex;flex-direction:column;gap:14px;';
@@ -318,7 +439,15 @@
         const cards = (Array.isArray(settings.supportCards) && settings.supportCards.length > 0)
           ? settings.supportCards
           : buildCardsFromLegacy(settings);
-        renderSupportCards(cards, document.getElementById('supportCardsGrid'));
+        const grid = document.getElementById('supportCardsGrid');
+        renderSupportCards(cards, grid);
+
+        // Fetch payment config and add subscription card when payments are live
+        const payRes = await fetch('/.netlify/functions/paymentConfig').catch(() => null);
+        const payConfig = payRes?.ok ? await payRes.json().catch(() => null) : null;
+        if (payConfig?.paymentsEnabled) {
+          await appendSubscriptionCard(payConfig, grid);
+        }
 
         // Handle PayPal return after payment
         // Orders: ?token=ORDER_ID&PayerID=PAYER_ID
@@ -334,6 +463,9 @@
           section.hidden = false;
           try {
             await verifyAndStore(type, id);
+            // Update subscription card to reflect newly active access
+            const subCardStatus = document.getElementById('subCardStatusArea');
+            if (subCardStatus) showSubscribedInCard(subCardStatus);
             // Clean up PayPal params from URL without reload
             history.replaceState(null, '', window.location.pathname);
           } catch (err) {
