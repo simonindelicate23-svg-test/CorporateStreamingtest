@@ -127,18 +127,7 @@
         <h1 id="supportTitle">Support this project</h1>
         <p id="supportIntro">If you enjoy this archive and want to help sustain it, these options support future work.</p>
       </section>
-      <section class="support-grid" style="max-width:1080px;margin:0 auto 48px;padding:0 18px 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
-        <article class="support-card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;">
-          <h2 id="supportPrimaryHeading">Visit the store</h2>
-          <p id="supportPrimaryBody">Pick up music, merch, or downloads through the main store.</p>
-          <div class="actions"><a id="supportPrimaryLink" class="pill primary" href="#" target="_blank" rel="noopener noreferrer"><span id="supportPrimaryCta">Visit store</span></a></div>
-        </article>
-        <article class="support-card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;">
-          <h2 id="supportSecondaryHeading">Leave a tip</h2>
-          <p id="supportSecondaryBody">Tips help fund hosting and future releases.</p>
-          <iframe id="supportEmbed" class="embed-frame" src="" height="712" title="Support embed"></iframe>
-        </article>
-      </section>
+      <section id="supportCardsGrid" style="max-width:1080px;margin:0 auto 48px;padding:0 18px 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;"></section>
 
       <!-- Restore access for returning subscribers -->
       <section class="restore-section">
@@ -160,6 +149,10 @@
       const ACCESS_TOKEN_LS_KEY = 'tmc-access-token';
       const ACCESS_TOKEN_COOKIE = 'tmc_access_token';
 
+      function getAccessToken() {
+        try { return localStorage.getItem(ACCESS_TOKEN_LS_KEY) || ''; } catch (_) { return ''; }
+      }
+
       function setAccessToken(token) {
         try { localStorage.setItem(ACCESS_TOKEN_LS_KEY, token); } catch (_) {}
         const maxAge = 60 * 60 * 24 * 365;
@@ -180,6 +173,260 @@
         setAccessToken(token);
       }
 
+      // Sanitize an embed code: only accepts a single <iframe> with an https:// src.
+      // Strips event-handler attributes and dangerous style values.
+      function sanitizeEmbedCode(html) {
+        if (!html || !html.trim()) return '';
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const iframe = doc.querySelector('iframe');
+        if (!iframe) return '';
+        const src = iframe.getAttribute('src') || '';
+        try {
+          const url = new URL(src);
+          if (url.protocol !== 'https:') return '';
+        } catch (_) {
+          return '';
+        }
+        const ALLOWED_ATTRS = ['id', 'class', 'src', 'height', 'width', 'title',
+          'frameborder', 'scrolling', 'allowtransparency', 'allowfullscreen',
+          'allow', 'loading'];
+        const out = document.createElement('iframe');
+        for (const attr of ALLOWED_ATTRS) {
+          const val = iframe.getAttribute(attr);
+          if (val !== null) out.setAttribute(attr, val);
+        }
+        const style = iframe.getAttribute('style');
+        if (style) {
+          const safe = style
+            .replace(/expression\s*\(/gi, '')
+            .replace(/javascript\s*:/gi, '')
+            .replace(/-moz-binding/gi, '');
+          out.setAttribute('style', safe);
+        }
+        return out.outerHTML;
+      }
+
+      function safeHref(url) {
+        try {
+          const u = new URL(url);
+          return (u.protocol === 'https:' || u.protocol === 'http:') ? url : '#';
+        } catch (_) { return '#'; }
+      }
+
+      // Build a cards array from legacy flat settings fields (backward compat).
+      function buildCardsFromLegacy(s) {
+        const cards = [];
+        if (s.supportPrimaryHeading || s.supportPrimaryBody || s.supportPrimaryUrl) {
+          cards.push({
+            heading: s.supportPrimaryHeading || '',
+            body: s.supportPrimaryBody || '',
+            url: s.supportPrimaryUrl || '',
+            cta: s.supportPrimaryCta || 'Visit store',
+            imageUrl: '',
+            embedCode: '',
+            embedTitle: '',
+          });
+        }
+        if (s.supportSecondaryHeading || s.supportSecondaryBody || s.supportEmbedUrl) {
+          const embedCode = s.supportEmbedUrl
+            ? `<iframe src="${s.supportEmbedUrl}" height="712" title="${s.supportEmbedTitle || 'Support embed'}" class="embed-frame"></iframe>`
+            : '';
+          cards.push({
+            heading: s.supportSecondaryHeading || '',
+            body: s.supportSecondaryBody || '',
+            url: '',
+            cta: '',
+            imageUrl: '',
+            embedCode,
+            embedTitle: s.supportEmbedTitle || '',
+          });
+        }
+        return cards;
+      }
+
+      function loadPayPalSDK(clientId) {
+        return new Promise((resolve, reject) => {
+          if (window.paypal) { resolve(); return; }
+          const script = document.createElement('script');
+          script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription`;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('PayPal SDK failed to load'));
+          document.head.appendChild(script);
+        });
+      }
+
+      function showSubscribedInCard(container) {
+        container.innerHTML = '';
+        const tick = document.createElement('div');
+        tick.style.cssText = 'font-size:3.2rem;color:#3a9e6e;line-height:1;margin-bottom:6px;';
+        tick.textContent = '✓';
+        container.appendChild(tick);
+        const msg = document.createElement('p');
+        msg.style.cssText = 'margin:0 0 4px;font-weight:700;font-size:1.05rem;color:#3a9e6e;';
+        msg.textContent = 'You\'re subscribed';
+        container.appendChild(msg);
+        const sub = document.createElement('p');
+        sub.style.cssText = 'margin:0;font-size:0.85rem;color:var(--text-secondary,#666);';
+        sub.textContent = 'You have full access on this browser.';
+        container.appendChild(sub);
+      }
+
+      async function appendSubscriptionCard(payConfig, grid) {
+        const card = document.createElement('article');
+        card.className = 'support-card';
+        card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;display:flex;flex-direction:column;gap:14px;';
+
+        if (payConfig.subscriptionLabel) {
+          const h2 = document.createElement('h2');
+          h2.style.margin = '0';
+          h2.textContent = payConfig.subscriptionLabel;
+          card.appendChild(h2);
+        }
+
+        if (payConfig.subscriptionPrice) {
+          const price = document.createElement('p');
+          price.style.cssText = 'margin:0;font-size:1.05rem;font-weight:600;color:var(--accent,#9a6bff);';
+          price.textContent = payConfig.subscriptionPrice;
+          card.appendChild(price);
+        }
+
+        const statusArea = document.createElement('div');
+        statusArea.id = 'subCardStatusArea';
+        statusArea.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;';
+        card.appendChild(statusArea);
+        grid.appendChild(card);
+
+        if (getAccessToken()) {
+          showSubscribedInCard(statusArea);
+          return;
+        }
+
+        const loadingMsg = document.createElement('p');
+        loadingMsg.style.cssText = 'font-size:0.85rem;color:var(--text-secondary,#888);margin:0;';
+        loadingMsg.textContent = 'Loading payment options…';
+        statusArea.appendChild(loadingMsg);
+
+        try {
+          await loadPayPalSDK(payConfig.clientId);
+          statusArea.innerHTML = '';
+
+          const btnDiv = document.createElement('div');
+          btnDiv.id = 'supportPayPalBtn';
+          btnDiv.style.cssText = 'width:100%;max-width:300px;';
+          statusArea.appendChild(btnDiv);
+
+          const hintP = document.createElement('p');
+          hintP.style.cssText = 'font-size:0.79rem;color:var(--text-secondary,#888);margin:0;';
+          hintP.textContent = 'Cancel anytime via PayPal.';
+          statusArea.appendChild(hintP);
+
+          const errorP = document.createElement('p');
+          errorP.id = 'subCardError';
+          errorP.style.cssText = 'font-size:0.85rem;color:#ef4444;margin:0;display:none;';
+          statusArea.appendChild(errorP);
+
+          window.paypal.Buttons({
+            style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+            createSubscription: async () => {
+              const res = await fetch('/.netlify/functions/createSubscription', { method: 'POST' });
+              if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to create subscription');
+              return (await res.json()).subscriptionId;
+            },
+            onApprove: async (data) => {
+              try {
+                await verifyAndStore('subscription', data.subscriptionID);
+                showSubscribedInCard(statusArea);
+                document.getElementById('paymentSuccessSection').hidden = false;
+                history.replaceState(null, '', window.location.pathname);
+              } catch (_) {
+                const e = document.getElementById('subCardError');
+                if (e) { e.textContent = 'Access confirmation failed — paste your Subscription ID in the restore form below.'; e.style.display = ''; }
+              }
+            },
+            onError: () => {
+              const e = document.getElementById('subCardError');
+              if (e) { e.textContent = 'Something went wrong with PayPal. Please try again.'; e.style.display = ''; }
+            },
+          }).render('#supportPayPalBtn').catch(() => {
+            statusArea.innerHTML = '';
+            loadingMsg.textContent = 'Could not load payment options. Please refresh to try again.';
+            statusArea.appendChild(loadingMsg);
+          });
+        } catch (_) {
+          statusArea.innerHTML = '';
+          loadingMsg.textContent = 'Could not load payment options. Please refresh to try again.';
+          statusArea.appendChild(loadingMsg);
+        }
+      }
+
+      function renderSupportCards(cards, container) {
+        container.innerHTML = '';
+        // Only render cards that have at least one content field populated
+        const withContent = cards.filter(c => c.heading || c.body || c.url || c.embedCode);
+        withContent.forEach(card => {
+          const article = document.createElement('article');
+          article.className = 'support-card';
+          article.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;display:flex;flex-direction:column;gap:14px;';
+
+          if (card.imageUrl) {
+            try {
+              const u = new URL(card.imageUrl);
+              if (u.protocol === 'https:' || u.protocol === 'http:') {
+                const img = document.createElement('img');
+                img.src = card.imageUrl;
+                img.alt = '';
+                img.style.cssText = 'max-width:100%;border-radius:10px;max-height:220px;object-fit:cover;';
+                article.appendChild(img);
+              }
+            } catch (_) {}
+          }
+
+          if (card.heading) {
+            const h2 = document.createElement('h2');
+            h2.style.margin = '0';
+            h2.textContent = card.heading;
+            article.appendChild(h2);
+          }
+
+          if (card.body) {
+            const p = document.createElement('p');
+            p.style.cssText = 'margin:0;color:var(--text-secondary,#666);line-height:1.6;';
+            p.textContent = card.body;
+            article.appendChild(p);
+          }
+
+          if (card.url) {
+            const div = document.createElement('div');
+            div.className = 'actions';
+            const a = document.createElement('a');
+            a.className = 'pill primary';
+            a.href = safeHref(card.url);
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = card.cta || 'Learn more';
+            div.appendChild(a);
+            article.appendChild(div);
+          }
+
+          if (card.embedCode) {
+            const sanitized = sanitizeEmbedCode(card.embedCode);
+            if (sanitized) {
+              const wrapper = document.createElement('div');
+              wrapper.style.cssText = 'width:100%;overflow:hidden;';
+              wrapper.innerHTML = sanitized;
+              // Apply consistent frame styles to the rendered iframe
+              const iframeEl = wrapper.querySelector('iframe');
+              if (iframeEl) {
+                iframeEl.style.cssText = (iframeEl.getAttribute('style') || '') + ';max-width:100%;border:none;display:block;margin:0 auto;';
+              }
+              article.appendChild(wrapper);
+            }
+          }
+
+          container.appendChild(article);
+        });
+      }
 
       window.addEventListener('DOMContentLoaded', async () => {
         const settings = await window.SiteSettings.loadSiteSettings();
@@ -188,15 +435,19 @@
         document.getElementById('supportBrand').textContent = settings.brandName || settings.siteTitle || 'Site';
         document.getElementById('supportTitle').textContent = settings.supportPageTitle || 'Support this project';
         document.getElementById('supportIntro').textContent = settings.supportIntro || '';
-        document.getElementById('supportPrimaryHeading').textContent = settings.supportPrimaryHeading || 'Visit the store';
-        document.getElementById('supportPrimaryBody').textContent = settings.supportPrimaryBody || '';
-        document.getElementById('supportPrimaryCta').textContent = settings.supportPrimaryCta || 'Visit store';
-        document.getElementById('supportPrimaryLink').href = settings.supportPrimaryUrl || '#';
-        document.getElementById('supportSecondaryHeading').textContent = settings.supportSecondaryHeading || 'Leave a tip';
-        document.getElementById('supportSecondaryBody').textContent = settings.supportSecondaryBody || '';
-        const embed = document.getElementById('supportEmbed');
-        embed.title = settings.supportEmbedTitle || 'Support embed';
-        if (settings.supportEmbedUrl) embed.src = settings.supportEmbedUrl; else embed.style.display = 'none';
+
+        const cards = (Array.isArray(settings.supportCards) && settings.supportCards.length > 0)
+          ? settings.supportCards
+          : buildCardsFromLegacy(settings);
+        const grid = document.getElementById('supportCardsGrid');
+        renderSupportCards(cards, grid);
+
+        // Fetch payment config and add subscription card when payments are live
+        const payRes = await fetch('/.netlify/functions/paymentConfig').catch(() => null);
+        const payConfig = payRes?.ok ? await payRes.json().catch(() => null) : null;
+        if (payConfig?.paymentsEnabled) {
+          await appendSubscriptionCard(payConfig, grid);
+        }
 
         // Handle PayPal return after payment
         // Orders: ?token=ORDER_ID&PayerID=PAYER_ID
@@ -212,6 +463,9 @@
           section.hidden = false;
           try {
             await verifyAndStore(type, id);
+            // Update subscription card to reflect newly active access
+            const subCardStatus = document.getElementById('subCardStatusArea');
+            if (subCardStatus) showSubscribedInCard(subCardStatus);
             // Clean up PayPal params from URL without reload
             history.replaceState(null, '', window.location.pathname);
           } catch (err) {
