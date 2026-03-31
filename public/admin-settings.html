@@ -1297,8 +1297,16 @@ Encourage the user to test the site and to let you know if there are errors that
               <input type="text" name="sc_cta" placeholder="e.g. Visit store" />
             </div>
             <div style="grid-column: 1 / -1;">
-              <label>Image URL <span class="meta" style="font-weight:400;">(optional — displayed above card text)</span></label>
-              <input type="text" name="sc_imageUrl" placeholder="https://… hosted image" />
+              <label>Image <span class="meta" style="font-weight:400;">(optional — displayed above card text)</span></label>
+              <input type="text" name="sc_imageUrl" placeholder="https://… hosted image URL" />
+              <div class="inline-actions" style="margin-top:8px;">
+                <input type="file" name="sc_imageFile" accept="image/*" style="width:auto;flex:1;" />
+                <button type="button" class="sc-upload-image button-secondary button-sm">Upload image</button>
+              </div>
+              <div class="sc-image-status" style="font-size:0.8rem;color:var(--text-secondary,#666);margin-top:4px;display:none;"></div>
+              <div class="sc-image-preview" style="margin-top:10px;display:none;">
+                <img src="" alt="Card image preview" style="max-width:200px;max-height:120px;border-radius:8px;object-fit:cover;border:1px solid rgba(128,128,128,0.3);" />
+              </div>
             </div>
             <div style="grid-column: 1 / -1;">
               <label>Embed code <span class="meta" style="font-weight:400;">(optional — paste a Ko-fi, PayPal, or similar &lt;iframe&gt; snippet)</span></label>
@@ -1317,9 +1325,56 @@ Encourage the user to test the site and to let you know if there are errors that
         div.querySelector('[name="sc_body"]').value = card.body || '';
         div.querySelector('[name="sc_url"]').value = card.url || '';
         div.querySelector('[name="sc_cta"]').value = card.cta || '';
-        div.querySelector('[name="sc_imageUrl"]').value = card.imageUrl || '';
+        const imageUrlInput = div.querySelector('[name="sc_imageUrl"]');
+        imageUrlInput.value = card.imageUrl || '';
+        if (card.imageUrl) {
+          const prev = div.querySelector('.sc-image-preview');
+          prev.querySelector('img').src = card.imageUrl;
+          prev.style.display = '';
+        }
+        imageUrlInput.addEventListener('input', (e) => {
+          const url = e.target.value.trim();
+          const prev = div.querySelector('.sc-image-preview');
+          if (url) { prev.querySelector('img').src = url; prev.style.display = ''; }
+          else { prev.style.display = 'none'; }
+        });
+
         div.querySelector('[name="sc_embedCode"]').value = card.embedCode || '';
         div.querySelector('[name="sc_embedTitle"]').value = card.embedTitle || '';
+
+        div.querySelector('.sc-upload-image').addEventListener('click', async () => {
+          const fileInput = div.querySelector('[name="sc_imageFile"]');
+          const urlInput = div.querySelector('[name="sc_imageUrl"]');
+          const statusEl = div.querySelector('.sc-image-status');
+          const previewEl = div.querySelector('.sc-image-preview');
+          const file = fileInput.files[0];
+          if (!file) { statusEl.textContent = 'Please select an image file first.'; statusEl.style.display = ''; return; }
+          statusEl.textContent = 'Uploading…';
+          statusEl.style.display = '';
+          try {
+            const contentBase64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+              reader.onerror = () => reject(new Error('Could not read file'));
+              reader.readAsDataURL(file);
+            });
+            const uploaded = await AdminDataStore.requestJson('/.netlify/functions/uploadMedia', {
+              method: 'POST',
+              body: JSON.stringify({ fileName: file.name, contentBase64, folder: 'support' }),
+            });
+            const url = uploaded.url || '';
+            urlInput.value = url;
+            if (url) {
+              previewEl.querySelector('img').src = url;
+              previewEl.style.display = '';
+              statusEl.textContent = 'Upload complete — click Save settings to persist.';
+            } else {
+              statusEl.textContent = 'Upload returned no URL. Check FTP config.';
+            }
+          } catch (err) {
+            statusEl.textContent = `Upload failed: ${err.message}`;
+          }
+        });
 
         div.querySelector('.sc-move-up').addEventListener('click', () => {
           syncStateFromDOM();
