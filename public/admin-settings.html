@@ -607,53 +607,9 @@
               </div>
 
               <div style="grid-column: 1 / -1; padding-top: 4px;">
-                <p class="form-section__title" style="margin-bottom:12px;">Card 1</p>
-                <div class="form-grid">
-                  <div>
-                    <label for="supportPrimaryHeading">Heading</label>
-                    <input type="text" id="supportPrimaryHeading" />
-                  </div>
-                  <div>
-                    <label for="supportPrimaryUrl">URL</label>
-                    <input type="text" id="supportPrimaryUrl" placeholder="https://…" />
-                  </div>
-                  <div>
-                    <label for="supportPrimaryCta">CTA button label</label>
-                    <input type="text" id="supportPrimaryCta" placeholder="e.g. Buy now" />
-                  </div>
-                  <div style="grid-column: 1 / -1;">
-                    <label for="supportPrimaryBody">Body text</label>
-                    <textarea id="supportPrimaryBody" style="min-height:80px;"></textarea>
-                  </div>
-                </div>
-              </div>
-
-              <div style="grid-column: 1 / -1; padding-top: 4px;">
-                <p class="form-section__title" style="margin-bottom:12px;">Card 2</p>
-                <div class="form-grid">
-                  <div>
-                    <label for="supportSecondaryHeading">Heading</label>
-                    <input type="text" id="supportSecondaryHeading" />
-                  </div>
-                  <div style="grid-column: 1 / -1;">
-                    <label for="supportSecondaryBody">Body text</label>
-                    <textarea id="supportSecondaryBody" style="min-height:80px;"></textarea>
-                  </div>
-                </div>
-              </div>
-
-              <div style="grid-column: 1 / -1; padding-top: 4px;">
-                <p class="form-section__title" style="margin-bottom:12px;">Embed</p>
-                <div class="form-grid">
-                  <div>
-                    <label for="supportEmbedUrl">Embed URL</label>
-                    <input type="text" id="supportEmbedUrl" placeholder="e.g. PayPal button URL" />
-                  </div>
-                  <div>
-                    <label for="supportEmbedTitle">Embed title</label>
-                    <input type="text" id="supportEmbedTitle" />
-                  </div>
-                </div>
+                <p class="meta" style="margin-bottom:12px;font-size:0.82rem;line-height:1.5;">Each card can have a heading, body text, an optional link button, an optional image, and an optional embed (e.g. a Ko-fi or PayPal donate button). Cards render in a responsive grid. Use the ↑ ↓ buttons to reorder.</p>
+                <div id="supportCardsContainer" style="display:flex;flex-direction:column;gap:18px;"></div>
+                <button type="button" id="addSupportCardBtn" class="pill" style="margin-top:14px;background:var(--surface,#f5f5f0);border:1px dashed var(--border);color:var(--text-secondary,#555);font-size:0.88rem;">+ Add support card</button>
               </div>
             </div>
           </div>
@@ -940,8 +896,7 @@ Encourage the user to test the site and to let you know if there are errors that
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
         'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
-        'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro','supportPrimaryHeading','supportPrimaryBody','supportPrimaryUrl','supportPrimaryCta',
-        'supportSecondaryHeading','supportSecondaryBody','supportEmbedUrl','supportEmbedTitle',
+        'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro',
         'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
         'copyrightNotice','footerSummary','footerContent',
         'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice'
@@ -1156,6 +1111,14 @@ Encourage the user to test the site and to let you know if there are errors that
         document.getElementById('discoveryOptIn').checked = settings.discoveryOptIn === true;
         document.getElementById('catalogueImportEnabled').checked = settings.catalogueImportEnabled === true;
         updateImportSubPanel();
+
+        // Support cards — use new supportCards array if present, otherwise migrate from legacy flat fields
+        let initialCards = (Array.isArray(settings.supportCards) && settings.supportCards.length > 0)
+          ? settings.supportCards
+          : buildLegacySupportCards(settings);
+        supportCardsState = initialCards.map(c => ({ heading: '', body: '', url: '', cta: '', imageUrl: '', embedCode: '', embedTitle: '', ...c }));
+        renderSupportCardEditors();
+
         _settingsLoaded = true;
       }
 
@@ -1199,6 +1162,7 @@ Encourage the user to test the site and to let you know if there are errors that
         const patch = {
           discoveryOptIn: document.getElementById('discoveryOptIn').checked,
           catalogueImportEnabled: document.getElementById('catalogueImportEnabled').checked,
+          supportCards: collectSupportCards(),
         };
         fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
@@ -1237,6 +1201,166 @@ Encourage the user to test the site and to let you know if there are errors that
         if (!on) document.getElementById('catalogueImportEnabled').checked = false;
       }
       document.getElementById('discoveryOptIn')?.addEventListener('change', updateImportSubPanel);
+
+      // ── Support cards ─────────────────────────────────────────
+      let supportCardsState = [];
+
+      function buildLegacySupportCards(s) {
+        const cards = [];
+        if (s.supportPrimaryHeading || s.supportPrimaryBody || s.supportPrimaryUrl) {
+          cards.push({
+            heading: s.supportPrimaryHeading || '',
+            body: s.supportPrimaryBody || '',
+            url: s.supportPrimaryUrl || '',
+            cta: s.supportPrimaryCta || '',
+            imageUrl: '',
+            embedCode: '',
+            embedTitle: '',
+          });
+        }
+        if (s.supportSecondaryHeading || s.supportSecondaryBody || s.supportEmbedUrl) {
+          const embedCode = s.supportEmbedUrl
+            ? `<iframe src="${s.supportEmbedUrl}" height="712" title="${s.supportEmbedTitle || 'Support embed'}" class="embed-frame"></iframe>`
+            : '';
+          cards.push({
+            heading: s.supportSecondaryHeading || '',
+            body: s.supportSecondaryBody || '',
+            url: '',
+            cta: '',
+            imageUrl: '',
+            embedCode,
+            embedTitle: s.supportEmbedTitle || '',
+          });
+        }
+        return cards;
+      }
+
+      function syncStateFromDOM() {
+        const container = document.getElementById('supportCardsContainer');
+        supportCardsState = supportCardsState.map((_, idx) => {
+          const ed = container.querySelector(`[data-sc-index="${idx}"]`);
+          if (!ed) return null;
+          return {
+            heading: ed.querySelector('[name="sc_heading"]').value,
+            body: ed.querySelector('[name="sc_body"]').value,
+            url: ed.querySelector('[name="sc_url"]').value,
+            cta: ed.querySelector('[name="sc_cta"]').value,
+            imageUrl: ed.querySelector('[name="sc_imageUrl"]').value,
+            embedCode: ed.querySelector('[name="sc_embedCode"]').value,
+            embedTitle: ed.querySelector('[name="sc_embedTitle"]').value,
+          };
+        }).filter(Boolean);
+      }
+
+      function collectSupportCards() {
+        syncStateFromDOM();
+        return supportCardsState.map(c => ({
+          heading: c.heading.trim(),
+          body: c.body.trim(),
+          url: c.url.trim(),
+          cta: c.cta.trim(),
+          imageUrl: c.imageUrl.trim(),
+          embedCode: c.embedCode.trim(),
+          embedTitle: c.embedTitle.trim(),
+        }));
+      }
+
+      function createCardEditor(card, idx, total) {
+        const div = document.createElement('div');
+        div.dataset.scIndex = String(idx);
+        div.style.cssText = 'background:var(--surface,#f5f5f0);border:1px solid var(--border);border-radius:12px;padding:18px;';
+
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <span style="font-weight:600;font-size:0.9rem;color:var(--text-primary,#1a1a1a);">Card ${idx + 1}</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="sc-move-up" title="Move up" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:0.82rem;" ${idx === 0 ? 'disabled' : ''}>↑</button>
+              <button type="button" class="sc-move-down" title="Move down" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:0.82rem;" ${idx === total - 1 ? 'disabled' : ''}>↓</button>
+              <button type="button" class="sc-remove" title="Remove card" style="padding:4px 10px;border-radius:6px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:0.82rem;">Remove</button>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label>Heading</label>
+              <input type="text" name="sc_heading" placeholder="e.g. Visit the store" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label>Body text</label>
+              <textarea name="sc_body" style="min-height:72px;"></textarea>
+            </div>
+            <div>
+              <label>Link URL <span class="meta" style="font-weight:400;">(optional)</span></label>
+              <input type="text" name="sc_url" placeholder="https://…" />
+            </div>
+            <div>
+              <label>Button label <span class="meta" style="font-weight:400;">(optional)</span></label>
+              <input type="text" name="sc_cta" placeholder="e.g. Visit store" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label>Image URL <span class="meta" style="font-weight:400;">(optional — displayed above card text)</span></label>
+              <input type="text" name="sc_imageUrl" placeholder="https://… hosted image" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label>Embed code <span class="meta" style="font-weight:400;">(optional — paste a Ko-fi, PayPal, or similar &lt;iframe&gt; snippet)</span></label>
+              <p class="meta" style="margin:4px 0 7px;font-size:0.79rem;line-height:1.5;">Only <code>&lt;iframe&gt;</code> elements with an <code>https://</code> src are accepted on the public page. Event-handler attributes are stripped automatically. Paste the full snippet exactly as provided by the service.</p>
+              <textarea name="sc_embedCode" style="font-family:monospace;font-size:0.81rem;min-height:100px;" placeholder='&lt;iframe src="https://ko-fi.com/…" height="712" title="Ko-fi: …"&gt;&lt;/iframe&gt;'></textarea>
+            </div>
+            <div>
+              <label>Embed title <span class="meta" style="font-weight:400;">(accessibility label)</span></label>
+              <input type="text" name="sc_embedTitle" placeholder="e.g. Ko-fi: Artist name" />
+            </div>
+          </div>
+        `;
+
+        // Set field values safely (not via innerHTML to avoid escaping issues)
+        div.querySelector('[name="sc_heading"]').value = card.heading || '';
+        div.querySelector('[name="sc_body"]').value = card.body || '';
+        div.querySelector('[name="sc_url"]').value = card.url || '';
+        div.querySelector('[name="sc_cta"]').value = card.cta || '';
+        div.querySelector('[name="sc_imageUrl"]').value = card.imageUrl || '';
+        div.querySelector('[name="sc_embedCode"]').value = card.embedCode || '';
+        div.querySelector('[name="sc_embedTitle"]').value = card.embedTitle || '';
+
+        div.querySelector('.sc-move-up').addEventListener('click', () => {
+          syncStateFromDOM();
+          if (idx > 0) {
+            [supportCardsState[idx - 1], supportCardsState[idx]] = [supportCardsState[idx], supportCardsState[idx - 1]];
+            renderSupportCardEditors();
+          }
+        });
+        div.querySelector('.sc-move-down').addEventListener('click', () => {
+          syncStateFromDOM();
+          if (idx < supportCardsState.length - 1) {
+            [supportCardsState[idx], supportCardsState[idx + 1]] = [supportCardsState[idx + 1], supportCardsState[idx]];
+            renderSupportCardEditors();
+          }
+        });
+        div.querySelector('.sc-remove').addEventListener('click', () => {
+          syncStateFromDOM();
+          supportCardsState.splice(idx, 1);
+          renderSupportCardEditors();
+        });
+
+        return div;
+      }
+
+      function renderSupportCardEditors() {
+        const container = document.getElementById('supportCardsContainer');
+        container.innerHTML = '';
+        supportCardsState.forEach((card, idx) => {
+          container.appendChild(createCardEditor(card, idx, supportCardsState.length));
+        });
+      }
+
+      document.getElementById('addSupportCardBtn').addEventListener('click', () => {
+        syncStateFromDOM();
+        supportCardsState.push({ heading: '', body: '', url: '', cta: '', imageUrl: '', embedCode: '', embedTitle: '' });
+        renderSupportCardEditors();
+        // Scroll the new card into view
+        const container = document.getElementById('supportCardsContainer');
+        container.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+      // ─────────────────────────────────────────────────────────
 
       window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
