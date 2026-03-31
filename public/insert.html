@@ -192,9 +192,28 @@
 
       // null = unknown, true = R2 presign confirmed, false = FTP/unavailable
       let _presignAvailable = null;
-      // Tracks the in-flight or completed probe so it is only fired once.
-      // null = not yet started; a Promise = in-flight or already settled.
-      let _presignProbe = null;
+      // Resolves once the background probe completes (or immediately if skipped).
+      // Initialised to a resolved promise so uploadFileToMediaHost is safe to call
+      // even if DOMContentLoaded hasn't fired yet for some reason.
+      let _presignProbe = Promise.resolve();
+
+      // Fire the storage-backend probe after deferred scripts have loaded
+      // (common.js is defer, so AdminDataStore isn't available until DOMContentLoaded).
+      // By the time the user selects a file the probe has settled, so for FTP users
+      // _presignAvailable is already false and no extra round-trip disrupts the
+      // Lambda instance routing that the chunked upload path depends on.
+      window.addEventListener('DOMContentLoaded', () => {
+        const tok = AdminDataStore.getToken();
+        if (!tok) return;
+        _presignProbe = fetch('/.netlify/functions/uploadMedia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Token': tok },
+          body: JSON.stringify({ action: 'presign', fileName: '_probe_.bin', folder: '_probe_' }),
+        }).then(res => {
+          if (res.ok || res.status === 401) return;
+          _presignAvailable = false;
+        }).catch(() => { /* network error — leave as null */ });
+      });
 
       async function uploadFileToMediaHost(file, folder, onProgress) {
         const endpoint = '/.netlify/functions/uploadMedia';
@@ -202,28 +221,37 @@
         const headers = { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) };
 
         async function postChunk(payload) {
-          const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
-          const result = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(result.message || `Upload failed (${res.status})`);
-          return result;
+          // Netlify's edge occasionally leaves a connection half-dead mid-upload,
+          // causing a minutes-long hang. AbortController cuts it after 30 s, which
+          // lets the browser close the connection cleanly so the retry opens a fresh
+          // one immediately — no 40+ second blocked phase on the next attempt.
+          const TIMEOUT_MS = 30000;
+          const MAX_ATTEMPTS = 3;
+          let lastErr;
+          for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+            try {
+              const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload), signal: controller.signal });
+              clearTimeout(timer);
+              const result = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(result.message || `Upload failed (${res.status})`);
+              return result;
+            } catch (err) {
+              clearTimeout(timer);
+              if (err.name === 'AbortError' || err instanceof TypeError) { lastErr = err; continue; }
+              throw err;
+            }
+          }
+          throw lastErr;
         }
 
-        // Fire the storage-backend probe now, at upload time, if we don't yet know
-        // which backend is configured. Firing here rather than at DOMContentLoaded
-        // means the HTTP/2 connection the probe opens is the same fresh connection
-        // the first chunk upload rides — avoiding the stale-GOAWAY failure that caused
-        // every first FTP upload attempt to hang for minutes then fail.
-        if (_presignAvailable === null && !_presignProbe) {
-          _presignProbe = fetch(endpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ action: 'presign', fileName: '_probe_.bin', folder: '_probe_' }),
-          }).then(res => {
-            if (res.ok || res.status === 401) return;
-            _presignAvailable = false;
-          }).catch(() => {});
-        }
-        if (_presignProbe) await _presignProbe;
+        // Wait for the background probe before deciding the upload path.
+        // For FTP: probe already set _presignAvailable = false → chunked path runs
+        //          with zero extra round-trips, exactly as before today's changes.
+        // For R2:  probe returned ok → _presignAvailable still null → inline presign
+        //          fires below to get the per-file signed URL, then direct PUT to R2.
+        await _presignProbe;
 
         const ext = '.' + file.name.split('.').pop().toLowerCase();
 
