@@ -45,6 +45,7 @@ const defaults = {
   supportSecondaryBody: 'Tips help fund hosting and future releases.',
   supportEmbedUrl: '',
   supportEmbedTitle: 'Support embed',
+  supportCards: [],
   aboutPageTitle: 'About this site',
   aboutPageEyebrow: 'Independent music player',
   aboutPageContent: '<section><h2>What is this website?</h2><p>This player is designed for direct publishing, direct listening, and easy self-hosting.</p></section>',

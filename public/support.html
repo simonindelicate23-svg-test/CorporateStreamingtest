@@ -127,18 +127,7 @@
         <h1 id="supportTitle">Support this project</h1>
         <p id="supportIntro">If you enjoy this archive and want to help sustain it, these options support future work.</p>
       </section>
-      <section class="support-grid" style="max-width:1080px;margin:0 auto 48px;padding:0 18px 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
-        <article class="support-card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;">
-          <h2 id="supportPrimaryHeading">Visit the store</h2>
-          <p id="supportPrimaryBody">Pick up music, merch, or downloads through the main store.</p>
-          <div class="actions"><a id="supportPrimaryLink" class="pill primary" href="#" target="_blank" rel="noopener noreferrer"><span id="supportPrimaryCta">Visit store</span></a></div>
-        </article>
-        <article class="support-card" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;">
-          <h2 id="supportSecondaryHeading">Leave a tip</h2>
-          <p id="supportSecondaryBody">Tips help fund hosting and future releases.</p>
-          <iframe id="supportEmbed" class="embed-frame" src="" height="712" title="Support embed"></iframe>
-        </article>
-      </section>
+      <section id="supportCardsGrid" style="max-width:1080px;margin:0 auto 48px;padding:0 18px 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;"></section>
 
       <!-- Restore access for returning subscribers -->
       <section class="restore-section">
@@ -180,6 +169,143 @@
         setAccessToken(token);
       }
 
+      // Sanitize an embed code: only accepts a single <iframe> with an https:// src.
+      // Strips event-handler attributes and dangerous style values.
+      function sanitizeEmbedCode(html) {
+        if (!html || !html.trim()) return '';
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const iframe = doc.querySelector('iframe');
+        if (!iframe) return '';
+        const src = iframe.getAttribute('src') || '';
+        try {
+          const url = new URL(src);
+          if (url.protocol !== 'https:') return '';
+        } catch (_) {
+          return '';
+        }
+        const ALLOWED_ATTRS = ['id', 'class', 'src', 'height', 'width', 'title',
+          'frameborder', 'scrolling', 'allowtransparency', 'allowfullscreen',
+          'allow', 'loading'];
+        const out = document.createElement('iframe');
+        for (const attr of ALLOWED_ATTRS) {
+          const val = iframe.getAttribute(attr);
+          if (val !== null) out.setAttribute(attr, val);
+        }
+        const style = iframe.getAttribute('style');
+        if (style) {
+          const safe = style
+            .replace(/expression\s*\(/gi, '')
+            .replace(/javascript\s*:/gi, '')
+            .replace(/-moz-binding/gi, '');
+          out.setAttribute('style', safe);
+        }
+        return out.outerHTML;
+      }
+
+      function safeHref(url) {
+        try {
+          const u = new URL(url);
+          return (u.protocol === 'https:' || u.protocol === 'http:') ? url : '#';
+        } catch (_) { return '#'; }
+      }
+
+      // Build a cards array from legacy flat settings fields (backward compat).
+      function buildCardsFromLegacy(s) {
+        const cards = [];
+        if (s.supportPrimaryHeading || s.supportPrimaryBody || s.supportPrimaryUrl) {
+          cards.push({
+            heading: s.supportPrimaryHeading || '',
+            body: s.supportPrimaryBody || '',
+            url: s.supportPrimaryUrl || '',
+            cta: s.supportPrimaryCta || 'Visit store',
+            imageUrl: '',
+            embedCode: '',
+            embedTitle: '',
+          });
+        }
+        if (s.supportSecondaryHeading || s.supportSecondaryBody || s.supportEmbedUrl) {
+          const embedCode = s.supportEmbedUrl
+            ? `<iframe src="${s.supportEmbedUrl}" height="712" title="${s.supportEmbedTitle || 'Support embed'}" class="embed-frame"></iframe>`
+            : '';
+          cards.push({
+            heading: s.supportSecondaryHeading || '',
+            body: s.supportSecondaryBody || '',
+            url: '',
+            cta: '',
+            imageUrl: '',
+            embedCode,
+            embedTitle: s.supportEmbedTitle || '',
+          });
+        }
+        return cards;
+      }
+
+      function renderSupportCards(cards, container) {
+        container.innerHTML = '';
+        cards.forEach(card => {
+          const article = document.createElement('article');
+          article.className = 'support-card';
+          article.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;display:flex;flex-direction:column;gap:14px;';
+
+          if (card.imageUrl) {
+            try {
+              const u = new URL(card.imageUrl);
+              if (u.protocol === 'https:' || u.protocol === 'http:') {
+                const img = document.createElement('img');
+                img.src = card.imageUrl;
+                img.alt = '';
+                img.style.cssText = 'max-width:100%;border-radius:10px;max-height:220px;object-fit:cover;';
+                article.appendChild(img);
+              }
+            } catch (_) {}
+          }
+
+          if (card.heading) {
+            const h2 = document.createElement('h2');
+            h2.style.margin = '0';
+            h2.textContent = card.heading;
+            article.appendChild(h2);
+          }
+
+          if (card.body) {
+            const p = document.createElement('p');
+            p.style.cssText = 'margin:0;color:var(--text-secondary,#666);line-height:1.6;';
+            p.textContent = card.body;
+            article.appendChild(p);
+          }
+
+          if (card.url) {
+            const div = document.createElement('div');
+            div.className = 'actions';
+            const a = document.createElement('a');
+            a.className = 'pill primary';
+            a.href = safeHref(card.url);
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = card.cta || 'Learn more';
+            div.appendChild(a);
+            article.appendChild(div);
+          }
+
+          if (card.embedCode) {
+            const sanitized = sanitizeEmbedCode(card.embedCode);
+            if (sanitized) {
+              const wrapper = document.createElement('div');
+              wrapper.style.cssText = 'width:100%;overflow:hidden;';
+              wrapper.innerHTML = sanitized;
+              // Apply consistent frame styles to the rendered iframe
+              const iframeEl = wrapper.querySelector('iframe');
+              if (iframeEl) {
+                iframeEl.style.cssText = (iframeEl.getAttribute('style') || '') + ';max-width:100%;border:none;display:block;margin:0 auto;';
+              }
+              article.appendChild(wrapper);
+            }
+          }
+
+          container.appendChild(article);
+        });
+      }
 
       window.addEventListener('DOMContentLoaded', async () => {
         const settings = await window.SiteSettings.loadSiteSettings();
@@ -188,15 +314,11 @@
         document.getElementById('supportBrand').textContent = settings.brandName || settings.siteTitle || 'Site';
         document.getElementById('supportTitle').textContent = settings.supportPageTitle || 'Support this project';
         document.getElementById('supportIntro').textContent = settings.supportIntro || '';
-        document.getElementById('supportPrimaryHeading').textContent = settings.supportPrimaryHeading || 'Visit the store';
-        document.getElementById('supportPrimaryBody').textContent = settings.supportPrimaryBody || '';
-        document.getElementById('supportPrimaryCta').textContent = settings.supportPrimaryCta || 'Visit store';
-        document.getElementById('supportPrimaryLink').href = settings.supportPrimaryUrl || '#';
-        document.getElementById('supportSecondaryHeading').textContent = settings.supportSecondaryHeading || 'Leave a tip';
-        document.getElementById('supportSecondaryBody').textContent = settings.supportSecondaryBody || '';
-        const embed = document.getElementById('supportEmbed');
-        embed.title = settings.supportEmbedTitle || 'Support embed';
-        if (settings.supportEmbedUrl) embed.src = settings.supportEmbedUrl; else embed.style.display = 'none';
+
+        const cards = (Array.isArray(settings.supportCards) && settings.supportCards.length > 0)
+          ? settings.supportCards
+          : buildCardsFromLegacy(settings);
+        renderSupportCards(cards, document.getElementById('supportCardsGrid'));
 
         // Handle PayPal return after payment
         // Orders: ?token=ORDER_ID&PayerID=PAYER_ID
