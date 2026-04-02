@@ -1372,6 +1372,24 @@ footer {
   cursor: pointer;
   font-weight: 700;
   list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.footer-disclosure summary::after {
+  content: '›';
+  font-size: 1.1em;
+  opacity: 0.5;
+  transform: rotate(90deg);
+  display: inline-block;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.footer-disclosure[open] summary::after {
+  transform: rotate(270deg);
 }
 
 .footer-disclosure summary::-webkit-details-marker {
@@ -1380,6 +1398,18 @@ footer {
 
 .footer-disclosure[open] {
   border-color: #d4c8bf;
+}
+
+.footer-disclosure[data-empty] {
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.footer-disclosure[data-empty] summary::after {
+  display: none;
 }
 
 .default-footer {

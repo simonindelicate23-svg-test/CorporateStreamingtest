@@ -106,10 +106,15 @@ function extFromUrl(url) {
   }
 }
 
-// Stable key for release artwork so multiple tracks in the same release share
-// a single upload.
-function releaseArtworkKey(release) {
-  return `imports/artwork/${slugify(release.artist)}-${slugify(release.title)}-cover.jpg`;
+// Derive a stable R2 key from a source artwork URL so the same source image
+// always maps to the same destination path. Uploading to an existing key is
+// idempotent on R2/S3 (it just overwrites), so batched imports that encounter
+// the same release artwork never create duplicate files.
+function stableArtworkKey(sourceUrl) {
+  const ext = extFromUrl(sourceUrl);
+  let h = 5381;
+  for (let i = 0; i < sourceUrl.length; i++) h = ((h << 5) + h) ^ sourceUrl.charCodeAt(i);
+  return `imports/artwork/${(h >>> 0).toString(36)}${ext}`;
 }
 
 // ── Core import logic ──────────────────────────────────────────────────────
@@ -256,7 +261,7 @@ exports.handler = async (event) => {
     try {
       const buf = await fetchToBuffer(artworkUrl);
       const ext = extFromUrl(artworkUrl);
-      const key = `imports/artwork/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}${ext}`;
+      const key = stableArtworkKey(artworkUrl);
       const newUrl = await uploadToR2(buf, key, 'image/jpeg');
       uploadedArtwork.set(artworkUrl, newUrl);
       return newUrl;
