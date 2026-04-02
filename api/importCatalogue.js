@@ -58,10 +58,20 @@ function makeS3Client() {
 
 // Fetch a remote URL and return its contents as a Buffer.
 // The data passes through memory only — no local files are written.
-async function fetchToBuffer(url) {
-  const response = await fetch(url, { redirect: 'follow' });
-  if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
-  return Buffer.from(await response.arrayBuffer());
+// A hard timeout prevents a slow/large file from killing the whole function.
+async function fetchToBuffer(url, timeoutMs = 22000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { redirect: 'follow', signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
+    return Buffer.from(await response.arrayBuffer());
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error(`Timed out fetching ${url} (>${timeoutMs / 1000}s — file may be too large)`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function uploadToR2(buffer, key, contentType) {
@@ -259,7 +269,14 @@ exports.handler = async (event) => {
 
   const imported = [];
   const failed = [];
-  const skipped = duplicateTracks.map((t) => ({ id: t.id, title: t.title, reason: 'duplicate' }));
+
+  // When a specific trackIds batch is provided, only report duplicates for those IDs —
+  // not every duplicate in the catalogue. Without this, the skipped list grows with
+  // every batch and the response payload balloons to thousands of entries.
+  const batchDuplicates = trackIds && trackIds.length
+    ? sourceTracks.filter((t) => trackIds.includes(String(t.id)) && existingIds.has(String(t.id)))
+    : duplicateTracks;
+  const skipped = batchDuplicates.map((t) => ({ id: t.id, title: t.title, reason: 'duplicate' }));
 
   for (const sourceTrack of tracksToProcess) {
     const release = sourceTrack._release;
@@ -322,12 +339,24 @@ exports.handler = async (event) => {
     await saveTracks(withIds);
   }
 
+  // Tracks that were requested but not found in the source catalogue at all.
+  // This catches IDs that appear in the preview but have since disappeared from
+  // the source feed (e.g. the source catalogue changed between preview and import).
+  const accountedIds = new Set([
+    ...imported.map((t) => t._id),
+    ...skipped.map((t) => String(t.id)),
+    ...failed.map((t) => String(t.id)),
+  ]);
+  const notFound = (trackIds || []).filter((id) => !accountedIds.has(id));
+
   return json(200, {
     imported: imported.length,
     skipped: skipped.length,
     failed: failed.length,
+    notFound: notFound.length,
     importedTracks: imported.map((t) => ({ id: t._id, title: t.trackName, album: t.albumName })),
     skippedTracks: skipped,
     failedTracks: failed,
+    notFoundIds: notFound,
   });
 };
