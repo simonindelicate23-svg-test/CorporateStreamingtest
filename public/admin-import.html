@@ -464,58 +464,76 @@
       document.getElementById('importBtn').addEventListener('click', async () => {
         clearStatus('status2');
         const sourceUrl = document.getElementById('sourceUrl').value.trim();
+        const allIds = (previewData && previewData.newTrackIds) || [];
 
         const btn = document.getElementById('importBtn');
         btn.disabled = true;
-        btn.textContent = 'Importing… (this may take a while for large catalogues)';
+        btn.textContent = 'Importing…';
 
-        try {
-          const result = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
-            method: 'POST',
-            body: JSON.stringify({ action: 'import', sourceUrl }),
-          });
-          renderResults(result);
-          document.getElementById('step2').style.display = 'none';
-          document.getElementById('step3').style.display = '';
-        } catch (err) {
-          showStatus('status2', `Import failed: ${err.message}`, true);
-          btn.disabled = false;
-          btn.textContent = 'Import all new tracks';
+        // Switch to results step immediately so the live log is visible.
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = '';
+        document.getElementById('resetBtn').disabled = true;
+
+        const logEl = document.createElement('div');
+        logEl.className = 'progress-log';
+        document.getElementById('resultsContent').innerHTML = '';
+        document.getElementById('resultsContent').appendChild(logEl);
+
+        function appendLog(html) {
+          logEl.innerHTML += html + '\n';
+          logEl.scrollTop = logEl.scrollHeight;
         }
+
+        // Split IDs into batches of 5 so each function call finishes well inside
+        // the 30-second Netlify timeout regardless of catalogue size.
+        const BATCH_SIZE = 5;
+        const batches = [];
+        for (let i = 0; i < allIds.length; i += BATCH_SIZE) batches.push(allIds.slice(i, i + BATCH_SIZE));
+
+        const totals = { imported: 0, skipped: 0, failed: 0, importedTracks: [], failedTracks: [] };
+
+        if (batches.length > 1) {
+          appendLog(`<span class="log-dim">Importing ${allIds.length} tracks in ${batches.length} batches…</span>\n`);
+        }
+
+        for (let b = 0; b < batches.length; b++) {
+          const batch = batches[b];
+          if (batches.length > 1) {
+            appendLog(`<span class="log-dim">Batch ${b + 1} / ${batches.length} — ${batch.length} track(s)…</span>`);
+          }
+
+          try {
+            const result = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'import', sourceUrl, trackIds: batch }),
+            });
+            totals.imported += result.imported || 0;
+            totals.skipped  += result.skipped  || 0;
+            totals.failed   += result.failed   || 0;
+            totals.importedTracks.push(...(result.importedTracks || []));
+            totals.failedTracks.push(...(result.failedTracks || []));
+
+            (result.importedTracks || []).forEach((t) => {
+              appendLog(`  <span class="log-ok">✓</span> ${escHtml(t.title || t.id)}  <span class="log-dim">[${escHtml(t.album || '')}]</span>`);
+            });
+            (result.failedTracks || []).forEach((t) => {
+              appendLog(`  <span class="log-err">✗ ${escHtml(t.title || t.id)}: ${escHtml(t.error)}</span>`);
+            });
+          } catch (err) {
+            appendLog(`<span class="log-err">Batch ${b + 1} failed: ${escHtml(err.message)}</span>`);
+            totals.failed += batch.length;
+          }
+        }
+
+        appendLog('');
+        appendLog(`<span class="log-ok">Done. ✓ ${totals.imported} imported${totals.failed ? `  ✗ ${totals.failed} failed` : ''}${totals.skipped ? `  ⊘ ${totals.skipped} duplicates skipped` : ''}</span>`);
+        if (totals.failed === 0) {
+          appendLog('<span class="log-dim">Remember to disable "Allow catalogue importing" on the source instance now.</span>');
+        }
+
+        document.getElementById('resetBtn').disabled = false;
       });
-
-      // ── Results ──────────────────────────────────────────────────
-      function renderResults(result) {
-        const container = document.getElementById('resultsContent');
-        const lines = [];
-
-        lines.push(`<span class="log-ok">Import complete.</span>`);
-        lines.push('');
-        lines.push(`<span class="log-ok">  ✓ Imported : ${result.imported}</span>`);
-        lines.push(`<span class="log-dim">  ⊘ Skipped  : ${result.skipped} (duplicates)</span>`);
-        if (result.failed > 0) lines.push(`<span class="log-err">  ✗ Failed   : ${result.failed}</span>`);
-        lines.push('');
-
-        if (result.importedTracks && result.importedTracks.length > 0) {
-          lines.push('<span class="log-dim">Imported tracks:</span>');
-          result.importedTracks.forEach((t) => {
-            lines.push(`  <span class="log-ok">✓</span> ${escHtml(t.title || t.id)}  <span class="log-dim">[${escHtml(t.album || '')}]</span>`);
-          });
-          lines.push('');
-        }
-
-        if (result.failedTracks && result.failedTracks.length > 0) {
-          lines.push('<span class="log-err">Failed tracks:</span>');
-          result.failedTracks.forEach((t) => {
-            lines.push(`  <span class="log-err">✗ ${escHtml(t.title || t.id)}: ${escHtml(t.error)}</span>`);
-          });
-          lines.push('');
-        }
-
-        lines.push('<span class="log-dim">Remember to disable "Allow catalogue importing" on the source instance now.</span>');
-
-        container.innerHTML = `<div class="progress-log">${lines.join('\n')}</div>`;
-      }
 
       // ── Reset ────────────────────────────────────────────────────
       document.getElementById('resetBtn').addEventListener('click', () => {
@@ -523,6 +541,7 @@
         document.getElementById('sourceUrl').value = '';
         clearStatus('status1');
         clearStatus('status2');
+        document.getElementById('resultsContent').innerHTML = '';
         document.getElementById('step3').style.display = 'none';
         document.getElementById('step1').style.display = '';
         document.getElementById('importBtn').disabled = false;

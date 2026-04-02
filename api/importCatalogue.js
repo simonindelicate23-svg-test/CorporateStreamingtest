@@ -189,7 +189,7 @@ exports.handler = async (event) => {
     });
   }
 
-  const { action, sourceUrl } = body;
+  const { action, sourceUrl, trackIds } = body;
   if (!action || !sourceUrl) return json(400, { error: 'action and sourceUrl are required' });
   if (!['preview', 'import'].includes(action)) {
     return json(400, { error: 'action must be "preview" or "import"' });
@@ -219,6 +219,7 @@ exports.handler = async (event) => {
       totalTracksInSource: sourceTracks.length,
       tracksToImport: newTracks.length,
       duplicatesSkipped: duplicateTracks.length,
+      newTrackIds: newTracks.map((t) => String(t.id)),
       releases: (sourceFeed.releases || []).map((r) => ({
         title: r.title,
         artist: r.artist,
@@ -230,6 +231,12 @@ exports.handler = async (event) => {
   }
 
   // ── Import ───────────────────────────────────────────────────────────────
+  // If the caller supplied a specific set of IDs (batched import from the UI),
+  // only process those tracks — duplicates + already-imported are still skipped.
+  const tracksToProcess = trackIds && trackIds.length
+    ? newTracks.filter((t) => trackIds.includes(String(t.id)))
+    : newTracks;
+
   // Upload each release's artwork once, keyed by a stable path.
   const uploadedArtwork = new Map(); // artworkUrl → new R2 URL
 
@@ -254,7 +261,7 @@ exports.handler = async (event) => {
   const failed = [];
   const skipped = duplicateTracks.map((t) => ({ id: t.id, title: t.title, reason: 'duplicate' }));
 
-  for (const sourceTrack of newTracks) {
+  for (const sourceTrack of tracksToProcess) {
     const release = sourceTrack._release;
     const uid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
