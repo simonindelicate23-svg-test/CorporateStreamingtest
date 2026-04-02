@@ -425,7 +425,13 @@ function applySettingsData(settings) {
   if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
   if (settings.releaseOrder) {
     SITE_RELEASE_ORDER = settings.releaseOrder;
-    RELEASE_ORDER = settings.releaseOrder;
+    // Only update RELEASE_ORDER if the user has no explicit stored preference.
+    // If they do, their choice takes precedence and is applied in the init
+    // sequence; updating it here would silently overwrite their preference and
+    // then block the re-render guard from firing (it checks storedOrder).
+    if (!localStorage.getItem(USER_ORDER_KEY)) {
+      RELEASE_ORDER = settings.releaseOrder;
+    }
   }
   if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
   WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
@@ -2850,7 +2856,9 @@ export async function init() {
     // initial render and carries a different releaseOrder — and the user has no
     // personal sort preference stored — re-render with the correct order.
     settingsPromise.then(() => {
-      if (!storedOrder && RELEASE_ORDER !== orderAtRender && state.albums.length) renderAlbums();
+      // applySettingsData now only updates RELEASE_ORDER when there is no stored
+      // user preference, so this condition is safe without the !storedOrder guard.
+      if (RELEASE_ORDER !== orderAtRender && state.albums.length) renderAlbums();
     });
     syncPlayModes();
     bindEvents();

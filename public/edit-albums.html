@@ -129,6 +129,7 @@
               <div style="display:flex;gap:6px;align-items:center">
                 <input type="color" id="bgcolor" style="width:40px;height:32px;padding:2px;border-radius:5px;cursor:pointer;flex-shrink:0;" />
                 <input type="text" id="bgcolorHex" placeholder="#rrggbb" maxlength="7" style="width:88px;font-family:monospace;font-size:0.85rem;" />
+                <button type="button" id="bgcolorEyedropper" class="button-secondary button-sm" title="Pick colour from anywhere on screen" style="display:none;">&#x1F4A7;</button>
                 <button type="button" id="bgcolorClear" class="button-secondary button-sm">Clear</button>
               </div>
             </div>
@@ -255,6 +256,21 @@
           if (fields.bgcolor.dataset.cleared === 'true') setBgcolorCleared(false);
         }
       });
+
+      // Eyedropper — lets the user sample any colour from anywhere on screen.
+      // The EyeDropper API is Chromium-only; the button is hidden on unsupported browsers.
+      const eyedropperBtn = document.getElementById('bgcolorEyedropper');
+      if ('EyeDropper' in window) {
+        eyedropperBtn.style.display = '';
+        eyedropperBtn.addEventListener('click', async () => {
+          try {
+            const { sRGBHex } = await new EyeDropper().open();
+            fields.bgcolor.value = sRGBHex;
+            bgcolorHexEl.value = sRGBHex;
+            setBgcolorCleared(false);
+          } catch (_) { /* user cancelled */ }
+        });
+      }
 
       /* ── Artwork upload ───────────────────────────────────────── */
       document.getElementById('uploadArtworkButton').addEventListener('click', async () => {
