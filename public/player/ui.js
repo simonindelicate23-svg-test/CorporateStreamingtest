@@ -960,7 +960,17 @@ function resetMediaSessionPositionState() {
 
 function syncMediaSessionPlaybackState() {
   if (!mediaSessionSupported) return;
-  const isPlaying = Boolean(state.audio && !state.audio.paused && !state.audio.ended);
+  // Use userWantsToPlay as the primary signal rather than the audio element's
+  // transient paused state. Two scenarios make the element briefly paused even
+  // when we intend to keep playing:
+  //   1. src reassignment in playTrack fires a 'pause' event before play() is
+  //      called. On a weak connection the gap between those two points is wider.
+  //   2. Android Chrome can pause the element mid-buffering in the background
+  //      (memory/resource pressure), which is not an intentional user pause.
+  // Signalling playbackState='paused' in either case tells the OS that playback
+  // intentionally stopped, causing Android to release audio focus and preventing
+  // the next play() call from succeeding without a new user gesture.
+  const isPlaying = userWantsToPlay || Boolean(state.audio && !state.audio.paused && !state.audio.ended);
   navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   updateMediaSessionPositionState();
 }
