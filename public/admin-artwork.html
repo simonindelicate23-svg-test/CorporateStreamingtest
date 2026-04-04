@@ -194,6 +194,15 @@
           <button type="button" id="updateTracksBtn">Update track records</button>
           <div id="updateStatus" class="status" style="display:none; margin-top:10px;"></div>
         </div>
+
+        <div id="consolidateSection" style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(0,0,0,0.07);display:none;">
+          <p class="meta" style="margin-bottom:6px;"><strong>Consolidate album artwork</strong></p>
+          <p class="meta" style="margin-bottom:10px;">
+            After a batched import the same artwork can end up stored at multiple URLs. This finds albums where tracks point to different artwork URLs and rewrites them all to use the most common one — no files are deleted, just the track records.
+          </p>
+          <button type="button" class="button-secondary" id="consolidateBtn">Consolidate duplicates</button>
+          <div id="consolidateStatus" class="status" style="display:none; margin-top:10px;"></div>
+        </div>
       </div>
     </div>
 
@@ -389,6 +398,7 @@
 
         scanBtn.disabled = false;
         updateSelectedCount();
+        document.getElementById('consolidateSection').style.display = '';
       });
 
       /* ── Select helpers ────────────────────────────────────────── */
@@ -530,6 +540,70 @@
 
         updateStatusEl.style.display = 'block';
         updateTracksBtn.disabled = false;
+      });
+
+      /* ── Consolidate album artwork ────────────────────────────── */
+      // Groups tracks by album and identifies albums where tracks point to
+      // different artwork URLs for the same release. Updates all tracks in
+      // each affected album to use a single canonical URL.
+      document.getElementById('consolidateBtn').addEventListener('click', async () => {
+        if (!allTracks.length) return;
+        const btn = document.getElementById('consolidateBtn');
+        const statusEl = document.getElementById('consolidateStatus');
+        btn.disabled = true;
+        statusEl.style.display = 'none';
+
+        const byAlbum = new Map();
+        allTracks.forEach((t) => {
+          const key = t.albumName || '__none__';
+          if (!byAlbum.has(key)) byAlbum.set(key, []);
+          byAlbum.get(key).push(t);
+        });
+
+        const updates = [];
+        byAlbum.forEach((tracks) => {
+          ['artworkUrl', 'albumArtworkUrl'].forEach((field) => {
+            const freq = new Map();
+            tracks.forEach((t) => { if (t[field]) freq.set(t[field], (freq.get(t[field]) || 0) + 1); });
+            if (freq.size <= 1) return;
+            const canonical = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+            tracks.forEach((t) => { if (t[field] && t[field] !== canonical) updates.push({ track: t, field, newUrl: canonical }); });
+          });
+        });
+
+        if (!updates.length) {
+          statusEl.textContent = 'No duplicates found — all albums already have consistent artwork URLs.';
+          statusEl.className = 'status';
+          statusEl.style.display = 'block';
+          btn.disabled = false;
+          return;
+        }
+
+        const byTrack = new Map();
+        updates.forEach(({ track, field, newUrl }) => {
+          if (!byTrack.has(track._id)) byTrack.set(track._id, { track, changes: {} });
+          byTrack.get(track._id).changes[field] = newUrl;
+        });
+
+        let saved = 0, failed = 0;
+        for (const { track, changes } of byTrack.values()) {
+          try {
+            await AdminDataStore.requestJson('/.netlify/functions/catalog', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'updateTrack', id: track._id, updates: changes }),
+            });
+            saved++;
+          } catch (_e) { failed++; }
+        }
+
+        AdminDataStore.invalidateCache(['tracks', 'albums']);
+        const albumsAffected = new Set(updates.map(u => u.track.albumName || '—')).size;
+        statusEl.textContent = failed
+          ? `Updated ${saved} tracks across ${albumsAffected} albums — ${failed} failed.`
+          : `Consolidated artwork for ${updates.length} tracks across ${albumsAffected} albums. Re-scan to confirm.`;
+        statusEl.className = failed ? 'status error' : 'status';
+        statusEl.style.display = 'block';
+        btn.disabled = false;
       });
 
       /* ── Init ─────────────────────────────────────────────────── */

@@ -213,6 +213,23 @@ function debounce(fn, delay) {
   };
 }
 
+// ── Stage overlay gradient ────────────────────────────────────────
+// Reads the current --card CSS variable so the overlay blends with custom
+// themes instead of being locked to a hardcoded white or near-black value.
+function stageOverlayGradient() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
+  const m = raw.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (m) return `linear-gradient(rgba(${m[1]},${m[2]},${m[3]},0.92),rgba(${m[1]},${m[2]},${m[3]},0.74))`;
+  const hex = raw.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (hex) {
+    const [r, g, b] = hex.slice(1).map(v => parseInt(v, 16));
+    return `linear-gradient(rgba(${r},${g},${b},0.92),rgba(${r},${g},${b},0.74))`;
+  }
+  return isDarkMode()
+    ? 'linear-gradient(rgba(24,20,32,0.92),rgba(16,12,24,0.86))'
+    : 'linear-gradient(rgba(255,255,255,0.92),rgba(255,255,255,0.74))';
+}
+
 // ── Toast ─────────────────────────────────────────────────────────
 function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
@@ -408,17 +425,29 @@ function applySettingsData(settings) {
   if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
   if (settings.releaseOrder) {
     SITE_RELEASE_ORDER = settings.releaseOrder;
-    RELEASE_ORDER = settings.releaseOrder;
+    // Only update RELEASE_ORDER if the user has no explicit stored preference.
+    // If they do, their choice takes precedence and is applied in the init
+    // sequence; updating it here would silently overwrite their preference and
+    // then block the re-render guard from firing (it checks storedOrder).
+    if (!localStorage.getItem(USER_ORDER_KEY)) {
+      RELEASE_ORDER = settings.releaseOrder;
+    }
   }
   if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
   WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
   WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
   ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
   if (dom.aboutSiteLink) dom.aboutSiteLink.textContent = ABOUT_LINK_LABEL;
+  const footerDisclosure = document.querySelector('.footer-disclosure');
   const footerSummary = document.querySelector('.footer-disclosure summary');
   if (footerSummary && settings.footerSummary) footerSummary.innerHTML = settings.footerSummary;
   const footerContent = document.querySelector('.default-footer');
-  if (footerContent && settings.footerContent) footerContent.innerHTML = settings.footerContent;
+  if (footerContent && settings.footerContent) {
+    footerContent.innerHTML = settings.footerContent;
+    if (footerDisclosure) footerDisclosure.removeAttribute('data-empty');
+  } else if (footerDisclosure) {
+    footerDisclosure.setAttribute('data-empty', '');
+  }
 }
 
 // Apply any previously-cached settings synchronously so branding is visible
@@ -960,7 +989,17 @@ function resetMediaSessionPositionState() {
 
 function syncMediaSessionPlaybackState() {
   if (!mediaSessionSupported) return;
-  const isPlaying = Boolean(state.audio && !state.audio.paused && !state.audio.ended);
+  // Use userWantsToPlay as the primary signal rather than the audio element's
+  // transient paused state. Two scenarios make the element briefly paused even
+  // when we intend to keep playing:
+  //   1. src reassignment in playTrack fires a 'pause' event before play() is
+  //      called. On a weak connection the gap between those two points is wider.
+  //   2. Android Chrome can pause the element mid-buffering in the background
+  //      (memory/resource pressure), which is not an intentional user pause.
+  // Signalling playbackState='paused' in either case tells the OS that playback
+  // intentionally stopped, causing Android to release audio focus and preventing
+  // the next play() call from succeeding without a new user gesture.
+  const isPlaying = userWantsToPlay || Boolean(state.audio && !state.audio.paused && !state.audio.ended);
   navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   updateMediaSessionPositionState();
 }
@@ -1891,9 +1930,7 @@ function updatePlayerMeta(track) {
   // than replacing it with the individual track's artwork on every track change.
   if (dom.albumDetailCover && !pseudoCtx) dom.albumDetailCover.style.backgroundImage = layers || '';
   if (playerStage) {
-    const gradient = isDarkMode()
-      ? 'linear-gradient(rgba(24, 20, 32, 0.92), rgba(16, 12, 24, 0.86))'
-      : 'linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.74))';
+    const gradient = stageOverlayGradient();
     playerStage.style.backgroundImage = artwork ? `${gradient}, ${layers}` : gradient;
   }
 
@@ -2525,7 +2562,19 @@ function bindEvents() {
     setBufferingState(false);
     syncPlayState();
     const track = state.currentTrack;
-    if (!track?.paid) return; // non-paid error, nothing special to do
+    if (!track?.paid) {
+      // Show a toast for network or unplayable-file errors so the user knows
+      // why playback stopped rather than seeing silent failure.
+      const err = state.audio.error;
+      if (err) {
+        if (err.code === MediaError.MEDIA_ERR_NETWORK) {
+          showToast('Network error — check your connection', 'error');
+        } else if (err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || err.code === MediaError.MEDIA_ERR_DECODE) {
+          showToast('Could not play this track', 'error');
+        }
+      }
+      return;
+    }
     // Paid track failed — token may have expired. Try a silent refresh once.
     const newToken = await refreshSubscriptionToken();
     if (newToken) {
@@ -2757,7 +2806,9 @@ export async function init() {
   // in the background so it never blocks the library from rendering.
   const libraryPromise = loadLibrary();
   const heroPromise = loadWelcomeHero();
-  applySiteSettings(); // fire-and-forget — cache already applied above
+  // Capture the settings promise so we can re-render if the fresh fetch
+  // returns a different releaseOrder than what the cache had.
+  const settingsPromise = applySiteSettings();
   // Override with user's stored preference (applied after site default is set)
   const storedOrder = localStorage.getItem(USER_ORDER_KEY);
   if (storedOrder) RELEASE_ORDER = storedOrder;
@@ -2799,7 +2850,16 @@ export async function init() {
     await libraryPromise;
     await heroPromise;
     updateFilters();
+    const orderAtRender = RELEASE_ORDER;
     renderAlbums();
+    // If the fresh settings load (which runs in parallel) resolves after the
+    // initial render and carries a different releaseOrder — and the user has no
+    // personal sort preference stored — re-render with the correct order.
+    settingsPromise.then(() => {
+      // applySettingsData now only updates RELEASE_ORDER when there is no stored
+      // user preference, so this condition is safe without the !storedOrder guard.
+      if (RELEASE_ORDER !== orderAtRender && state.albums.length) renderAlbums();
+    });
     syncPlayModes();
     bindEvents();
     initPayments(); // non-blocking — fetches config, loads PayPal SDK, wires up paywall

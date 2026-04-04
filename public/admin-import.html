@@ -464,58 +464,96 @@
       document.getElementById('importBtn').addEventListener('click', async () => {
         clearStatus('status2');
         const sourceUrl = document.getElementById('sourceUrl').value.trim();
+        const allIds = (previewData && previewData.newTrackIds) || [];
 
         const btn = document.getElementById('importBtn');
         btn.disabled = true;
-        btn.textContent = 'Importing… (this may take a while for large catalogues)';
+        btn.textContent = 'Importing…';
 
-        try {
-          const result = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
-            method: 'POST',
-            body: JSON.stringify({ action: 'import', sourceUrl }),
-          });
-          renderResults(result);
-          document.getElementById('step2').style.display = 'none';
-          document.getElementById('step3').style.display = '';
-        } catch (err) {
-          showStatus('status2', `Import failed: ${err.message}`, true);
-          btn.disabled = false;
-          btn.textContent = 'Import all new tracks';
+        // Switch to results step immediately so the live log is visible.
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = '';
+        document.getElementById('resetBtn').disabled = true;
+
+        const logEl = document.createElement('div');
+        logEl.className = 'progress-log';
+        document.getElementById('resultsContent').innerHTML = '';
+        document.getElementById('resultsContent').appendChild(logEl);
+
+        function appendLog(html) {
+          logEl.innerHTML += html + '\n';
+          logEl.scrollTop = logEl.scrollHeight;
         }
+
+        // One track per batch. Audio files vary wildly in size; a batch of even 2
+        // can breach the 30-second function timeout for large files. With batch
+        // size 1 the function has the full budget for a single fetch+upload, and
+        // the fetch itself has a 22-second hard abort inside the handler so a
+        // large file fails gracefully rather than killing the whole function.
+        const BATCH_SIZE = 1;
+        const batches = [];
+        for (let i = 0; i < allIds.length; i += BATCH_SIZE) batches.push(allIds.slice(i, i + BATCH_SIZE));
+
+        const totals = { imported: 0, skipped: 0, failed: 0, notFound: 0, importedTracks: [], failedTracks: [], notFoundIds: [] };
+
+        appendLog(`<span class="log-dim">Importing ${allIds.length} track${allIds.length !== 1 ? 's' : ''}…</span>\n`);
+
+        for (let b = 0; b < batches.length; b++) {
+          const batch = batches[b];
+
+          try {
+            const result = await AdminDataStore.requestJson('/.netlify/functions/importCatalogue', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'import', sourceUrl, trackIds: batch }),
+            });
+            totals.imported  += result.imported  || 0;
+            totals.skipped   += result.skipped   || 0;
+            totals.failed    += result.failed    || 0;
+            totals.notFound  += result.notFound  || 0;
+            totals.importedTracks.push(...(result.importedTracks || []));
+            totals.failedTracks.push(...(result.failedTracks || []));
+            totals.notFoundIds.push(...(result.notFoundIds || []));
+
+            (result.importedTracks || []).forEach((t) => {
+              appendLog(`  <span class="log-ok">✓</span> ${escHtml(t.title || t.id)}  <span class="log-dim">[${escHtml(t.album || '')}]</span>`);
+            });
+            (result.skippedTracks || []).forEach((t) => {
+              appendLog(`  <span class="log-dim">⊘ already imported: ${escHtml(t.title || t.id)}</span>`);
+            });
+            (result.failedTracks || []).forEach((t) => {
+              appendLog(`  <span class="log-err">✗ ${escHtml(t.title || t.id)}: ${escHtml(t.error)}</span>`);
+            });
+            (result.notFoundIds || []).forEach((id) => {
+              appendLog(`  <span class="log-err">? track ${escHtml(id)} not found in source catalogue</span>`);
+            });
+          } catch (err) {
+            // 502/504 means the function itself timed out — the file was too large
+            // even for a single-track batch. Report it clearly and keep going.
+            const isGatewayTimeout = err.message && (err.message.includes('502') || err.message.includes('504') || err.message.includes('timeout'));
+            const msg = isGatewayTimeout
+              ? `gateway timeout — file may be too large to transfer automatically`
+              : escHtml(err.message);
+            appendLog(`  <span class="log-err">✗ track ${escHtml(batch[0])}: ${msg}</span>`);
+            totals.failed += batch.length;
+          }
+        }
+
+        appendLog('');
+        const summaryParts = [`<span class="log-ok">✓ ${totals.imported} imported</span>`];
+        if (totals.skipped)  summaryParts.push(`<span class="log-dim">⊘ ${totals.skipped} already existed</span>`);
+        if (totals.failed)   summaryParts.push(`<span class="log-err">✗ ${totals.failed} failed</span>`);
+        if (totals.notFound) summaryParts.push(`<span class="log-err">? ${totals.notFound} not found in source</span>`);
+        appendLog(summaryParts.join('  '));
+
+        const hasProblems = totals.failed > 0 || totals.notFound > 0;
+        if (!hasProblems) {
+          appendLog('<span class="log-dim">Remember to disable "Allow catalogue importing" on the source instance now.</span>');
+        } else if (totals.failed > 0) {
+          appendLog('<span class="log-dim">Failed tracks can be re-imported by running this flow again — duplicates are skipped automatically.</span>');
+        }
+
+        document.getElementById('resetBtn').disabled = false;
       });
-
-      // ── Results ──────────────────────────────────────────────────
-      function renderResults(result) {
-        const container = document.getElementById('resultsContent');
-        const lines = [];
-
-        lines.push(`<span class="log-ok">Import complete.</span>`);
-        lines.push('');
-        lines.push(`<span class="log-ok">  ✓ Imported : ${result.imported}</span>`);
-        lines.push(`<span class="log-dim">  ⊘ Skipped  : ${result.skipped} (duplicates)</span>`);
-        if (result.failed > 0) lines.push(`<span class="log-err">  ✗ Failed   : ${result.failed}</span>`);
-        lines.push('');
-
-        if (result.importedTracks && result.importedTracks.length > 0) {
-          lines.push('<span class="log-dim">Imported tracks:</span>');
-          result.importedTracks.forEach((t) => {
-            lines.push(`  <span class="log-ok">✓</span> ${escHtml(t.title || t.id)}  <span class="log-dim">[${escHtml(t.album || '')}]</span>`);
-          });
-          lines.push('');
-        }
-
-        if (result.failedTracks && result.failedTracks.length > 0) {
-          lines.push('<span class="log-err">Failed tracks:</span>');
-          result.failedTracks.forEach((t) => {
-            lines.push(`  <span class="log-err">✗ ${escHtml(t.title || t.id)}: ${escHtml(t.error)}</span>`);
-          });
-          lines.push('');
-        }
-
-        lines.push('<span class="log-dim">Remember to disable "Allow catalogue importing" on the source instance now.</span>');
-
-        container.innerHTML = `<div class="progress-log">${lines.join('\n')}</div>`;
-      }
 
       // ── Reset ────────────────────────────────────────────────────
       document.getElementById('resetBtn').addEventListener('click', () => {
@@ -523,6 +561,7 @@
         document.getElementById('sourceUrl').value = '';
         clearStatus('status1');
         clearStatus('status2');
+        document.getElementById('resultsContent').innerHTML = '';
         document.getElementById('step3').style.display = 'none';
         document.getElementById('step1').style.display = '';
         document.getElementById('importBtn').disabled = false;
