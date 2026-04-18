@@ -81,6 +81,7 @@ const dom = {
 
 let eventsBound = false;
 let artworkEventsBound = false;
+let colorThiefImg = null;
 const paletteCache = new Map();
 const artworkPreloadCache = new Map();
 const audioPreloadCache = new Map();
@@ -829,13 +830,12 @@ function getProxiedArtwork(url) {
 }
 
 function preloadArtwork(url) {
-  const target = getProxiedArtwork(url) || url;
+  const target = url;
   if (!target || artworkPreloadCache.has(target)) return artworkPreloadCache.get(target);
 
   const img = new Image();
   img.loading = 'eager';
   img.decoding = 'async';
-  img.crossOrigin = 'anonymous';
 
   const loadPromise = new Promise(resolve => {
     const finalize = () => resolve(target);
@@ -1389,7 +1389,7 @@ function findAlbum(identifier) {
 
 function applyPaletteStyles(track, dominantColor, artworkSrc) {
   if (isDarkMode()) {
-    const layers = artworkSrc ? buildArtworkLayers(getProxiedArtwork(artworkSrc), artworkSrc) : 'none';
+    const layers = artworkSrc ? buildArtworkLayers(artworkSrc, null) : 'none';
     setBaseBackgroundColor(track?.bgcolor);
     document.documentElement.style.setProperty('--overlay-tone', DARK_OVERLAY_TONE);
     updateThemeBackground(layers);
@@ -1404,7 +1404,7 @@ function applyPaletteStyles(track, dominantColor, artworkSrc) {
   const overlayTone = `rgba(${dominantColor[0]}, ${dominantColor[1]}, ${dominantColor[2]}, 0.92)`;
   document.documentElement.style.setProperty('--overlay-tone', overlayTone);
   if (artworkSrc) {
-    const layers = buildArtworkLayers(getProxiedArtwork(artworkSrc), artworkSrc);
+    const layers = buildArtworkLayers(artworkSrc, null);
     updateThemeBackground(layers);
   }
 }
@@ -1424,8 +1424,8 @@ function applyColorPalette(track, artworkSrc) {
       return;
     }
 
-    if (!colorThief || !dom.artwork?.complete) return;
-    let dominantColor = colorThief.getColor(dom.artwork);
+    if (!colorThief || !colorThiefImg?.complete) return;
+    let dominantColor = colorThief.getColor(colorThiefImg);
     let hsl = rgbToHsl(dominantColor[0], dominantColor[1], dominantColor[2]);
     const lightnessThreshold = 0.3;
     if (hsl[2] < lightnessThreshold) {
@@ -1906,23 +1906,36 @@ function updatePlayerMeta(track) {
     dom.verseText.parentElement.classList.toggle('hidden', !hasVerseContent);
   }
   const artwork = resolveArtwork(track);
-  const safeArtwork = getProxiedArtwork(artwork) || artwork || DEFAULT_ART_PLACEHOLDER;
-  const layers = buildArtworkLayers(safeArtwork, artwork);
+  const directArtwork = artwork || DEFAULT_ART_PLACEHOLDER;
+  const layers = buildArtworkLayers(directArtwork, null);
   const playerStage = document.querySelector('.player-stage');
-  currentArtworkSrc = safeArtwork || DEFAULT_ART_PLACEHOLDER;
+  currentArtworkSrc = directArtwork;
   currentBackgroundLayers = artwork ? layers : 'none';
 
+  // Display images load directly from source — no proxy overhead, no crossOrigin needed
   if (dom.artwork) {
-    dom.artwork.crossOrigin = 'anonymous';
+    dom.artwork.removeAttribute('crossorigin');
     dom.artwork.classList.add('artwork-loading');
-    dom.artwork.src = safeArtwork || DEFAULT_ART_PLACEHOLDER;
+    dom.artwork.src = directArtwork;
   }
   if (dom.overlayArt) {
-    dom.overlayArt.crossOrigin = 'anonymous';
+    dom.overlayArt.removeAttribute('crossorigin');
     dom.overlayArt.classList.add('artwork-loading');
-    dom.overlayArt.src = safeArtwork || DEFAULT_ART_PLACEHOLDER;
+    dom.overlayArt.src = directArtwork;
     dom.overlayArt.addEventListener('load', () => dom.overlayArt.classList.remove('artwork-loading'), { once: true });
     dom.overlayArt.addEventListener('error', () => dom.overlayArt.classList.remove('artwork-loading'), { once: true });
+  }
+
+  // Hidden image with CORS proxy — used only for ColorThief canvas pixel reads
+  if (colorThief && artwork) {
+    if (!colorThiefImg) {
+      colorThiefImg = new Image();
+      colorThiefImg.crossOrigin = 'anonymous';
+      colorThiefImg.addEventListener('load', () => {
+        if (state.currentTrack) applyColorPalette(state.currentTrack, currentArtworkSrc);
+      });
+    }
+    colorThiefImg.src = getProxiedArtwork(artwork) || artwork;
   }
 
   if (dom.npArt) dom.npArt.style.backgroundImage = layers || '';
