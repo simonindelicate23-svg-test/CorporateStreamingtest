@@ -145,6 +145,7 @@ input, textarea, select {
   color: var(--text);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+input[type="color"] { padding: 3px; height: 40px; cursor: pointer; }
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
