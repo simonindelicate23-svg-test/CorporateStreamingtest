@@ -410,6 +410,13 @@
                     <option value="false">Disabled</option>
                   </select>
                 </div>
+                <div>
+                  <label for="borderRadiusZero">Border radius</label>
+                  <select id="borderRadiusZero">
+                    <option value="false">Rounded (default)</option>
+                    <option value="true">Sharp edges (0)</option>
+                  </select>
+                </div>
               </div>
 
               <!-- Live preview -->
@@ -894,7 +901,7 @@ Encourage the user to test the site and to let you know if there are errors that
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming','borderRadiusZero',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro',
         'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
@@ -1090,6 +1097,8 @@ Encourage the user to test the site and to let you know if there are errors that
           if (!input) return;
           if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') {
             input.value = settings[key] === false ? 'false' : 'true';
+          } else if (key === 'borderRadiusZero') {
+            input.value = settings[key] === true ? 'true' : 'false';
           } else if (key === 'paymentsEnabled') {
             input.value = settings[key] === true ? 'true' : 'false';
           } else {
@@ -1167,6 +1176,7 @@ Encourage the user to test the site and to let you know if there are errors that
         fields.reduce((acc, key) => {
           const raw = document.getElementById(key).value;
           if (key === 'featuredReleaseEnabled' || key === 'dynamicColorTheming' || key === 'pwaInstallPrompt') acc[key] = raw !== 'false';
+          else if (key === 'borderRadiusZero') acc[key] = raw === 'true';
           else if (key === 'paymentsEnabled') acc[key] = raw === 'true';
           else acc[key] = typeof raw === 'string' ? raw.trim() : raw;
           return acc;

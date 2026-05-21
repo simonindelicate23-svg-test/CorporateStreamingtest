@@ -424,6 +424,7 @@ function applySettingsData(settings) {
   if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
   if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
   if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+  document.body.classList.toggle('sharp-edges', settings.borderRadiusZero === true);
   if (settings.releaseOrder) {
     SITE_RELEASE_ORDER = settings.releaseOrder;
     // Only update RELEASE_ORDER if the user has no explicit stored preference.

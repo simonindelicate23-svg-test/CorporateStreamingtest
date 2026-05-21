@@ -77,6 +77,7 @@ const defaults = {
   themeBorder: '#2a2235',
   themeHeroBackground: '#7b5a49',
   dynamicColorTheming: true,
+  borderRadiusZero: false,
   releaseOrder: 'alphabetical',
   pwaName: '',
   pwaShortName: '',
