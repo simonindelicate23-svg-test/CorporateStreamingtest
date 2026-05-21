@@ -2311,3 +2311,5 @@ footer {
   font-size: 0.9rem;
   color: var(--text-secondary, #666);
 }
+
+body.sharp-edges * { border-radius: 0 !important; }
