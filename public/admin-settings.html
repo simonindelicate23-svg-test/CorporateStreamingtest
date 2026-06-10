@@ -118,6 +118,8 @@
 
         --prev-font-body: inherit;
         --prev-font-heading: inherit;
+        --prev-bg-image: none;
+        --prev-bg-size: auto;
         border-radius: 16px;
         overflow: hidden;
         border: 2px solid var(--prev-border);
@@ -156,7 +158,10 @@
       }
       /* Page area: body bg visible around the library panel */
       .cprev-page {
-        background: var(--prev-bg);
+        background-color: var(--prev-bg);
+        background-image: var(--prev-bg-image, none);
+        background-size: var(--prev-bg-size, auto);
+        background-repeat: repeat;
         padding: 8px;
         flex: 1;
       }
@@ -475,6 +480,18 @@
                     <option value="true">Sharp edges (0)</option>
                   </select>
                 </div>
+                <div>
+                  <label for="themeTexture">Background texture</label>
+                  <select id="themeTexture">
+                    <option value="none">None</option>
+                    <option value="grain">Grain</option>
+                    <option value="scanlines">Scanlines</option>
+                    <option value="grid">Grid</option>
+                    <option value="dots">Dots</option>
+                    <option value="linen">Linen</option>
+                    <option value="diagonal">Diagonal</option>
+                  </select>
+                </div>
               </div>
 
               <!-- Live preview -->
@@ -777,6 +794,15 @@
             </div>
           </div>
 
+          <!-- ── Custom CSS ──────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Custom CSS</p>
+            <p class="meta" style="margin-bottom:12px;">Injected as a <code>&lt;style&gt;</code> block directly into the player — no scoping is applied. Use CSS variables like <code>--accent</code>, <code>--paper</code>, <code>--font-heading</code> to extend the current skin rather than hardcoding values.</p>
+            <div>
+              <textarea id="customCss" style="font-family:monospace;font-size:0.81rem;min-height:160px;" placeholder="/* Example: tighten the nav brand lettering */&#10;.brand-word { letter-spacing: 0.08em; }&#10;&#10;/* Example: custom texture using the accent colour */&#10;body { background-image: radial-gradient(var(--accent) 1px, transparent 1px); background-size: 20px 20px; }"></textarea>
+            </div>
+          </div>
+
           <div class="actions" style="margin-top:28px; padding-top:24px; border-top:1px solid rgba(0,0,0,0.07);">
             <button type="submit">Save settings</button>
             <p style="margin:8px 0 0; font-size:0.8rem; color:#888;">Due to site caching, changes may take a few minutes to appear.</p>
@@ -960,12 +986,13 @@ Encourage the user to test the site and to let you know if there are errors that
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming','borderRadiusZero',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming','borderRadiusZero','themeTexture',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro',
         'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
         'copyrightNotice','footerSummary','footerContent',
-        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice'
+        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice',
+        'customCss'
       ];
 
       const fontPairs = window.SiteSettings?.FONT_PAIRS || {};
@@ -998,6 +1025,10 @@ Encourage the user to test the site and to let you know if there are errors that
       });
 
       document.getElementById('borderRadiusZero')?.addEventListener('change', updateColourPreview);
+      document.getElementById('themeTexture')?.addEventListener('change', () => {
+        if (_settingsLoaded) { paletteSelect.value = 'custom'; updateSkinPickerSelection('custom'); }
+        updateColourPreview();
+      });
 
       function showStatus(message, isError = false) {
         status.textContent = message;
@@ -1069,7 +1100,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         vinyl: {
           label: 'Vinyl', desc: 'Vintage record store',
-          fontPair: 'playfair-source-sans',
+          fontPair: 'playfair-source-sans', texture: 'grain',
           themeBackground: '#0d0a06', themePanelSurface: '#1c1510',
           themeTopbarSurface: '#140f08', themeTopbarText: '#f0e0c8',
           themeControlSurface: '#2a1f12',
@@ -1080,7 +1111,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         forest: {
           label: 'Forest', desc: 'Deep botanical green',
-          fontPair: 'raleway-source-sans',
+          fontPair: 'raleway-source-sans', texture: 'grain',
           themeBackground: '#060d06', themePanelSurface: '#0d190c',
           themeTopbarSurface: '#0a1409', themeTopbarText: '#d8f0d2',
           themeControlSurface: '#152414',
@@ -1102,7 +1133,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         blueprint: {
           label: 'Blueprint', desc: 'Deep navy technical',
-          fontPair: 'space-mono-dm-sans',
+          fontPair: 'space-mono-dm-sans', texture: 'grid',
           themeBackground: '#040d1c', themePanelSurface: '#081428',
           themeTopbarSurface: '#060f20', themeTopbarText: '#c8d8f0',
           themeControlSurface: '#0e1e38',
@@ -1114,7 +1145,7 @@ Encourage the user to test the site and to let you know if there are errors that
         // ── Light skins ───────────────────────────────────────────
         chalk: {
           label: 'Chalk', desc: 'Clean light paper',
-          fontPair: 'inter-merriweather',
+          fontPair: 'inter-merriweather', texture: 'grain',
           themeBackground: '#f4f1ea', themePanelSurface: '#fdfcf9',
           themeTopbarSurface: '#fdfcf9', themeTopbarText: '#1a1814',
           themeControlSurface: '#eae6dc',
@@ -1136,7 +1167,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         lofi: {
           label: 'Lo-fi', desc: 'Muted sage & cream',
-          fontPair: 'crimson-karla',
+          fontPair: 'crimson-karla', texture: 'grain',
           themeBackground: '#f5f2e8', themePanelSurface: '#faf8f0',
           themeTopbarSurface: '#faf8f0', themeTopbarText: '#2c2018',
           themeControlSurface: '#ebe6d8',
@@ -1158,7 +1189,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         wabi: {
           label: 'Wabi', desc: 'Warm paper & terracotta',
-          fontPair: 'cormorant-nunito',
+          fontPair: 'cormorant-nunito', texture: 'linen',
           themeBackground: '#faf7f0', themePanelSurface: '#fdf9f0',
           themeTopbarSurface: '#fdf9f0', themeTopbarText: '#2a1e14',
           themeControlSurface: '#f0e8d8',
@@ -1204,7 +1235,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         geocities: {
           label: 'GeoCities', desc: '1990s internet nostalgia',
-          fontPair: 'open-sans-oswald',
+          fontPair: 'open-sans-oswald', texture: 'dots',
           themeBackground: '#c0c0c0', themePanelSurface: '#d4d0c8',
           themeTopbarSurface: '#000080', themeTopbarText: '#ffffff',
           themeControlSurface: '#c0c0c0',
@@ -1216,7 +1247,7 @@ Encourage the user to test the site and to let you know if there are errors that
         // ── Character skins ───────────────────────────────────────
         backrooms: {
           label: 'Backrooms', desc: 'Liminal fluorescent dread',
-          fontPair: 'vt323-inter',
+          fontPair: 'vt323-inter', texture: 'scanlines',
           themeBackground: '#d4d060', themePanelSurface: '#caca4e',
           themeTopbarSurface: '#1c1a00', themeTopbarText: '#e8ea7a',
           themeControlSurface: '#aaaa30',
@@ -1260,7 +1291,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         outrun: {
           label: 'Outrun', desc: '80s retro-futurism',
-          fontPair: 'orbitron-raleway',
+          fontPair: 'orbitron-raleway', texture: 'scanlines',
           themeBackground: '#0d0520', themePanelSurface: '#16082e',
           themeTopbarSurface: '#0a0418', themeTopbarText: '#f0e8ff',
           themeControlSurface: '#1e0840',
@@ -1271,7 +1302,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         noir: {
           label: 'Noir', desc: 'Rain-soaked city streets',
-          fontPair: 'eb-garamond-inter',
+          fontPair: 'eb-garamond-inter', texture: 'grain',
           themeBackground: '#141210', themePanelSurface: '#1e1c18',
           themeTopbarSurface: '#181614', themeTopbarText: '#e0d8c0',
           themeControlSurface: '#282420',
@@ -1282,7 +1313,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         mucha: {
           label: 'Mucha', desc: 'Art Nouveau lithograph',
-          fontPair: 'cormorant-nunito',
+          fontPair: 'cormorant-nunito', texture: 'linen',
           themeBackground: '#e8e0c8', themePanelSurface: '#f0e8d0',
           themeTopbarSurface: '#3a2e1a', themeTopbarText: '#e8e0c8',
           themeControlSurface: '#d8cca8',
@@ -1293,7 +1324,7 @@ Encourage the user to test the site and to let you know if there are errors that
         },
         meridian: {
           label: 'Meridian', desc: 'Antique cartographer\'s chart',
-          fontPair: 'im-fell-crimson',
+          fontPair: 'im-fell-crimson', texture: 'linen',
           themeBackground: '#e8d8a0', themePanelSurface: '#f0e4b0',
           themeTopbarSurface: '#1a3040', themeTopbarText: '#e8d8a0',
           themeControlSurface: '#d8c888',
@@ -1324,13 +1355,18 @@ Encourage the user to test the site and to let you know if there are errors that
         // Sharp edges
         const isSharp = document.getElementById('borderRadiusZero')?.value === 'true';
         preview.classList.toggle('colour-preview--sharp', isSharp);
+        // Texture
+        const txKey = document.getElementById('themeTexture')?.value || 'none';
+        const tx = (window.SiteSettings?.TEXTURES || {})[txKey] || { bgImage: 'none', bgSize: 'auto' };
+        preview.style.setProperty('--prev-bg-image', tx.bgImage);
+        preview.style.setProperty('--prev-bg-size', tx.bgSize);
       }
 
       function applyPreset(key) {
         const preset = THEME_PRESETS[key];
         if (!preset) return;
         Object.entries(preset).forEach(([fieldId, val]) => {
-          if (['label', 'desc', 'fontPair'].includes(fieldId)) return;
+          if (['label', 'desc', 'fontPair', 'texture'].includes(fieldId)) return;
           const el = document.getElementById(fieldId);
           if (el) el.value = val;
         });
@@ -1338,6 +1374,8 @@ Encourage the user to test the site and to let you know if there are errors that
           fontPairSelect.value = preset.fontPair;
           renderFontPairPreview(preset.fontPair);
         }
+        const textureEl = document.getElementById('themeTexture');
+        if (textureEl) textureEl.value = preset.texture || 'none';
         updateColourPreview();
       }
 

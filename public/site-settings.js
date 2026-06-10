@@ -146,6 +146,16 @@
 
   const DEFAULT_FONT_PAIR = 'inter-plus-jakarta-sans';
 
+  const TEXTURES = {
+    none:      { label: 'None',      bgImage: 'none', bgSize: 'auto' },
+    grain:     { label: 'Grain',     bgImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E\")", bgSize: '300px 300px' },
+    scanlines: { label: 'Scanlines', bgImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(128,128,128,0.07) 3px, rgba(128,128,128,0.07) 4px)', bgSize: 'auto' },
+    grid:      { label: 'Grid',      bgImage: 'linear-gradient(rgba(128,128,128,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(128,128,128,0.07) 1px, transparent 1px)', bgSize: '24px 24px' },
+    dots:      { label: 'Dots',      bgImage: 'radial-gradient(circle, rgba(128,128,128,0.18) 1px, transparent 1px)', bgSize: '16px 16px' },
+    linen:     { label: 'Linen',     bgImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(128,128,128,0.05) 3px, rgba(128,128,128,0.05) 4px), repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(128,128,128,0.05) 3px, rgba(128,128,128,0.05) 4px)', bgSize: 'auto' },
+    diagonal:  { label: 'Diagonal',  bgImage: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(128,128,128,0.06) 6px, rgba(128,128,128,0.06) 7px)', bgSize: 'auto' },
+  };
+
   async function loadSiteSettings() {
     try {
       const response = await fetch('/.netlify/functions/siteSettings', { cache: 'no-cache' });
@@ -158,6 +168,20 @@
 
   function text(value, fallback = '') {
     return typeof value === 'string' && value.trim() ? value : fallback;
+  }
+
+  function applyTexture(key) {
+    const tx = TEXTURES[key] || TEXTURES.none;
+    document.documentElement.style.setProperty('--bg-texture', tx.bgImage);
+    document.documentElement.style.setProperty('--bg-texture-size', tx.bgSize);
+  }
+
+  function applyCustomCss(css) {
+    const id = 'tmc-custom-css';
+    let el = document.getElementById(id);
+    if (!css) { if (el) el.textContent = ''; return; }
+    if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
+    el.textContent = css.replace(/<\/style\b/gi, '');
   }
 
   function applyFontPair(fontPair) {
@@ -176,5 +200,5 @@
     }
   }
 
-  window.SiteSettings = { loadSiteSettings, text, applyFontPair, FONT_PAIRS, DEFAULT_FONT_PAIR };
+  window.SiteSettings = { loadSiteSettings, text, applyFontPair, applyTexture, applyCustomCss, FONT_PAIRS, DEFAULT_FONT_PAIR, TEXTURES };
 })();

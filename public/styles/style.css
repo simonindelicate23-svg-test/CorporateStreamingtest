@@ -2,6 +2,8 @@
 
 :root {
   --page-bg: none;
+  --bg-texture: none;
+  --bg-texture-size: auto;
   --ink: #111118;
   --paper: #f7f5f0;
   --accent: #e44b39;
@@ -40,7 +42,10 @@ body {
   margin: 0;
   transition: background-color 0.8s ease;
   color: var(--ink);
-  background: var(--paper);
+  background-color: var(--paper);
+  background-image: var(--bg-texture, none);
+  background-size: var(--bg-texture-size, auto);
+  background-repeat: repeat;
   line-height: 1.6;
   padding-bottom: 86px;
   min-height: 100vh;
