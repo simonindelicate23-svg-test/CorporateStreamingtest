@@ -52,7 +52,24 @@
       heading: "'Raleway', system-ui, sans-serif"
     },
     // ── Novelty / character ─────────────────────────────────────
-    'vt323-inter': {
+    'exo2-inter': {
+      label: 'Deep space — Exo 2 + Inter',
+      body: "'Inter', system-ui, sans-serif",
+      heading: "'Exo 2', system-ui, sans-serif",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&display=swap'
+    },
+    'orbitron-raleway': {
+      label: 'Retro-future — Orbitron + Raleway',
+      body: "'Raleway', system-ui, sans-serif",
+      heading: "'Orbitron', system-ui, sans-serif",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap'
+    },
+    'eb-garamond-inter': {
+      label: 'Noir letterpress — EB Garamond + Inter',
+      body: "'Inter', system-ui, sans-serif",
+      heading: "'EB Garamond', Georgia, serif",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap'
+    },
       label: 'Analog horror — VT323 + Inter',
       body: "'Inter', system-ui, sans-serif",
       heading: "'VT323', 'Courier New', monospace",
