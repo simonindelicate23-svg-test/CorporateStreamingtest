@@ -116,15 +116,21 @@
         --prev-border: #2a2235;
         --prev-hero: #7b5a49;
 
+        --prev-font-body: inherit;
+        --prev-font-heading: inherit;
         border-radius: 16px;
         overflow: hidden;
         border: 2px solid var(--prev-border);
         box-shadow: 0 8px 32px rgba(0,0,0,0.22);
         font-size: 11px;
+        font-family: var(--prev-font-body);
         user-select: none;
         display: flex;
         flex-direction: column;
       }
+      /* Sharp-edges mode — mirrors the borderRadiusZero toggle */
+      .colour-preview--sharp,
+      .colour-preview--sharp * { border-radius: 0 !important; }
       .cprev-nav {
         background: var(--prev-nav);
         padding: 8px 12px;
@@ -137,6 +143,7 @@
       .cprev-nav-brand {
         font-size: 0.85em;
         font-weight: 700;
+        font-family: var(--prev-font-heading);
         color: var(--prev-nav-text);
         letter-spacing: -0.01em;
       }
@@ -238,11 +245,13 @@
       /* ── Skin picker ─────────────────────────────────────── */
       .skin-picker {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
         gap: 8px;
         margin-bottom: 6px;
       }
       .skin-card {
+        width: 100%;
+        box-sizing: border-box;
         cursor: pointer;
         border-radius: 10px;
         border: 2px solid transparent;
@@ -260,15 +269,15 @@
         box-shadow: 0 0 0 1px var(--accent, #6366f1);
       }
       .skin-card-preview {
-        height: 52px;
+        height: 44px;
         display: flex;
         flex-direction: column;
       }
       .skin-card-bg { flex: 1; }
-      .skin-card-panel { height: 16px; }
+      .skin-card-panel { height: 14px; }
       .skin-card-accent { height: 5px; }
       .skin-card-preview--custom {
-        height: 52px;
+        height: 44px;
         background: repeating-linear-gradient(
           45deg,
           #e8dfd4 0px, #e8dfd4 6px,
@@ -278,26 +287,17 @@
         );
       }
       .skin-card-info {
-        padding: 5px 7px 6px;
+        padding: 4px 6px 5px;
         background: var(--surface, #f5f5f0);
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
       }
       .skin-card-name {
-        font-size: 0.72rem;
+        font-size: 0.68rem;
         font-weight: 700;
         color: var(--text-primary, #1a1a1a);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-      }
-      .skin-card-desc {
-        font-size: 0.64rem;
-        color: var(--text-secondary, #888);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        display: block;
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -990,11 +990,14 @@ Encourage the user to test the site and to let you know if there are errors that
       });
       fontPairSelect.addEventListener('change', (event) => {
         renderFontPairPreview(event.target.value);
+        updateColourPreview();
         if (_settingsLoaded) {
           paletteSelect.value = 'custom';
           updateSkinPickerSelection('custom');
         }
       });
+
+      document.getElementById('borderRadiusZero')?.addEventListener('change', updateColourPreview);
 
       function showStatus(message, isError = false) {
         status.textContent = message;
@@ -1228,10 +1231,21 @@ Encourage the user to test the site and to let you know if there are errors that
       function updateColourPreview() {
         const preview = document.getElementById('colourPreview');
         if (!preview) return;
+        // Colours
         Object.entries(COLOUR_VAR_MAP).forEach(([fieldId, cssVar]) => {
           const val = document.getElementById(fieldId)?.value;
           if (val) preview.style.setProperty(cssVar, val);
         });
+        // Fonts
+        const pairKey = fontPairSelect?.value;
+        const pair = fontPairs[pairKey] || fontPairs[fontPairDefault];
+        if (pair) {
+          preview.style.setProperty('--prev-font-body', pair.body);
+          preview.style.setProperty('--prev-font-heading', pair.heading);
+        }
+        // Sharp edges
+        const isSharp = document.getElementById('borderRadiusZero')?.value === 'true';
+        preview.classList.toggle('colour-preview--sharp', isSharp);
       }
 
       function applyPreset(key) {
@@ -1288,7 +1302,6 @@ Encourage the user to test the site and to let you know if there are errors that
             </div>
             <div class="skin-card-info">
               <span class="skin-card-name">${preset.label}</span>
-              <span class="skin-card-desc">${preset.desc}</span>
             </div>`;
           btn.addEventListener('click', () => {
             updateSkinPickerSelection(key);
@@ -1308,7 +1321,6 @@ Encourage the user to test the site and to let you know if there are errors that
           <div class="skin-card-preview skin-card-preview--custom"></div>
           <div class="skin-card-info">
             <span class="skin-card-name">Custom</span>
-            <span class="skin-card-desc">Your colours</span>
           </div>`;
         customBtn.addEventListener('click', () => {
           updateSkinPickerSelection('custom');
