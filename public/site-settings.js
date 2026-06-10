@@ -51,6 +51,31 @@
       body: "'Source Sans 3', system-ui, sans-serif",
       heading: "'Raleway', system-ui, sans-serif"
     },
+    // ── Novelty / character ─────────────────────────────────────
+    'vt323-inter': {
+      label: 'Analog horror — VT323 + Inter',
+      body: "'Inter', system-ui, sans-serif",
+      heading: "'VT323', 'Courier New', monospace",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=VT323&display=swap'
+    },
+    'metal-mania-cinzel': {
+      label: 'Heavy metal — Metal Mania + Cinzel',
+      body: "'Cinzel', Georgia, serif",
+      heading: "'Metal Mania', Georgia, serif",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=Metal+Mania&family=Cinzel:wght@400;600;700&display=swap'
+    },
+    'pacifico-lato': {
+      label: 'Tropical exotica — Pacifico + Lato',
+      body: "'Lato', system-ui, sans-serif",
+      heading: "'Pacifico', cursive",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap'
+    },
+    'im-fell-crimson': {
+      label: 'Old cartography — IM Fell English + Crimson Pro',
+      body: "'Crimson Pro', Georgia, serif",
+      heading: "'IM Fell English', Georgia, serif",
+      googleFontsUrl: 'https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&display=swap'
+    },
     // ── Serif / mixed pairs ─────────────────────────────────────
     'inter-merriweather': {
       label: 'Readable contrast — Inter + Merriweather',
