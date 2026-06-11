@@ -186,6 +186,10 @@ h3 {
   text-overflow: ellipsis;
 }
 
+.brand-word-banner {
+  display: none;
+}
+
 .nav-brand:hover {
   color: var(--nav-text);
 }
@@ -1757,22 +1761,26 @@ footer {
 
 @media (max-width: 560px) {
   .topbar {
-    align-items: flex-end;
-    padding: 6px 14px 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px 14px 10px;
+    gap: 0;
   }
 
-  .nav-brand {
-    flex-wrap: wrap;
-    gap: 6px 12px;
-    width: auto;
+  .brand-word-banner {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    letter-spacing: 0.04em;
+    color: var(--nav-text);
+    padding-bottom: 6px;
   }
 
   .brand-word {
-    order: -1;
-    width: 100%;
-    font-size: 0.75rem;
-    text-align: center;
-    max-width: 100%;
+    display: none;
   }
 
   .brand-mark {
