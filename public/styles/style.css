@@ -1757,17 +1757,23 @@ footer {
 
 @media (max-width: 560px) {
   .topbar {
-    flex-wrap: wrap;
-    row-gap: 6px;
-    padding: 10px 14px;
+    align-items: flex-end;
+    padding: 6px 14px 10px;
   }
 
   .nav-brand {
-    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    width: auto;
   }
 
   .brand-word {
-    font-size: 1.5rem;
+    order: -1;
+    width: 100%;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.65;
     max-width: 100%;
   }
 }
