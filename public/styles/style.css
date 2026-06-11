@@ -186,10 +186,6 @@ h3 {
   text-overflow: ellipsis;
 }
 
-.brand-word-banner {
-  display: none;
-}
-
 .nav-brand:hover {
   color: var(--nav-text);
 }
@@ -1759,37 +1755,6 @@ footer {
   pointer-events: none;
 }
 
-@media (max-width: 560px) {
-  .topbar {
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 8px 14px 10px;
-    gap: 0;
-  }
-
-  .brand-word-banner {
-    display: block;
-    width: 100%;
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: 700;
-    font-family: var(--font-heading);
-    letter-spacing: 0.04em;
-    color: var(--nav-text);
-    padding-bottom: 6px;
-  }
-
-  .brand-word {
-    display: none;
-  }
-
-  .brand-mark {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-  }
-}
-
 @media (max-width: 720px) {
   :root {
     --nav-height: 64px;
@@ -1815,8 +1780,13 @@ footer {
   }
 
   .brand-word {
-    max-width: 50vw;
-    font-size: 1.8rem;
+    display: none;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
   }
 
   .player-layout {

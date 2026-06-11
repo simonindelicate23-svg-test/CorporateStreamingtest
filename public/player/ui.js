@@ -13,7 +13,6 @@ const dom = {
   brandHome: document.getElementById('brandHome'),
   brandMark: document.getElementById('brandMark'),
   brandWord: document.getElementById('brandWord'),
-  brandWordBanner: document.getElementById('brandWordBanner'),
   refreshButton: document.getElementById('refreshButton'),
   trackListToggle: document.getElementById('trackListToggle'),
   trackListContainer: document.querySelector('.track-list-container'),
@@ -480,9 +479,6 @@ async function applySiteSettings() {
 function applyBranding() {
   if (dom.brandWord) {
     dom.brandWord.textContent = BRAND_NAME || SITE_TITLE;
-  }
-  if (dom.brandWordBanner) {
-    dom.brandWordBanner.textContent = BRAND_NAME || SITE_TITLE;
   }
   if (dom.brandHome) {
     const label = BRAND_NAME || SITE_TITLE || 'Home';
