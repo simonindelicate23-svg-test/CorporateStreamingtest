@@ -436,6 +436,8 @@ function applySettingsData(settings) {
     }
   }
   if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
+  if (window.SiteSettings?.applyTexture) window.SiteSettings.applyTexture(settings.themeTexture || 'none');
+  if (window.SiteSettings?.applyCustomCss) window.SiteSettings.applyCustomCss(settings.customCss || '');
   WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
   WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
   ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;

@@ -116,15 +116,23 @@
         --prev-border: #2a2235;
         --prev-hero: #7b5a49;
 
+        --prev-font-body: inherit;
+        --prev-font-heading: inherit;
+        --prev-bg-image: none;
+        --prev-bg-size: auto;
         border-radius: 16px;
         overflow: hidden;
         border: 2px solid var(--prev-border);
         box-shadow: 0 8px 32px rgba(0,0,0,0.22);
         font-size: 11px;
+        font-family: var(--prev-font-body);
         user-select: none;
         display: flex;
         flex-direction: column;
       }
+      /* Sharp-edges mode — mirrors the borderRadiusZero toggle */
+      .colour-preview--sharp,
+      .colour-preview--sharp * { border-radius: 0 !important; }
       .cprev-nav {
         background: var(--prev-nav);
         padding: 8px 12px;
@@ -137,6 +145,7 @@
       .cprev-nav-brand {
         font-size: 0.85em;
         font-weight: 700;
+        font-family: var(--prev-font-heading);
         color: var(--prev-nav-text);
         letter-spacing: -0.01em;
       }
@@ -149,7 +158,10 @@
       }
       /* Page area: body bg visible around the library panel */
       .cprev-page {
-        background: var(--prev-bg);
+        background-color: var(--prev-bg);
+        background-image: var(--prev-bg-image, none);
+        background-size: var(--prev-bg-size, auto);
+        background-repeat: repeat;
         padding: 8px;
         flex: 1;
       }
@@ -234,10 +246,68 @@
         background: var(--prev-accent);
         border-color: var(--prev-accent);
       }
+
+      /* ── Skin picker ─────────────────────────────────────── */
+      .skin-picker {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .skin-card {
+        width: 100%;
+        box-sizing: border-box;
+        cursor: pointer;
+        border-radius: 10px;
+        border: 2px solid transparent;
+        overflow: hidden;
+        background: none;
+        padding: 0;
+        text-align: left;
+        transition: border-color 0.14s, box-shadow 0.14s, transform 0.12s;
+        outline: none;
+      }
+      .skin-card:hover { transform: translateY(-2px); border-color: rgba(128,128,128,0.25); }
+      .skin-card:focus-visible { border-color: var(--accent, #6366f1); }
+      .skin-card.active {
+        border-color: var(--accent, #6366f1);
+        box-shadow: 0 0 0 1px var(--accent, #6366f1);
+      }
+      .skin-card-preview {
+        height: 44px;
+        display: flex;
+        flex-direction: column;
+      }
+      .skin-card-bg { flex: 1; }
+      .skin-card-panel { height: 14px; }
+      .skin-card-accent { height: 5px; }
+      .skin-card-preview--custom {
+        height: 44px;
+        background: repeating-linear-gradient(
+          45deg,
+          #e8dfd4 0px, #e8dfd4 6px,
+          #d0d8e8 6px, #d0d8e8 12px,
+          #dfd0e4 12px, #dfd0e4 18px,
+          #d0e8d4 18px, #d0e8d4 24px
+        );
+      }
+      .skin-card-info {
+        padding: 4px 6px 5px;
+        background: var(--surface, #f5f5f0);
+      }
+      .skin-card-name {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--text-primary, #1a1a1a);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+      }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=Rubik:wght@400;500;700&family=Nunito:wght@400;600;700&family=Montserrat:wght@500;600;700&family=Lato:wght@400;700&family=Raleway:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&family=Karla:wght@400;700&family=Cabin:wght@500;600;700&family=Merriweather:wght@400;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=Rubik:wght@400;500;700&family=Nunito:wght@400;600;700&family=Montserrat:wght@500;600;700&family=Lato:wght@400;700&family=Raleway:wght@500;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&family=Karla:wght@400;700&family=Cabin:wght@500;600;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Roboto+Slab:wght@400;500;700&family=Cormorant+Garamond:wght@400;600;700&family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@500;600;700&family=Rajdhani:wght@400;600;700&family=VT323&family=Metal+Mania&family=Cinzel:wght@400;600;700&family=Pacifico&family=IM+Fell+English:ital@0;1&family=Exo+2:wght@400;600;700&family=Orbitron:wght@400;500;700&family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" />
   </head>
   <body>
     <div data-admin-header></div>
@@ -342,18 +412,11 @@
             <div class="colour-editor-layout">
               <div class="form-grid">
                 <div style="grid-column: 1 / -1;">
-                  <label for="palette">Theme preset</label>
-                  <select id="palette">
-                    <option value="midnight">Midnight — deep purple-indigo</option>
-                    <option value="studio">Studio — dark neutral charcoal</option>
-                    <option value="warm">Warm — dark amber &amp; coffee</option>
-                    <option value="chalk">Chalk — clean light paper</option>
-                    <option value="candy">Candy Pop — acid yellow &amp; electric orange</option>
-                    <option value="geocities">GeoCities — 1990s internet nostalgia</option>
-                    <option value="petal">Petal — soft floral pastel</option>
-                    <option value="spectrum">Spectrum — tasteful iridescent rainbow</option>
-                    <option value="custom">Custom — use my colour choices below</option>
-                  </select>
+                  <label>Skin</label>
+                  <p class="meta" style="margin-bottom:10px;">Each skin sets both a colour palette and a font pair in one click. Adjust individual colours or fonts below to go custom.</p>
+                  <div class="skin-picker" id="skinPicker"></div>
+                  <!-- hidden select keeps the palette field in the form submission -->
+                  <select id="palette" style="display:none;" aria-hidden="true"></select>
                 </div>
                 <div>
                   <label for="themeBackground">Page background</label>
@@ -415,6 +478,18 @@
                   <select id="borderRadiusZero">
                     <option value="false">Rounded (default)</option>
                     <option value="true">Sharp edges (0)</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="themeTexture">Background texture</label>
+                  <select id="themeTexture">
+                    <option value="none">None</option>
+                    <option value="grain">Grain</option>
+                    <option value="scanlines">Scanlines</option>
+                    <option value="grid">Grid</option>
+                    <option value="dots">Dots</option>
+                    <option value="linen">Linen</option>
+                    <option value="diagonal">Diagonal</option>
                   </select>
                 </div>
               </div>
@@ -719,6 +794,15 @@
             </div>
           </div>
 
+          <!-- ── Custom CSS ──────────────────────────────── -->
+          <div class="form-section">
+            <p class="form-section__title">Custom CSS</p>
+            <p class="meta" style="margin-bottom:12px;">Injected as a <code>&lt;style&gt;</code> block directly into the player — no scoping is applied. Use CSS variables like <code>--accent</code>, <code>--paper</code>, <code>--font-heading</code> to extend the current skin rather than hardcoding values.</p>
+            <div>
+              <textarea id="customCss" style="font-family:monospace;font-size:0.81rem;min-height:160px;" placeholder="/* Example: tighten the nav brand lettering */&#10;.brand-word { letter-spacing: 0.08em; }&#10;&#10;/* Example: custom texture using the accent colour */&#10;body { background-image: radial-gradient(var(--accent) 1px, transparent 1px); background-size: 20px 20px; }"></textarea>
+            </div>
+          </div>
+
           <div class="actions" style="margin-top:28px; padding-top:24px; border-top:1px solid rgba(0,0,0,0.07);">
             <button type="submit">Save settings</button>
             <p style="margin:8px 0 0; font-size:0.8rem; color:#888;">Due to site caching, changes may take a few minutes to appear.</p>
@@ -902,12 +986,13 @@ Encourage the user to test the site and to let you know if there are errors that
       const status = document.getElementById('status');
       const fields = [
         'siteTitle','brandName','metaDescription','shareDescription','ogImage','aboutLinkLabel','logoUrl','faviconUrl',
-        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming','borderRadiusZero',
+        'palette','themeBackground','themePanelSurface','themeTopbarSurface','themeTopbarText','themeControlSurface','themeCardSurface','themeCardContrast','themeText','themeMutedText','themeAccent','themeBorder','themeHeroBackground','dynamicColorTheming','borderRadiusZero','themeTexture',
         'fontPair','welcomeMessage','welcomeTitle','welcomeSubtitle','featuredReleaseEnabled','releaseOrder',
         'aboutPageTitle','aboutPageEyebrow','aboutPageContent','supportPageTitle','supportIntro',
         'pwaInstallPrompt','pwaName','pwaShortName','pwaDescription','pwaThemeColor','pwaBackgroundColor','pwaIcon192','pwaIcon512','pwaScreenshot1','pwaScreenshot2',
         'copyrightNotice','footerSummary','footerContent',
-        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice'
+        'paymentsEnabled','paypalPlanId','paypalSubscriptionLabel','paypalSubscriptionPrice',
+        'customCss'
       ];
 
       const fontPairs = window.SiteSettings?.FONT_PAIRS || {};
@@ -930,7 +1015,20 @@ Encourage the user to test the site and to let you know if there are errors that
         option.textContent = pair.label || value;
         fontPairSelect.appendChild(option);
       });
-      fontPairSelect.addEventListener('change', (event) => renderFontPairPreview(event.target.value));
+      fontPairSelect.addEventListener('change', (event) => {
+        renderFontPairPreview(event.target.value);
+        updateColourPreview();
+        if (_settingsLoaded) {
+          paletteSelect.value = 'custom';
+          updateSkinPickerSelection('custom');
+        }
+      });
+
+      document.getElementById('borderRadiusZero')?.addEventListener('change', updateColourPreview);
+      document.getElementById('themeTexture')?.addEventListener('change', () => {
+        if (_settingsLoaded) { paletteSelect.value = 'custom'; updateSkinPickerSelection('custom'); }
+        updateColourPreview();
+      });
 
       function showStatus(message, isError = false) {
         status.textContent = message;
@@ -977,7 +1075,10 @@ Encourage the user to test the site and to let you know if there are errors that
       };
 
       const THEME_PRESETS = {
+        // ── Dark skins ────────────────────────────────────────────
         midnight: {
+          label: 'Midnight', desc: 'Deep purple-indigo',
+          fontPair: 'inter-plus-jakarta-sans',
           themeBackground: '#0f0c14', themePanelSurface: '#120f19',
           themeTopbarSurface: '#120e18', themeTopbarText: '#f5f2fb',
           themeControlSurface: '#1e1824',
@@ -987,6 +1088,8 @@ Encourage the user to test the site and to let you know if there are errors that
           themeHeroBackground: '#2d1b55',
         },
         studio: {
+          label: 'Studio', desc: 'Dark neutral charcoal',
+          fontPair: 'dm-sans-outfit',
           themeBackground: '#111113', themePanelSurface: '#1c1c1e',
           themeTopbarSurface: '#161618', themeTopbarText: '#ececec',
           themeControlSurface: '#272729',
@@ -995,16 +1098,54 @@ Encourage the user to test the site and to let you know if there are errors that
           themeAccent: '#d4512f', themeBorder: '#303033',
           themeHeroBackground: '#1f2838',
         },
-        warm: {
-          themeBackground: '#16100a', themePanelSurface: '#1e1610',
-          themeTopbarSurface: '#1b1309', themeTopbarText: '#f5ede0',
-          themeControlSurface: '#2c1f12',
-          themeCardSurface: '#231a0e', themeCardContrast: '#302518',
-          themeText: '#f5ede0', themeMutedText: '#c4a882',
-          themeAccent: '#e8833a', themeBorder: '#3a2b1a',
-          themeHeroBackground: '#2e1c0e',
+        vinyl: {
+          label: 'Vinyl', desc: 'Vintage record store',
+          fontPair: 'playfair-source-sans', texture: 'grain',
+          themeBackground: '#0d0a06', themePanelSurface: '#1c1510',
+          themeTopbarSurface: '#140f08', themeTopbarText: '#f0e0c8',
+          themeControlSurface: '#2a1f12',
+          themeCardSurface: '#211a10', themeCardContrast: '#2e2418',
+          themeText: '#f0e0c8', themeMutedText: '#c89862',
+          themeAccent: '#e8952a', themeBorder: '#3d2e1a',
+          themeHeroBackground: '#3a1e08',
         },
+        forest: {
+          label: 'Forest', desc: 'Deep botanical green',
+          fontPair: 'raleway-source-sans', texture: 'grain',
+          themeBackground: '#060d06', themePanelSurface: '#0d190c',
+          themeTopbarSurface: '#0a1409', themeTopbarText: '#d8f0d2',
+          themeControlSurface: '#152414',
+          themeCardSurface: '#0f1c0e', themeCardContrast: '#172814',
+          themeText: '#d8f0d2', themeMutedText: '#7ab878',
+          themeAccent: '#4ecb5c', themeBorder: '#1e3a1c',
+          themeHeroBackground: '#162e14',
+        },
+        neon: {
+          label: 'Neon', desc: 'Dark cyberpunk city',
+          fontPair: 'rajdhani-inter',
+          themeBackground: '#080810', themePanelSurface: '#0e0c1c',
+          themeTopbarSurface: '#0b0918', themeTopbarText: '#e8f0ff',
+          themeControlSurface: '#161230',
+          themeCardSurface: '#0d0b1e', themeCardContrast: '#13102c',
+          themeText: '#e8f0ff', themeMutedText: '#7888c0',
+          themeAccent: '#00e5cc', themeBorder: '#1e1a40',
+          themeHeroBackground: '#0a0830',
+        },
+        blueprint: {
+          label: 'Blueprint', desc: 'Deep navy technical',
+          fontPair: 'space-mono-dm-sans', texture: 'grid',
+          themeBackground: '#040d1c', themePanelSurface: '#081428',
+          themeTopbarSurface: '#060f20', themeTopbarText: '#c8d8f0',
+          themeControlSurface: '#0e1e38',
+          themeCardSurface: '#091628', themeCardContrast: '#0d1e38',
+          themeText: '#c8d8f0', themeMutedText: '#6888b0',
+          themeAccent: '#2e8be8', themeBorder: '#162840',
+          themeHeroBackground: '#0a1e40',
+        },
+        // ── Light skins ───────────────────────────────────────────
         chalk: {
+          label: 'Chalk', desc: 'Clean light paper',
+          fontPair: 'inter-merriweather', texture: 'grain',
           themeBackground: '#f4f1ea', themePanelSurface: '#fdfcf9',
           themeTopbarSurface: '#fdfcf9', themeTopbarText: '#1a1814',
           themeControlSurface: '#eae6dc',
@@ -1013,9 +1154,77 @@ Encourage the user to test the site and to let you know if there are errors that
           themeAccent: '#c8432a', themeBorder: '#ddd9d0',
           themeHeroBackground: '#e8d8c0',
         },
+        petal: {
+          label: 'Petal', desc: 'Soft floral pastel',
+          fontPair: 'nunito-montserrat',
+          themeBackground: '#fdf6f9', themePanelSurface: '#fef9fb',
+          themeTopbarSurface: '#fef9fb', themeTopbarText: '#2a1420',
+          themeControlSurface: '#f5e6ef',
+          themeCardSurface: '#ffffff', themeCardContrast: '#fceef5',
+          themeText: '#2a1420', themeMutedText: '#8c5a70',
+          themeAccent: '#c0457a', themeBorder: '#ead5e3',
+          themeHeroBackground: '#f7d8e8',
+        },
+        lofi: {
+          label: 'Lo-fi', desc: 'Muted sage & cream',
+          fontPair: 'crimson-karla', texture: 'grain',
+          themeBackground: '#f5f2e8', themePanelSurface: '#faf8f0',
+          themeTopbarSurface: '#faf8f0', themeTopbarText: '#2c2018',
+          themeControlSurface: '#ebe6d8',
+          themeCardSurface: '#ffffff', themeCardContrast: '#f5f2e8',
+          themeText: '#2c2018', themeMutedText: '#7a7060',
+          themeAccent: '#6b8f6b', themeBorder: '#d8d0c0',
+          themeHeroBackground: '#d8e8d0',
+        },
+        cassette: {
+          label: 'Cassette', desc: 'Warm retro tan & orange',
+          fontPair: 'roboto-slab-lato',
+          themeBackground: '#f0e8d2', themePanelSurface: '#f8f0e0',
+          themeTopbarSurface: '#2a1a0a', themeTopbarText: '#f8e8c8',
+          themeControlSurface: '#e0d0b0',
+          themeCardSurface: '#faf4e4', themeCardContrast: '#f0e8d0',
+          themeText: '#2a1a0a', themeMutedText: '#7a5a30',
+          themeAccent: '#cc5500', themeBorder: '#c8b890',
+          themeHeroBackground: '#c84a00',
+        },
+        wabi: {
+          label: 'Wabi', desc: 'Warm paper & terracotta',
+          fontPair: 'cormorant-nunito', texture: 'linen',
+          themeBackground: '#faf7f0', themePanelSurface: '#fdf9f0',
+          themeTopbarSurface: '#fdf9f0', themeTopbarText: '#2a1e14',
+          themeControlSurface: '#f0e8d8',
+          themeCardSurface: '#ffffff', themeCardContrast: '#f8f4ec',
+          themeText: '#2a1e14', themeMutedText: '#8a6a50',
+          themeAccent: '#c4623a', themeBorder: '#ddd0b8',
+          themeHeroBackground: '#e8c8a8',
+        },
+        // ── Editorial ─────────────────────────────────────────────
+        brutalist: {
+          label: 'Brutalist', desc: 'Raw black, white & red',
+          fontPair: 'barlow-condensed-inter',
+          themeBackground: '#f8f6f2', themePanelSurface: '#ffffff',
+          themeTopbarSurface: '#111111', themeTopbarText: '#ffffff',
+          themeControlSurface: '#e8e4dc',
+          themeCardSurface: '#ffffff', themeCardContrast: '#f5f3ee',
+          themeText: '#0a0a0a', themeMutedText: '#555550',
+          themeAccent: '#e82200', themeBorder: '#cccccc',
+          themeHeroBackground: '#111111',
+        },
+        spectrum: {
+          label: 'Spectrum', desc: 'Tasteful iridescent',
+          fontPair: 'source-sans-3-rubik',
+          themeBackground: '#f8f7ff', themePanelSurface: '#f2fbf7',
+          themeTopbarSurface: '#fff7f2', themeTopbarText: '#1a1826',
+          themeControlSurface: '#f5f2ff',
+          themeCardSurface: '#ffffff', themeCardContrast: '#f0f8ff',
+          themeText: '#1a1826', themeMutedText: '#6b6882',
+          themeAccent: '#6a35d4', themeBorder: '#ddd8f0',
+          themeHeroBackground: '#ffe8f0',
+        },
+        // ── Novelty ───────────────────────────────────────────────
         candy: {
-          // Brasher: vivid acid-yellow background, electric orange accent
-          // Dark topbar needs white text — contrast fix
+          label: 'Candy', desc: 'Acid yellow & electric orange',
+          fontPair: 'work-sans-poppins',
           themeBackground: '#f5ff00', themePanelSurface: '#ffffaa',
           themeTopbarSurface: '#111111', themeTopbarText: '#ffffff',
           themeControlSurface: '#ffdd00',
@@ -1025,7 +1234,8 @@ Encourage the user to test the site and to let you know if there are errors that
           themeHeroBackground: '#ff9900',
         },
         geocities: {
-          // Navy topbar needs white text — contrast fix
+          label: 'GeoCities', desc: '1990s internet nostalgia',
+          fontPair: 'open-sans-oswald', texture: 'dots',
           themeBackground: '#c0c0c0', themePanelSurface: '#d4d0c8',
           themeTopbarSurface: '#000080', themeTopbarText: '#ffffff',
           themeControlSurface: '#c0c0c0',
@@ -1034,25 +1244,94 @@ Encourage the user to test the site and to let you know if there are errors that
           themeAccent: '#ff00ff', themeBorder: '#808080',
           themeHeroBackground: '#000080',
         },
-        petal: {
-          themeBackground: '#fdf6f9', themePanelSurface: '#fef9fb',
-          themeTopbarSurface: '#fef9fb', themeTopbarText: '#2a1420',
-          themeControlSurface: '#f5e6ef',
-          themeCardSurface: '#ffffff', themeCardContrast: '#fceef5',
-          themeText: '#2a1420', themeMutedText: '#8c5a70',
-          themeAccent: '#c0457a', themeBorder: '#ead5e3',
-          themeHeroBackground: '#f7d8e8',
+        // ── Character skins ───────────────────────────────────────
+        backrooms: {
+          label: 'Backrooms', desc: 'Liminal fluorescent dread',
+          fontPair: 'vt323-inter', texture: 'scanlines',
+          themeBackground: '#d4d060', themePanelSurface: '#caca4e',
+          themeTopbarSurface: '#1c1a00', themeTopbarText: '#e8ea7a',
+          themeControlSurface: '#aaaa30',
+          themeCardSurface: '#ccc84a', themeCardContrast: '#b8b836',
+          themeText: '#141200', themeMutedText: '#484800',
+          themeAccent: '#f8f8c0', themeBorder: '#8a8a18',
+          themeHeroBackground: '#181600',
         },
-        spectrum: {
-          // Tasteful rainbow: each surface carries a subtly different hue,
-          // giving a gentle iridescent feel without shouting.
-          themeBackground: '#f8f7ff', themePanelSurface: '#f2fbf7',
-          themeTopbarSurface: '#fff7f2', themeTopbarText: '#1a1826',
-          themeControlSurface: '#f5f2ff',
-          themeCardSurface: '#ffffff', themeCardContrast: '#f0f8ff',
-          themeText: '#1a1826', themeMutedText: '#6b6882',
-          themeAccent: '#6a35d4', themeBorder: '#ddd8f0',
-          themeHeroBackground: '#ffe8f0',
+        deathlord: {
+          label: 'Deathlord', desc: 'Black metal and blood',
+          fontPair: 'metal-mania-cinzel',
+          themeBackground: '#0a0604', themePanelSurface: '#130a06',
+          themeTopbarSurface: '#0e0604', themeTopbarText: '#e8c8a0',
+          themeControlSurface: '#1e0a08',
+          themeCardSurface: '#150806', themeCardContrast: '#1c0c08',
+          themeText: '#e8c8a0', themeMutedText: '#8a4838',
+          themeAccent: '#be0000', themeBorder: '#3a1410',
+          themeHeroBackground: '#200808',
+        },
+        tiki: {
+          label: 'Tiki', desc: 'Midnight exotica lounge',
+          fontPair: 'pacifico-lato',
+          themeBackground: '#0e1604', themePanelSurface: '#152008',
+          themeTopbarSurface: '#0a1003', themeTopbarText: '#f0c86a',
+          themeControlSurface: '#1e2c0c',
+          themeCardSurface: '#121e06', themeCardContrast: '#1a2a0a',
+          themeText: '#f0c86a', themeMutedText: '#c08830',
+          themeAccent: '#e85a28', themeBorder: '#2e4014',
+          themeHeroBackground: '#1e3010',
+        },
+        cosmica: {
+          label: 'Cosmica', desc: 'Deep space & nebula',
+          fontPair: 'exo2-inter',
+          themeBackground: '#060410', themePanelSurface: '#0e0820',
+          themeTopbarSurface: '#08061a', themeTopbarText: '#e8e0ff',
+          themeControlSurface: '#160e30',
+          themeCardSurface: '#0c0a1e', themeCardContrast: '#120e28',
+          themeText: '#e8e0ff', themeMutedText: '#7060c0',
+          themeAccent: '#8855ff', themeBorder: '#281a50',
+          themeHeroBackground: '#1a0830',
+        },
+        outrun: {
+          label: 'Outrun', desc: '80s retro-futurism',
+          fontPair: 'orbitron-raleway', texture: 'scanlines',
+          themeBackground: '#0d0520', themePanelSurface: '#16082e',
+          themeTopbarSurface: '#0a0418', themeTopbarText: '#f0e8ff',
+          themeControlSurface: '#1e0840',
+          themeCardSurface: '#130628', themeCardContrast: '#1a0838',
+          themeText: '#f0e8ff', themeMutedText: '#c068b8',
+          themeAccent: '#ff2d78', themeBorder: '#400880',
+          themeHeroBackground: '#1e0458',
+        },
+        noir: {
+          label: 'Noir', desc: 'Rain-soaked city streets',
+          fontPair: 'eb-garamond-inter', texture: 'grain',
+          themeBackground: '#141210', themePanelSurface: '#1e1c18',
+          themeTopbarSurface: '#181614', themeTopbarText: '#e0d8c0',
+          themeControlSurface: '#282420',
+          themeCardSurface: '#201e1a', themeCardContrast: '#2a2622',
+          themeText: '#e0d8c0', themeMutedText: '#888070',
+          themeAccent: '#d4880a', themeBorder: '#3a3630',
+          themeHeroBackground: '#1e1814',
+        },
+        mucha: {
+          label: 'Mucha', desc: 'Art Nouveau lithograph',
+          fontPair: 'cormorant-nunito', texture: 'linen',
+          themeBackground: '#e8e0c8', themePanelSurface: '#f0e8d0',
+          themeTopbarSurface: '#3a2e1a', themeTopbarText: '#e8e0c8',
+          themeControlSurface: '#d8cca8',
+          themeCardSurface: '#f4ecda', themeCardContrast: '#ece0c4',
+          themeText: '#2a1e10', themeMutedText: '#806040',
+          themeAccent: '#b8862a', themeBorder: '#c8b888',
+          themeHeroBackground: '#3a2e1a',
+        },
+        meridian: {
+          label: 'Meridian', desc: 'Antique cartographer\'s chart',
+          fontPair: 'im-fell-crimson', texture: 'linen',
+          themeBackground: '#e8d8a0', themePanelSurface: '#f0e4b0',
+          themeTopbarSurface: '#1a3040', themeTopbarText: '#e8d8a0',
+          themeControlSurface: '#d8c888',
+          themeCardSurface: '#ece2ac', themeCardContrast: '#e0d4a0',
+          themeText: '#1a0e06', themeMutedText: '#6a5030',
+          themeAccent: '#1a6080', themeBorder: '#b89860',
+          themeHeroBackground: '#0e2030',
         },
       };
 
@@ -1061,32 +1340,120 @@ Encourage the user to test the site and to let you know if there are errors that
       function updateColourPreview() {
         const preview = document.getElementById('colourPreview');
         if (!preview) return;
+        // Colours
         Object.entries(COLOUR_VAR_MAP).forEach(([fieldId, cssVar]) => {
           const val = document.getElementById(fieldId)?.value;
           if (val) preview.style.setProperty(cssVar, val);
         });
+        // Fonts
+        const pairKey = fontPairSelect?.value;
+        const pair = fontPairs[pairKey] || fontPairs[fontPairDefault];
+        if (pair) {
+          preview.style.setProperty('--prev-font-body', pair.body);
+          preview.style.setProperty('--prev-font-heading', pair.heading);
+        }
+        // Sharp edges
+        const isSharp = document.getElementById('borderRadiusZero')?.value === 'true';
+        preview.classList.toggle('colour-preview--sharp', isSharp);
+        // Texture
+        const txKey = document.getElementById('themeTexture')?.value || 'none';
+        const tx = (window.SiteSettings?.TEXTURES || {})[txKey] || { bgImage: 'none', bgSize: 'auto' };
+        preview.style.setProperty('--prev-bg-image', tx.bgImage);
+        preview.style.setProperty('--prev-bg-size', tx.bgSize);
       }
 
       function applyPreset(key) {
         const preset = THEME_PRESETS[key];
         if (!preset) return;
         Object.entries(preset).forEach(([fieldId, val]) => {
+          if (['label', 'desc', 'fontPair', 'texture'].includes(fieldId)) return;
           const el = document.getElementById(fieldId);
           if (el) el.value = val;
         });
+        if (preset.fontPair) {
+          fontPairSelect.value = preset.fontPair;
+          renderFontPairPreview(preset.fontPair);
+        }
+        const textureEl = document.getElementById('themeTexture');
+        if (textureEl) textureEl.value = preset.texture || 'none';
         updateColourPreview();
       }
 
-      const paletteSelect = document.getElementById('palette');
-      paletteSelect.addEventListener('change', () => {
-        const val = paletteSelect.value;
-        if (val !== 'custom') applyPreset(val);
-      });
+      function updateSkinPickerSelection(key) {
+        document.querySelectorAll('#skinPicker .skin-card').forEach(c => c.classList.remove('active'));
+        document.querySelector(`#skinPicker .skin-card[data-skin="${CSS.escape(key)}"]`)?.classList.add('active');
+      }
 
-      // When any colour input is changed manually, switch the preset to "custom"
+      function initSkinPicker() {
+        const picker = document.getElementById('skinPicker');
+        const select = document.getElementById('palette');
+        if (!picker || !select) return;
+
+        // Populate hidden select with all options
+        select.innerHTML = '';
+        Object.keys(THEME_PRESETS).forEach(key => {
+          const p = THEME_PRESETS[key];
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = `${p.label} — ${p.desc}`;
+          select.appendChild(opt);
+        });
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = 'Custom';
+        select.appendChild(customOpt);
+
+        // Build visual skin cards
+        Object.entries(THEME_PRESETS).forEach(([key, preset]) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'skin-card';
+          btn.dataset.skin = key;
+          btn.title = `${preset.label}: ${preset.desc}`;
+          btn.innerHTML = `
+            <div class="skin-card-preview">
+              <div class="skin-card-bg" style="background:${preset.themeBackground}"></div>
+              <div class="skin-card-panel" style="background:${preset.themePanelSurface}"></div>
+              <div class="skin-card-accent" style="background:${preset.themeAccent}"></div>
+            </div>
+            <div class="skin-card-info">
+              <span class="skin-card-name">${preset.label}</span>
+            </div>`;
+          btn.addEventListener('click', () => {
+            updateSkinPickerSelection(key);
+            select.value = key;
+            applyPreset(key);
+          });
+          picker.appendChild(btn);
+        });
+
+        // Custom card
+        const customBtn = document.createElement('button');
+        customBtn.type = 'button';
+        customBtn.className = 'skin-card';
+        customBtn.dataset.skin = 'custom';
+        customBtn.title = 'Custom — manually configured colours';
+        customBtn.innerHTML = `
+          <div class="skin-card-preview skin-card-preview--custom"></div>
+          <div class="skin-card-info">
+            <span class="skin-card-name">Custom</span>
+          </div>`;
+        customBtn.addEventListener('click', () => {
+          updateSkinPickerSelection('custom');
+          select.value = 'custom';
+        });
+        picker.appendChild(customBtn);
+      }
+
+      const paletteSelect = document.getElementById('palette');
+
+      // When any colour input is changed manually, switch to "custom"
       Object.keys(COLOUR_VAR_MAP).forEach(fieldId => {
         document.getElementById(fieldId)?.addEventListener('input', () => {
-          if (_settingsLoaded) paletteSelect.value = 'custom';
+          if (_settingsLoaded) {
+            paletteSelect.value = 'custom';
+            updateSkinPickerSelection('custom');
+          }
           updateColourPreview();
         });
       });
@@ -1111,9 +1478,11 @@ Encourage the user to test the site and to let you know if there are errors that
         if (pwaThemeEl && !settings.pwaThemeColor) pwaThemeEl.value = settings.themeTopbarSurface || settings.themeBackground || '#0f0c14';
         const pwaBgEl = document.getElementById('pwaBackgroundColor');
         if (pwaBgEl && !settings.pwaBackgroundColor) pwaBgEl.value = settings.themeBackground || '#0f0c14';
-        // Ensure palette select reflects stored value (preset key or 'custom')
+        // Ensure palette select + skin picker reflect stored value (preset key or 'custom')
         const storedPalette = settings.palette || 'custom';
-        paletteSelect.value = THEME_PRESETS[storedPalette] ? storedPalette : 'custom';
+        const resolvedPalette = THEME_PRESETS[storedPalette] ? storedPalette : 'custom';
+        paletteSelect.value = resolvedPalette;
+        updateSkinPickerSelection(resolvedPalette);
         fontPairSelect.value = settings.fontPair || fontPairDefault;
         renderFontPairPreview(fontPairSelect.value);
         updateColourPreview();
@@ -1431,6 +1800,7 @@ Encourage the user to test the site and to let you know if there are errors that
       window.addEventListener('DOMContentLoaded', async () => {
         AdminDataStore.mountHeader();
         AdminDataStore.mountTabs();
+        initSkinPicker();
         try { await loadSettings(); } catch (error) { showStatus('Could not load settings.', true); }
         updatePaymentVisibility();
       });

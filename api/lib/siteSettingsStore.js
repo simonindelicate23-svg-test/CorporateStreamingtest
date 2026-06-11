@@ -78,6 +78,8 @@ const defaults = {
   themeHeroBackground: '#7b5a49',
   dynamicColorTheming: true,
   borderRadiusZero: false,
+  themeTexture: 'none',
+  customCss: '',
   releaseOrder: 'alphabetical',
   pwaName: '',
   pwaShortName: '',
