@@ -1770,11 +1770,15 @@ footer {
   .brand-word {
     order: -1;
     width: 100%;
-    font-size: 0.7rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    opacity: 0.65;
+    font-size: 0.75rem;
+    text-align: center;
     max-width: 100%;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
   }
 }
 
