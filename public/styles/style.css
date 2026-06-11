@@ -1790,7 +1790,7 @@ footer {
   }
 }
 
-
+@media (max-width: 720px) {
   :root {
     --nav-height: 64px;
     --np-height: 96px;
