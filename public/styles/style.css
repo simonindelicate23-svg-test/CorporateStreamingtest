@@ -180,7 +180,7 @@ h3 {
 }
 
 .brand-word {
-  font-size: 1.15rem;
+  font-size: 2.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -191,13 +191,14 @@ h3 {
 }
 
 .brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #111118, #e44b39);
   box-shadow: var(--shadow-inset);
   background-size: cover;
   background-position: center;
+  flex-shrink: 0;
 }
 
 .brand-mark.has-image {
@@ -1779,8 +1780,8 @@ footer {
   }
 
   .brand-word {
-    max-width: 42vw;
-    font-size: 1rem;
+    max-width: 50vw;
+    font-size: 1.8rem;
   }
 
   .player-layout {
