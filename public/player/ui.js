@@ -424,6 +424,7 @@ function applySettingsData(settings) {
   if (settings.themeBorder) rootStyle.setProperty('--border', settings.themeBorder);
   if (settings.themeHeroBackground) rootStyle.setProperty('--hero-bg', settings.themeHeroBackground);
   if (settings.dynamicColorTheming !== undefined) dynamicThemingEnabled = settings.dynamicColorTheming !== false;
+  document.body.classList.toggle('sharp-edges', settings.borderRadiusZero === true);
   if (settings.releaseOrder) {
     SITE_RELEASE_ORDER = settings.releaseOrder;
     // Only update RELEASE_ORDER if the user has no explicit stored preference.
@@ -435,6 +436,8 @@ function applySettingsData(settings) {
     }
   }
   if (window.SiteSettings?.applyFontPair) window.SiteSettings.applyFontPair(settings.fontPair);
+  if (window.SiteSettings?.applyTexture) window.SiteSettings.applyTexture(settings.themeTexture || 'none');
+  if (window.SiteSettings?.applyCustomCss) window.SiteSettings.applyCustomCss(settings.customCss || '');
   WELCOME_ALBUM_TITLE = settings.welcomeTitle || WELCOME_ALBUM_TITLE;
   WELCOME_ALBUM_SUBTITLE = settings.welcomeSubtitle || WELCOME_ALBUM_SUBTITLE;
   ABOUT_LINK_LABEL = settings.aboutLinkLabel || ABOUT_LINK_LABEL;
@@ -2195,14 +2198,11 @@ function playTrack(track, { autoplay = true } = {}) {
     return;
   }
 
-  // Prefer the URL that nextTrackAudio already has fully loaded (currentSrc is
-  // the post-redirect URL the browser has in its media cache).  Falling back to
-  // the resolved-URL cache, then the raw stream URL as a last resort.
-  const primed = (nextTrackAudio && nextTrackAudioUrl &&
-    (nextTrackAudioUrl === streamUrl || nextTrackAudioUrl === getEffectiveAudioUrl(streamUrl)))
-    ? (nextTrackAudio.currentSrc || null)
-    : null;
-  const src = primed || getEffectiveAudioUrl(streamUrl);
+  // Load via the stream function URL directly. The 302 redirect it returns is
+  // browser-cacheable (Cache-Control: private, max-age=300), so once
+  // primeNextTrackAudio has warmed the cache for this track the transition
+  // skips the function round-trip even when the page is backgrounded.
+  const src = getEffectiveAudioUrl(streamUrl);
   // Clear any pending watchdog from the previous track before swapping src.
   clearTrackEndWatchdog();
   state.audio.src = src;
@@ -2563,9 +2563,19 @@ function bindEvents() {
   state.audio.addEventListener('pause', () => {
     setBufferingState(false);
     syncPlayState();
-    // Clear the watchdog while paused so it doesn't fire during an intentional pause.
-    clearTrackEndWatchdog();
-    releaseWakeLock();
+    // Only tear down the watchdog and wake lock on a genuine user pause.
+    // During a background track transition, assigning state.audio.src fires
+    // a spurious 'pause' event while userWantsToPlay is still true — clearing
+    // the watchdog there removes the only safety net if play() on the new
+    // track stalls, and releasing the wake lock mid-transition can let the
+    // device throttle JS before 'playing' re-acquires it. The watchdog's
+    // internal guards (!ended && t < d - 2.0) no-op safely once the new
+    // track starts loading, and playTrack() explicitly clears the watchdog
+    // before swapping src anyway.
+    if (!userWantsToPlay) {
+      clearTrackEndWatchdog();
+      releaseWakeLock();
+    }
   });
   // Re-arm the watchdog whenever the user seeks so remaining-time stays accurate.
   state.audio.addEventListener('seeked', () => {

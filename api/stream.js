@@ -32,7 +32,13 @@ exports.handler = async (event) => {
     statusCode: 302,
     headers: {
       Location: track.mp3Url,
-      'Cache-Control': 'private, no-store',
+      // Allow the browser to cache the redirect per-URL. The URL already
+      // encodes trackId and (when present) accessToken, so each cache entry
+      // is scoped to a single authorised (trackId, token) pair. Caching is
+      // essential for background track transitions on Android PWA: without
+      // it, every track change hits the function cold-start + redirect
+      // round-trip, which is unreliable when JS and network are throttled.
+      'Cache-Control': 'private, max-age=300',
     },
     body: '',
   };

@@ -2,6 +2,8 @@
 
 :root {
   --page-bg: none;
+  --bg-texture: none;
+  --bg-texture-size: auto;
   --ink: #111118;
   --paper: #f7f5f0;
   --accent: #e44b39;
@@ -40,7 +42,10 @@ body {
   margin: 0;
   transition: background-color 0.8s ease;
   color: var(--ink);
-  background: var(--paper);
+  background-color: var(--paper);
+  background-image: var(--bg-texture, none);
+  background-size: var(--bg-texture-size, auto);
+  background-repeat: repeat;
   line-height: 1.6;
   padding-bottom: 86px;
   min-height: 100vh;
@@ -171,6 +176,14 @@ h3 {
   text-decoration: none;
   cursor: pointer;
   font-family: var(--font-heading);
+  min-width: 0;
+}
+
+.brand-word {
+  font-size: 2.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-brand:hover {
@@ -178,13 +191,14 @@ h3 {
 }
 
 .brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #111118, #e44b39);
   box-shadow: var(--shadow-inset);
   background-size: cover;
   background-position: center;
+  flex-shrink: 0;
 }
 
 .brand-mark.has-image {
@@ -403,6 +417,12 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  background: color-mix(in srgb, var(--panel-surface) 55%, transparent);
+}
+
+.gallery-header .eyebrow {
+  color: var(--accent);
+  opacity: 0.9;
 }
 
 .gallery-subtitle {
@@ -1257,10 +1277,10 @@ body.dark-mode .paywall-modal__card {
 }
 
 .circle.primary {
-  background: linear-gradient(135deg, #ff7b5f, var(--accent));
+  background: var(--accent);
   color: #fff;
   border: none;
-  box-shadow: 0 12px 22px rgba(228, 75, 57, 0.35);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
 }
 
 .circle:hover {
@@ -1269,10 +1289,10 @@ body.dark-mode .paywall-modal__card {
 }
 
 .circle.ghost.active {
-  background: rgba(142, 97, 68, 0.14);
-  border-color: rgba(142, 97, 68, 0.6);
-  color: #3b2922;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.1);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+  box-shadow: none;
 }
 
 .time-control {
@@ -1357,7 +1377,7 @@ footer {
   text-align: center;
   padding: 25px;
   font-size: 1rem;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), var(--paper) 10px, var(--paper));
+  background: transparent;
   color: var(--ink);
 }
 
@@ -1753,6 +1773,20 @@ footer {
     top: 0;
     z-index: 12;
     background: var(--nav-surface);
+  }
+
+  .refresh-button {
+    display: none;
+  }
+
+  .brand-word {
+    display: none;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
   }
 
   .player-layout {
@@ -2311,3 +2345,5 @@ footer {
   font-size: 0.9rem;
   color: var(--text-secondary, #666);
 }
+
+body.sharp-edges * { border-radius: 0 !important; }
